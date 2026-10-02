@@ -34,8 +34,8 @@ async function boot() {
   setExpSerializer(() => (exp && !exp.ended ? exp.serialize() : null));
 
   const title = new TitleScreen($('#screen-title'), {
-    onContinue: () => continueGame(),
-    onNew: () => { wipe(); newGame(); title.close(); show('intro'); intro.open(); },
+    onContinue: (n) => continueGame(n),
+    onNew: (n) => { wipe(n); newGame(n); title.close(); show('intro'); intro.open(); },
     onHelp: () => openHelp(),
   });
   const intro = new IntroScreen($('#screen-intro'), {
@@ -79,8 +79,8 @@ async function boot() {
     show('base');
     base.open(tab);
   }
-  function continueGame() {
-    if (!load()) { toast('No se pudo cargar la partida.', 'bad'); return; }
+  function continueGame(n) {
+    if (!load(n)) { toast('No se pudo cargar la partida.', 'bad'); return; }
     title.close();
     if (S.exp) {
       try {

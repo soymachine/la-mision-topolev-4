@@ -1,6 +1,6 @@
 // La base: cuartel general cerca de la central
 import { el, $, panel, framify, esc, UI_SCALES, cycleUiScale, toast, tip, draggable, dropzone, hpBar, bar, levelPips, confirmBox, modal, modalOpen, closeTopModal } from '../util/dom.js';
-import { S, save, settings, saveSettings } from '../core/state.js';
+import { S, save, settings, saveSettings, slot, exportSlot } from '../core/state.js';
 import { ITEMS, CAT_INFO } from '../data/items.js';
 import { MAPS, MODULES, MODULE_MAX, moduleCost, TRAITS } from '../data/world.js';
 import { ENEMIES, enemyColor, ABIL_TEXT } from '../data/enemies.js';
@@ -666,7 +666,18 @@ export class BaseUI {
       btn('CONTINUAR', () => close()),
       btn(`SONIDO: ${settings.sound ? 'SÍ' : 'NO'}`, () => { settings.sound = !settings.sound; saveSettings(); close(); this.openMenu(); }),
       btn(`EFECTO CRT: ${settings.crt ? 'SÍ' : 'NO'}`, () => { settings.crt = !settings.crt; document.body.classList.toggle('no-crt', !settings.crt); saveSettings(); close(); this.openMenu(); }),
-      btn('GUARDAR PARTIDA', () => { save(); toast('Partida guardada.', 'good'); close(); }),
+      btn('GUARDAR PARTIDA', () => { if (save()) toast(`Partida guardada (ranura ${slot}).`, 'good'); else toast('¡No se pudo guardar! El almacenamiento del navegador está lleno o bloqueado. Exporta la partida.', 'bad', 6000); close(); }),
+      btn('EXPORTAR COPIA', () => {
+        save();
+        const txt = exportSlot(slot);
+        if (!txt) return;
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([txt], { type: 'application/json' }));
+        a.download = `topolev-ranura${slot}-dia${S.day}.json`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+        close();
+      }),
       btn('PANTALLA COMPLETA', () => { toggleFullscreen(); close(); }),
       btn(`TEXTO: ${UI_SCALES[settings.uiScale || 0].name}`, () => { cycleUiScale(); close(); this.render(); this.openMenu(); }),
       btn('SALIR AL TÍTULO', () => { save(); close(); this.close(); this.hooks.onQuit(); }, 'danger'),

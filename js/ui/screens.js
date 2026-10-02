@@ -1,6 +1,6 @@
 // Pantallas: título, intro, informe de expedición, instrucciones
-import { el, panel, esc, confirmBox, UI_SCALES, cycleUiScale } from '../util/dom.js';
-import { S, hasSave, settings, saveSettings } from '../core/state.js';
+import { el, panel, esc, confirmBox, modal, toast, UI_SCALES, cycleUiScale } from '../util/dom.js';
+import { S, hasSave, settings, saveSettings, listSlots, slotInfo, lastSlot, exportSlot, importToSlot, wipe } from '../core/state.js';
 import { RARITIES } from '../data/rarity.js';
 import { ENEMIES, enemyColor } from '../data/enemies.js';
 import { MAPS } from '../data/world.js';
@@ -58,11 +58,10 @@ export class TitleScreen {
       return b;
     };
     const has = hasSave();
-    if (has) menu.append(btn('CONTINUAR', () => this.hooks.onContinue(), 'primary'));
-    menu.append(btn('NUEVA PARTIDA', async () => {
-      if (has && !(await confirmBox('NUEVA PARTIDA', 'Se borrará la partida guardada. ¿Continuar?', 'BORRAR Y EMPEZAR', 'CANCELAR', true))) return;
-      this.hooks.onNew();
-    }, has ? '' : 'primary'));
+    const last = slotInfo(lastSlot()) ? lastSlot() : (listSlots().find((x) => x.info) || {}).n;
+    if (has && last) menu.append(btn('CONTINUAR', () => this.hooks.onContinue(last), 'primary'));
+    menu.append(btn('NUEVA PARTIDA', () => this.slotsModal('new'), has ? '' : 'primary'));
+    if (has) menu.append(btn('PARTIDAS GUARDADAS', () => this.slotsModal('load')));
     menu.append(btn('INSTRUCCIONES', () => this.hooks.onHelp()));
     menu.append(btn('PANTALLA COMPLETA', () => toggleFullscreen()));
     menu.append(btn(`SONIDO: ${settings.sound ? 'SÍ' : 'NO'}`, () => { settings.sound = !settings.sound; saveSettings(); this.open(); }));
@@ -75,6 +74,64 @@ export class TitleScreen {
     ), el('div', { class: 'title-foot', text: 'Un extraction-looter por turnos · ☢ · guardado automático en este navegador' }));
     this.startBg();
   }
+  // gestor de ranuras: 'load' (cargar/borrar/exportar/importar) o 'new' (elegir ranura para empezar)
+  slotsModal(mode) {
+    const body = el('div', { style: { minWidth: 'min(70ch, 90vw)' } });
+    let close;
+    const render = () => {
+      body.innerHTML = '';
+      body.append(el('div', { class: 'dimt', style: { marginBottom: '1em' }, text: mode === 'new' ? 'Elige una ranura para la nueva partida.' : 'Partidas guardadas en este navegador. Exporta una copia de seguridad para no perderla nunca.' }));
+      for (const { n, info } of listSlots()) {
+        const row = el('div', { class: 'module', style: { gridTemplateColumns: '6ch 1fr auto' } });
+        row.append(el('div', { class: 'mg', text: `[${n}]` }));
+        row.append(el('div', { html: info
+          ? `<b>Día ${info.day}</b> · ${info.agents} agentes · <span class="cyan">${info.ess} ✦</span> · ${info.rub} ₽ · ${info.unlocked} zonas${info.exp ? ' · <span class="warn">en expedición</span>' : ''}<div class="eff">Guardada el ${new Date(info.saved || Date.now()).toLocaleString('es-ES')} · ${info.kb || '?'} KB</div>`
+          : '<span class="dimt">— vacía —</span>' }));
+        const acts = el('div', { class: 'row', style: { flexWrap: 'wrap', justifyContent: 'flex-end' } });
+        const b = (label, fn, cls = '') => el('button', { class: 'btn small ' + cls, onclick: () => { sfx.click(); fn(); } }, label);
+        if (mode === 'new') {
+          acts.append(b(info ? 'SOBRESCRIBIR' : 'EMPEZAR AQUÍ', async () => {
+            if (info && !(await confirmBox('SOBRESCRIBIR', `Se borrará la partida de la ranura ${n} (día ${info.day}). ¿Continuar?`, 'BORRAR Y EMPEZAR', 'CANCELAR', true))) return;
+            close(); this.hooks.onNew(n);
+          }, info ? 'danger' : 'primary'));
+        } else {
+          if (info) {
+            acts.append(b('CARGAR', () => { close(); this.hooks.onContinue(n); }, 'primary'));
+            acts.append(b('EXPORTAR', () => {
+              const txt = exportSlot(n);
+              if (!txt) return;
+              const a = document.createElement('a');
+              a.href = URL.createObjectURL(new Blob([txt], { type: 'application/json' }));
+              a.download = `topolev-ranura${n}-dia${info.day}.json`;
+              a.click();
+              setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+            }));
+            acts.append(b('BORRAR', async () => { if (await confirmBox('BORRAR', `¿Borrar la partida de la ranura ${n}? No se puede deshacer.`, 'BORRAR', 'CANCELAR', true)) { wipe(n); render(); } }, 'danger'));
+          }
+          acts.append(b('IMPORTAR', () => {
+            const inp = document.createElement('input');
+            inp.type = 'file'; inp.accept = '.json,application/json';
+            inp.onchange = async () => {
+              const f = inp.files[0];
+              if (!f) return;
+              try {
+                if (info && !(await confirmBox('IMPORTAR', `Se sustituirá la partida de la ranura ${n}. ¿Continuar?`, 'IMPORTAR', 'CANCELAR', true))) return;
+                importToSlot(n, await f.text());
+                toast('Partida importada.', 'good');
+                render();
+              } catch (e) { toast(esc(e.message || 'Archivo no válido.'), 'bad', 4000); }
+            };
+            inp.click();
+          }));
+        }
+        row.append(acts);
+        body.append(row);
+      }
+    };
+    render();
+    close = modal({ title: mode === 'new' ? 'NUEVA PARTIDA' : 'PARTIDAS GUARDADAS', body, actions: [{ label: 'CERRAR' }], onClose: () => this.open() });
+  }
+
   close() { this.running = false; }
   startBg() {
     this.running = true;
