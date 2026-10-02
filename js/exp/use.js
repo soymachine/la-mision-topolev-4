@@ -16,6 +16,7 @@ import { RADIO } from '../data/lore.js';
 import { D8, FISTS, BLOCKING_OBJ, ESSENCE_COLOR } from './shared.js';
 import { ACTORS } from '../data/actors.js';
 
+import { modEss } from '../data/modifiers.js';
 export class UsePart {
   // ---------------------------------------------------------------- objetos e interacción
   interact() {
@@ -27,10 +28,16 @@ export class UsePart {
       for (const [dx, dy] of [[0, 0], ...D8]) {
         const o = this.objAt(sq.x + dx, sq.y + dy);
         if (!o) continue;
-        const usable = o.kind === 'vein' ? o.amount > 0 : o.kind === 'note' ? dx === 0 && dy === 0 : o.kind === 'survivor' ? true : !o.opened || (o.items && o.items.length);
+        if (o.kind === 'cart') continue;
+        const usable = o.kind === 'vein' || o.kind === 'shard' ? o.amount > 0 : o.kind === 'note' ? dx === 0 && dy === 0 : o.kind === 'survivor' ? true : !o.opened || (o.items && o.items.length);
         if (usable) return this.interactObj(sq, o);
       }
-      // 3. objetos en el suelo
+      // 3. casillas que se usan (puertas blindadas, terminales, interruptores, montacargas, simas, grafito)
+      for (const [dx, dy] of [[0, 0], ...D8]) {
+        const x = sq.x + dx, y = sq.y + dy;
+        if (this.inb(x, y) && TILES[this.tile(x, y)].use) return this.useTile(sq, x, y);
+      }
+      // 4. objetos en el suelo
       if (this.floorAt(sq.x, sq.y).length) { this.emit('loot', { floor: true, x: sq.x, y: sq.y }); return false; }
       this.say('No hay nada con lo que interactuar.', 'dimt');
       return false;
@@ -38,7 +45,7 @@ export class UsePart {
   }
 
   interactObj(sq, o) {
-    if (o.kind === 'vein') return this.mine(sq, o);
+    if (o.kind === 'vein' || o.kind === 'shard') return this.mine(sq, o);
     if (o.kind === 'note') {
       o.opened = true; this.dirty = true;
       if (sq === this.cur) this.emit('note', o);
@@ -69,7 +76,7 @@ export class UsePart {
     let n = rng.int(3, 6) * (st.mining ? 2 : 1);
     n = Math.min(n, o.amount);
     o.amount -= n;
-    const gain = Math.max(1, Math.round(n * (1 + st.essence / 100)));
+    const gain = Math.max(1, Math.round(n * (1 + st.essence / 100) * modEss(this.mods)));
     sq.ess += gain; this.tally.essence += gain;
     this.fx.push({ type: 'mine', x: o.x, y: o.y, tx: sq.x, ty: sq.y, n: gain });
     this.noise(o.x, o.y, 7);

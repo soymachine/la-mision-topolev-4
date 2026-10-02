@@ -25,6 +25,8 @@ import { AIPart } from './ai.js';
 import { EnvironmentPart } from './environment.js';
 import { StoryPart } from './story.js';
 import { AbilityPart } from './abilities.js';
+import { TerrainPart } from './terrain.js';
+import { MODIFIERS, modEss, modRad } from '../data/modifiers.js';
 export { ORDERS, ESSENCE_COLOR };
 
 function b64(u8) {
@@ -41,70 +43,109 @@ function unb64(str) {
 
 export class Expedition {
   // ---------------------------------------------------------------- creación
-  static create(mapIdx, agents) {
+  // mods: modificadores de zona del día (data/modifiers.js)
+  static create(mapIdx, agents, mods = []) {
     const def = MAPS[mapIdx];
     const seed = (Math.random() * 2 ** 32) >>> 0;
-    const m = generateMap(def, mapIdx, seed, { radar: S.modules.radar });
     const e = new Expedition();
     e.mapIdx = mapIdx; e.seed = seed;
-    e.w = m.w; e.h = m.h; e.t = m.t; e.sec = m.sec; e.sectors = m.sectors;
-    e.exits = m.exits; e.pois = m.pois; e.objects = m.objects; e.vents = m.vents;
-    e.rad = m.radField; e.anomaly = m.anomaly;
-    e.start = m.start;
-    e.floorItems = new Map();
-    for (const f of m.floor) e.addFloor(f.x, f.y, f.item);
-    e.essence = new Map();
-    e.gas = new Uint8Array(e.w * e.h); e.fire = new Uint8Array(e.w * e.h); e.smoke = new Uint8Array(e.w * e.h);
-    e.traps = []; e.sense = 0; e.senseR = 0;
-    e.explored = new Uint8Array(e.w * e.h);
+    e.mods = mods;
+    e.nFloors = floorsFor(mapIdx);
+    e.floor = 0;
+    e.floorStore = [];
     e.turn = 1;
     e.log = [];
     e.evac = null;
-    e.pending = [];
-    e.flares = [];
+    e.sense = 0; e.senseR = 0;
     e.tally = { kills: 0, essence: 0, items: 0, dmgDealt: 0, dmgTaken: 0 };
     const g = new RNG(seed ^ 0x5bd1e995);
-    e.surgeAt = 300 + mapIdx * 40 + g.int(0, 60);
+    e.surgeAt = 300 + mapIdx * 40 + g.int(0, 60) - (mods.includes('pulso') ? 150 : 0);
     e.nextTemp = 40 + g.int(10, 50) - S.modules.radar * 5;
     e.nextRadio = 25 + g.int(0, 40);
-    // escuadrón
     e.squad = [];
+    e.enemies = [];
+    e.buildFloor(0);
+    // escuadrón
     const startCells = [[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]];
     agents.forEach((a, i) => {
       const [dx, dy] = startCells[i];
       e.squad.push({ id: a.id, a, x: e.start[0] + dx, y: e.start[1] + dy, alive: true, out: false, ess: 0, order: 'seguir', poison: 0, burn: 0, buffs: [], lastMove: -9, autoUsed: false, regenT: 0, cur: a.equip.w1 ? 'w1' : 'w2', kills: 0, xp: 0, lvl0: a.lvl, startItems: countItems(a) });
     });
     e.active = 0;
-    // enemigos
-    e.enemies = [];
-    for (const sp of m.spawns) e.spawnEnemy(sp.type, sp.lvl, sp.x, sp.y, sp.state, sp.poi);
     e.init();
     // planos parciales gracias al radar
     if (S.modules.radar >= 4) {
       for (let k = 0; k < e.w * e.h; k++) if (TILES[e.t[k]].walk && rng.chance(0.35)) e.explored[k] = 1;
     }
     e.computeVisibility(true);
-    e.say(`Inserción en <b>${def.name}</b>. Nivel medio ${def.lvl[0]}–${def.lvl[1]}. Recolectad esencia y salid por un punto de extracción.`, 'o1');
+    e.say(`Inserción en <b>${def.name}</b>. Nivel medio ${def.lvl[0]}–${def.lvl[1]}${e.nFloors > 1 ? ` · ${e.nFloors} pisos (más abajo, más peligro y mejor botín)` : ''}. Recolectad esencia y salid por un punto de extracción.`, 'o1');
     e.say('Los puntos de extracción (<span class="cyan">⌂</span>) están marcados en el radar. Pulsa <b>?</b> para ver los controles.', 'dimt');
+    for (const m of mods) if (MODIFIERS[m]) e.say(`<span style="color:${MODIFIERS[m].color}">${MODIFIERS[m].glyph} ${MODIFIERS[m].name}</span>: ${MODIFIERS[m].risk} <span class="good">${MODIFIERS[m].reward}</span>`, 'dimt');
     e.trigger('expStart');
     e.checkSector(e.cur);
     return e;
   }
 
+  // genera el piso f (nivel de amenaza +1 por piso y mapas algo más pequeños)
+  buildFloor(f) {
+    const base = MAPS[this.mapIdx];
+    const def = f === 0 ? base : { ...base, lvl: [Math.min(10, base.lvl[0] + f), Math.min(10, base.lvl[1] + f)], w: Math.round(base.w * (1 - 0.1 * f)), h: Math.round(base.h * (1 - 0.1 * f)), nests: base.nests.map((n) => n + f), caches: base.caches.map((n) => n + f) };
+    const modSet = Object.fromEntries((this.mods || []).map((m) => [m, true]));
+    const m = generateMap(def, this.mapIdx, (this.seed + f * 7919) >>> 0, { radar: S.modules.radar, floor: f, floors: this.nFloors, mods: modSet });
+    this.floor = f;
+    this.w = m.w; this.h = m.h; this.t = m.t; this.sec = m.sec; this.sectors = m.sectors;
+    this.exits = m.exits; this.pois = m.pois; this.objects = m.objects; this.vents = m.vents;
+    this.rad = m.radField; this.anomaly = m.anomaly;
+    this.start = m.start; this.lift = m.lift; this.chasms = m.chasms;
+    this.floorItems = new Map();
+    for (const fi of m.floor) this.addFloor(fi.x, fi.y, fi.item);
+    this.essence = new Map();
+    this.gas = new Uint8Array(this.w * this.h); this.fire = new Uint8Array(this.w * this.h); this.smoke = new Uint8Array(this.w * this.h);
+    this.traps = []; this.pending = []; this.flares = []; this.charges = []; this.steam = [];
+    this.sampled = {}; this.litOn = {}; this.termFails = {}; this.secSeen = {};
+    this.explored = new Uint8Array(this.w * this.h);
+    this.enemies = [];
+    this.occ = new Map();
+    for (const sp of m.spawns) this.spawnEnemy(sp.type, sp.lvl, sp.x, sp.y, sp.state, sp.poi, sp.faction);
+    this.fans = null; this.roots = null; this.lightDirty = true;
+  }
+
+  // estado propio de cada piso (lo que cambia al subir o bajar)
+  mapState() {
+    const sparse = (arr, mul = 1) => { const o = []; for (let k = 0; k < arr.length; k++) if (arr[k]) o.push(mul === 1 ? [k, arr[k]] : [k, Math.round(arr[k] * mul)]); return o; };
+    const an = []; for (let k = 0; k < this.anomaly.length; k++) if (this.anomaly[k]) an.push(k);
+    return {
+      w: this.w, h: this.h, t: b64(this.t), sec: b64(this.sec), explored: b64(this.explored),
+      sectors: this.sectors, exits: this.exits, pois: this.pois, objects: this.objects, vents: this.vents, start: this.start, lift: this.lift || null, chasms: this.chasms || [],
+      rad: sparse(this.rad, 100), anomaly: an, gas: sparse(this.gas), fire: sparse(this.fire), smoke: sparse(this.smoke),
+      traps: this.traps, pending: this.pending || [], flares: this.flares || [], charges: this.charges || [],
+      steam: this.steam || [], sampled: this.sampled || {}, litOn: this.litOn || {}, termFails: this.termFails || {}, secSeen: this.secSeen || {},
+      floorItems: [...this.floorItems.entries()], essence: [...this.essence.entries()],
+      enemies: this.enemies.map(({ _st, ...r }) => r),
+    };
+  }
+  applyMapState(d) {
+    for (const k of ['w', 'h', 'sectors', 'exits', 'pois', 'objects', 'vents', 'start', 'lift', 'chasms', 'traps', 'pending', 'flares', 'charges', 'steam', 'sampled', 'litOn', 'termFails', 'secSeen', 'enemies']) if (d[k] !== undefined) this[k] = d[k];
+    this.t = unb64(d.t); this.sec = unb64(d.sec); this.explored = unb64(d.explored);
+    const N = this.w * this.h;
+    this.rad = new Float32Array(N); for (const [k, v] of d.rad) this.rad[k] = v / 100;
+    this.anomaly = new Uint8Array(N); for (const k of d.anomaly) this.anomaly[k] = 1;
+    this.gas = new Uint8Array(N); for (const [k, v] of d.gas) this.gas[k] = v;
+    this.fire = new Uint8Array(N); for (const [k, v] of d.fire) this.fire[k] = v;
+    this.smoke = new Uint8Array(N); for (const [k, v] of d.smoke || []) this.smoke[k] = v;
+    this.traps = d.traps || []; this.pending = d.pending || []; this.flares = d.flares || []; this.charges = d.charges || []; this.steam = d.steam || [];
+    this.floorItems = new Map(d.floorItems);
+    this.essence = new Map(d.essence);
+    this.fans = null; this.roots = null; this.lightDirty = true;
+  }
+
   static load(d) {
     const e = new Expedition();
     Object.assign(e, d);
-    e.t = unb64(d.t); e.sec = unb64(d.sec); e.explored = unb64(d.explored);
-    const N = e.w * e.h;
-    e.rad = new Float32Array(N); for (const [k, v] of d.rad) e.rad[k] = v / 100;
-    e.anomaly = new Uint8Array(N); for (const k of d.anomaly) e.anomaly[k] = 1;
-    e.gas = new Uint8Array(N); for (const [k, v] of d.gas) e.gas[k] = v;
-    e.fire = new Uint8Array(N); for (const [k, v] of d.fire) e.fire[k] = v;
-    e.smoke = new Uint8Array(N); for (const [k, v] of d.smoke || []) e.smoke[k] = v;
-    e.traps = d.traps || []; e.sense = d.sense || 0; e.senseR = d.senseR || 0;
+    e.applyMapState(d);
+    e.nFloors = d.nFloors || 1; e.floor = d.floor || 0; e.floorStore = d.floorStore || []; e.mods = d.mods || [];
+    e.sense = d.sense || 0; e.senseR = d.senseR || 0;
     for (const sq of e.squad) { sq.buffs = sq.buffs || []; if (sq.lastMove == null) sq.lastMove = -9; }
-    e.floorItems = new Map(d.floorItems);
-    e.essence = new Map(d.essence);
     for (const sq of e.squad) sq.a = S.agents.find((a) => a.id === sq.id) || sq.snap || null;
     e.init();
     e.computeVisibility(true);
@@ -112,26 +153,98 @@ export class Expedition {
   }
 
   serialize() {
-    const sparse = (arr, mul = 1) => { const o = []; for (let k = 0; k < arr.length; k++) if (arr[k]) o.push(mul === 1 ? [k, arr[k]] : [k, Math.round(arr[k] * mul)]); return o; };
-    const an = []; for (let k = 0; k < this.anomaly.length; k++) if (this.anomaly[k]) an.push(k);
     return {
-      mapIdx: this.mapIdx, seed: this.seed, w: this.w, h: this.h, t: b64(this.t), sec: b64(this.sec), explored: b64(this.explored),
-      sectors: this.sectors, exits: this.exits, pois: this.pois, objects: this.objects, vents: this.vents, start: this.start,
-      rad: sparse(this.rad, 100), anomaly: an, gas: sparse(this.gas), fire: sparse(this.fire), smoke: sparse(this.smoke),
-      traps: this.traps, sense: this.sense, senseR: this.senseR, relations: this.relations || {},
-      eventsDone: this.eventsDone || {}, secSeen: this.secSeen || {}, facSeen: this.facSeen || {}, dlg: this.dlg || null, dlgQueue: this.dlgQueue || [],
-      charges: this.charges || [], patria: this.patria || 0, truceUsed: this.truceUsed || 0,
-      floorItems: [...this.floorItems.entries()], essence: [...this.essence.entries()],
-      turn: this.turn, log: this.log.slice(-60), evac: this.evac, pending: this.pending, flares: this.flares, tally: this.tally,
+      ...this.mapState(),
+      mapIdx: this.mapIdx, seed: this.seed, mods: this.mods || [], nFloors: this.nFloors || 1, floor: this.floor || 0, floorStore: this.floorStore || [],
+      sense: this.sense, senseR: this.senseR, relations: this.relations || {},
+      eventsDone: this.eventsDone || {}, facSeen: this.facSeen || {}, dlg: this.dlg || null, dlgQueue: this.dlgQueue || [],
+      patria: this.patria || 0, truceUsed: this.truceUsed || 0,
+      turn: this.turn, log: this.log.slice(-60), evac: this.evac, tally: this.tally,
       surgeAt: this.surgeAt, nextTemp: this.nextTemp, nextRadio: this.nextRadio, active: this.active,
       squad: this.squad.map((sq) => { const { a, ...rest } = sq; return rest; }),
-      enemies: this.enemies.map(({ _st, ...r }) => r),
     };
+  }
+
+  // ---------------------------------------------------------------- pisos (fase 16.2)
+  // cambia de piso con todo el escuadrón; via: 'lift' (baja), 'liftup' (sube), 'fall' (sima)
+  changeFloor(to, via) {
+    if (to < 0 || to >= this.nFloors) return false;
+    const from = this.floor;
+    this.floorStore[from] = this.mapState();
+    if (this.evac) { this.say('La evacuación solicitada se cancela al cambiar de piso.', 'warn'); this.evac = null; }
+    if (this.floorStore[to]) { this.applyMapState(this.floorStore[to]); this.floorStore[to] = null; this.floor = to; }
+    else this.buildFloor(to);
+    // punto de llegada
+    let ax, ay;
+    if (via === 'liftup' && this.lift) [ax, ay] = this.lift;
+    else if (via === 'fall') {
+      const cells = [];
+      for (let k = 0; k < this.t.length; k++) if (TILES[this.t[k]].walk && this.t[k] !== T.DEEP && this.t[k] !== T.WATER) cells.push(k);
+      const k = cells.length ? rng.pick(cells) : this.key(this.start[0], this.start[1]);
+      ax = k % this.w; ay = (k / this.w) | 0;
+    } else [ax, ay] = this.start;
+    this.occ = new Map();
+    for (const e of this.enemies) this.occ.set(this.key(e.x, e.y), e);
+    this.objMap = new Map();
+    for (const o of this.objects) this.objMap.set(this.key(o.x, o.y), o);
+    const team = this.team;
+    const spots = [];
+    const seen = new Set([this.key(ax, ay)]);
+    const q = [[ax, ay]];
+    for (let qi = 0; qi < q.length && spots.length < team.length; qi++) {
+      const [x, y] = q[qi];
+      if (this.passable(x, y) && !this.occ.has(this.key(x, y))) spots.push([x, y]);
+      for (const [dx, dy] of D8) { const nx = x + dx, ny = y + dy, nk = this.key(nx, ny); if (this.inb(nx, ny) && !seen.has(nk) && TILES[this.t[nk]].walk) { seen.add(nk); q.push([nx, ny]); } }
+    }
+    team.forEach((sq, i) => { const [x, y] = spots[i] || [ax, ay]; sq.x = x; sq.y = y; sq.px = x; sq.py = y; this.occ.set(this.key(x, y), sq); });
+    this.visible = new Uint8Array(this.w * this.h);
+    this.dmap = null;
+    this.updateTrack();
+    this.computeVisibility(true);
+    this.checkSector(this.cur);
+    const lvl = MAPS[this.mapIdx].lvl;
+    this.say(`${to > from ? '⇓' : '⇑'} Piso ${floorName(to)} de ${this.nFloors}. Amenaza: nivel ${Math.min(10, lvl[0] + to)}–${Math.min(10, lvl[1] + to)}.${to > 0 ? ' Las extracciones permanentes quedan arriba.' : ''}`, 'cyan');
+    this.dirty = true;
+    this.emit('floor');
+    return true;
+  }
+  // vista de solo lectura de otro piso ya visitado (para el selector del radar)
+  floorView(i) {
+    if (i === this.floor) return this;
+    const d = this.floorStore[i];
+    if (!d) return null;
+    const N = d.w * d.h;
+    const rad = new Float32Array(N); for (const [k, v] of d.rad) rad[k] = v / 100;
+    return {
+      readonly: true, floor: i, w: d.w, h: d.h, t: unb64(d.t), explored: unb64(d.explored), visible: new Uint8Array(N), rad, gas: new Uint8Array(N), fire: new Uint8Array(N),
+      sectors: d.sectors, pois: d.pois, exits: d.exits, lift: d.lift, chasms: d.chasms || [], start: d.start, enemies: [], squad: [], pending: d.pending || [], flares: [], turn: this.turn,
+      sensed: () => false, inMap: () => false, key: (x, y) => y * d.w + x, def: this.def,
+    };
+  }
+
+  // montacargas (bajar/subir) y simas: el escuadrón debe estar reunido
+  useConnector(sq, x, y, u) {
+    const far = this.team.filter((o) => cheb(o.x, o.y, x, y) > 4);
+    if (far.length) { this.say(`Reunid al escuadrón junto ${u === 'chasm' ? 'a la sima' : 'al montacargas'} (falta${far.length > 1 ? 'n' : ''}: ${far.map((o) => this.nm(o)).join(', ')}).`, 'warn'); return false; }
+    if (u === 'liftup') { this.say(`${this.nm(sq)} acciona el montacargas. Chirría hacia arriba…`, 'o1'); return this.changeFloor(this.floor - 1, 'liftup'); }
+    if (this.floor >= this.nFloors - 1) { this.say('No hay nada más abajo.', 'dimt'); return false; }
+    if (u === 'lift') { this.say(`${this.nm(sq)} acciona el montacargas. Descendéis hacia la oscuridad…`, 'o1'); return this.changeFloor(this.floor + 1, 'lift'); }
+    // sima: cuerda o golpe
+    const hurt = [];
+    for (const o of this.team) {
+      const rope = o.a.bag.find((it) => it.b === 'rope');
+      if (rope) this.consume(o, rope);
+      else hurt.push(o);
+    }
+    this.say(`El escuadrón desciende por la sima${hurt.length ? ` (sin cuerda: ${hurt.map((o) => this.nm(o)).join(', ')})` : ' con cuerdas'}.`, hurt.length ? 'warn' : 'o1');
+    const ok = this.changeFloor(this.floor + 1, 'fall');
+    for (const o of hurt) this.damageAgent(o, rng.int(6, 12), 'caída por una sima');
+    return ok;
   }
 
   init() {
     this.def = MAPS[this.mapIdx];
-    this.ambient = this.def.ambientRad * 0.25;
+    this.ambient = this.def.ambientRad * 0.25 + modRad(this.mods);
     this.visible = new Uint8Array(this.w * this.h);
     this.fx = [];
     this.occ = new Map();
@@ -327,13 +440,18 @@ export class Expedition {
   computeVisibility(silent = false) {
     const vis = this.visible;
     vis.fill(0);
+    // luz: en la oscuridad la visión baja a la mitad (salvo linterna o visor nocturno)
+    if (this.lightDirty || !this.lightMap || this.flares.length || this.fire.some((f) => f)) this.computeLight();
+    const L = this.lightMap;
+    const fog = (this.mods || []).includes('niebla') ? 3 : 0;
     const sources = [];
-    for (const sq of this.team) sources.push([sq.x, sq.y, this.ast(sq).vision]);
-    for (const f of this.flares) sources.push([f.x, f.y, 5]);
-    for (const [ox, oy, r] of sources) {
+    for (const sq of this.team) { const R = Math.max(3, this.ast(sq).vision - fog); sources.push([sq.x, sq.y, R, this.darkRadius(sq, R)]); }
+    for (const f of this.flares) sources.push([f.x, f.y, 5, 5]);
+    for (const [ox, oy, r, dr] of sources) {
       computeFOV(ox, oy, r, (x, y) => this.opaque(x, y), (x, y, d) => {
         if (!this.inb(x, y)) return;
         const k = this.key(x, y);
+        if (d > dr && !L[k]) return; // demasiado oscuro
         const b = Math.max(40, Math.round(255 * (1 - (d / (r + 1)) * 0.75)));
         if (b > vis[k]) vis[k] = b;
         this.explored[k] = 1;
@@ -375,9 +493,13 @@ export class Expedition {
     if (this.ended) return false;
     const sq = this.cur;
     if (!sq || !this.inMap(sq)) return false;
+    this.extraTurn = 0;
     const used = fn(sq);
-    if (used) this.endTurn();
-    else this.emit('update');
+    if (used) {
+      this.endTurn();
+      // resbalones (aceite, hielo): el paso cuesta un turno más
+      if (this.extraTurn && !this.ended) { this.extraTurn = 0; this.endTurn(); }
+    } else this.emit('update');
     return used;
   }
 
@@ -413,14 +535,22 @@ export class Expedition {
       return true;
     }
     const obj = this.blockedObj(nx, ny);
-    if (obj) { if (bump) return this.interactObj(sq, obj); return false; }
+    if (obj) {
+      if (!bump) return false;
+      if (obj.kind === 'cart') return this.pushCart(sq, obj, nx - sq.x, ny - sq.y);
+      return this.interactObj(sq, obj);
+    }
     const tt = this.tile(nx, ny);
     if (!TILES[tt].walk) {
+      if (bump && (tt === T.ROOTS || tt === T.DEBRIS)) return this.clearObstacle(sq, nx, ny);
+      if (bump && TILES[tt].use) return this.useTile(sq, nx, ny);
       if (bump && tt === T.DEEP) this.say('El agua es demasiado profunda.', 'dimt');
+      else if (bump && TILES[tt].cover && sq === this.cur) this.say(`${TILES[tt].name}: no se puede atravesar, pero da cobertura.`, 'dimt');
       return false;
     }
     if (tt === T.DOOR) { this.t[this.key(nx, ny)] = T.DOOR_OPEN; this.fx.push({ type: 'door', x: nx, y: ny }); }
     this.moveEntity(sq, nx, ny);
+    if (this.onStep(sq, true)) this.extraTurn = 1;
     this.onAgentEnter(sq);
     return true;
   }
@@ -468,7 +598,7 @@ export class Expedition {
     const ess = this.essence.get(k);
     if (!ess) return;
     const re = this.flag(sq, 'radEss') && this.rad[k] > 0.3 ? this.flag(sq, 'radEss') : 0;
-    const gain = Math.max(1, Math.round(ess * (1 + (this.ast(sq).essence + re) / 100)));
+    const gain = Math.max(1, Math.round(ess * (1 + (this.ast(sq).essence + re) / 100) * modEss(this.mods)));
     sq.ess += gain; this.tally.essence += gain;
     this.essence.delete(k);
     this.fx.push({ type: 'essence', x: k % this.w, y: (k / this.w) | 0, n: gain });
@@ -555,13 +685,16 @@ export class Expedition {
 }
 
 // Mezcla de los módulos parciales en la clase principal
-for (const Part of [CombatPart, UsePart, ExtractionPart, AIPart, EnvironmentPart, StoryPart, AbilityPart]) {
+for (const Part of [CombatPart, UsePart, ExtractionPart, AIPart, EnvironmentPart, StoryPart, AbilityPart, TerrainPart]) {
   for (const k of Object.getOwnPropertyNames(Part.prototype)) {
     if (k === 'constructor') continue;
     if (Object.prototype.hasOwnProperty.call(Expedition.prototype, k)) throw new Error('Método duplicado en Expedition: ' + k);
     Object.defineProperty(Expedition.prototype, k, Object.getOwnPropertyDescriptor(Part.prototype, k));
   }
 }
+
+export function floorsFor(mapIdx) { return [2, 2, 2, 3, 3][mapIdx] || 1; }
+export const floorName = (f) => (f === 0 ? 'superior' : `−${f}`);
 
 export function countItems(a) {
   return Object.values(a.equip).filter(Boolean).length + a.bag.length;

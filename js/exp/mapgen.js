@@ -196,6 +196,7 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
       genIndustrial(s);
       if (def.zones.inundado && g.chance(0.4)) floodBlobs(s, g.int(1, 2), [T.FLOOR, T.GRATE]);
     } else genCave(s, s.type === 'inundado');
+    if (opts.mods && opts.mods.inundacion) floodBlobs(s, g.int(2, 4), [T.FLOOR, T.GRATE, T.CAVE]);
   }
 
   // ---------------- Conexión entre sectores ----------------
@@ -330,8 +331,110 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
     regs.forEach((r, i) => { if (i !== main) for (const c of r) t[c] = t[c] === T.WATER ? T.DEEP : T.RUBBLE === t[c] ? T.WALL : T.ROCK; });
   }
 
-  // ---------------- Inserción y extracciones ----------------
+  // ---------------- Casillas con mecánica (fase 16) ----------------
   const blocked = new Uint8Array(N); // casillas ocupadas por objetos/POIs
+  // placeBlock: solo coloca obstáculos si todo su anillo de vecinos es transitable, así nunca rompe la conectividad
+  const plain = (tt) => tt === T.FLOOR || tt === T.CAVE || tt === T.GRATE || tt === T.RUBBLE;
+  const isWalkK = (k) => walkable(t[k]) && t[k] !== T.DOOR;
+  function placeBlock(cells, tile) {
+    const set = new Set(cells.map(([x, y]) => I(x, y)));
+    for (const [x, y] of cells) {
+      if (x < 2 || y < 2 || x >= W - 2 || y >= H - 2 || !plain(t[I(x, y)]) || blocked[I(x, y)]) return false;
+      for (const [dx, dy] of D8) { const nk = I(x + dx, y + dy); if (!set.has(nk) && !isWalkK(nk)) return false; }
+    }
+    for (const k of set) t[k] = tile;
+    return true;
+  }
+  const mods = opts.mods || {};
+  const dressLvl = mapIdx + (opts.floor || 0);
+  const lootB = (opts.floor || 0) * 0.15 + (mods.apagon ? 0.45 : 0) + (mods.esporas ? 0.2 : 0) + (mods.niebla ? 0.2 : 0);
+  const nestState = mods.inquietos ? 'errante' : 'dormido';
+  // salas: componentes del mapa de salas
+  const roomId = new Int32Array(N).fill(-1);
+  const rooms = [];
+  for (let k = 0; k < N; k++) {
+    if (!room[k] || roomId[k] >= 0 || !walkable(t[k])) continue;
+    const cells = [k]; roomId[k] = rooms.length;
+    for (let qi = 0; qi < cells.length; qi++) {
+      const c = cells[qi], cx = c % W, cy = (c / W) | 0;
+      for (const [dx, dy] of D4) { const nk = I(cx + dx, cy + dy); if (inb(cx + dx, cy + dy) && room[nk] && roomId[nk] < 0 && walkable(t[nk])) { roomId[nk] = rooms.length; cells.push(nk); } }
+    }
+    rooms.push({ cells, sec: sec[k] });
+  }
+  const pickCell = (list) => { const k = g.pick(list); return [k % W, (k / W) | 0]; };
+  for (const r of rooms) {
+    const s = sectors[r.sec];
+    if (!s || r.cells.length < 12) continue;
+    const ruins = s.type === 'ruinas';
+    // barriles (a veces con charco de aceite)
+    if (g.chance(ruins ? 0.3 : 0.45)) {
+      const n = g.int(1, 3);
+      for (let i = 0; i < n; i++) {
+        const [x, y] = pickCell(r.cells);
+        if (placeBlock([[x, y]], T.BARREL) && g.chance(0.45)) for (const [dx, dy] of D8) { const k = I(x + dx, y + dy); if (plain(t[k]) && g.chance(0.4)) t[k] = T.OIL; }
+      }
+    }
+    // consolas y sacos terreros (cobertura)
+    if (g.chance(ruins ? 0.35 : 0.5)) {
+      const len = g.int(1, 3), horiz = g.chance(0.5);
+      const [x, y] = pickCell(r.cells);
+      const cells = Array.from({ length: len }, (_, i) => (horiz ? [x + i, y] : [x, y + i]));
+      placeBlock(cells, ruins || g.chance(0.3) ? T.SANDBAG : T.LOWWALL);
+    }
+    // lámparas de emergencia
+    if (!mods.apagon && g.chance(0.35)) { const [x, y] = pickCell(r.cells); placeBlock([[x, y]], T.LAMP); }
+    // cristales rotos junto a las paredes
+    if (g.chance(0.22)) for (let i = 0; i < g.int(3, 7); i++) { const [x, y] = pickCell(r.cells); if (t[I(x, y)] === T.FLOOR && D4.some(([dx, dy]) => t[I(x + dx, y + dy)] === T.WALL)) t[I(x, y)] = T.GLASS; }
+    // pasarelas metálicas (salas con rejilla)
+    if (r.cells.some((k) => t[k] === T.GRATE) && g.chance(0.3)) for (const k of r.cells) if (t[k] === T.GRATE) t[k] = T.CATWALK;
+  }
+  // tuberías de vapor en muros industriales
+  for (let k = 0; k < N; k++) {
+    if (t[k] !== T.WALL) continue;
+    const s = sectors[sec[k]];
+    if (!s || s.type !== 'industrial' || !g.chance(0.05)) continue;
+    const x = k % W, y = (k / W) | 0;
+    if (D4.some(([dx, dy]) => inb(x + dx, y + dy) && walkable(t[I(x + dx, y + dy)]))) t[k] = T.PIPE;
+  }
+  const litSectors = [];
+  for (const s of sectors) {
+    const cells = [];
+    for (let y = s.y; y < s.y + s.h; y++) for (let x = s.x; x < s.x + s.w; x++) cells.push(I(x, y));
+    const roomCells = cells.filter((k) => room[k] && plain(t[k]));
+    const caveCells = cells.filter((k) => t[k] === T.CAVE);
+    // interruptor de energía (uno por sector con salas)
+    if (roomCells.length > 30) for (let tries = 0; tries < 30; tries++) { const [x, y] = pickCell(roomCells); if (placeBlock([[x, y]], T.SWITCH)) break; }
+    // ruinas: escombros inestables y posiciones defensivas abandonadas
+    if (s.type === 'ruinas') for (const k of cells) if (t[k] === T.RUBBLE && g.chance(0.3)) t[k] = T.UNSTABLE;
+    // cavernas: arena, raíces, cristales de esencia, grafito
+    if (caveCells.length > 20) {
+      if (g.chance(0.45)) for (let b2 = 0; b2 < g.int(1, 3); b2++) {
+        const [cx, cy] = pickCell(caveCells); const rr = g.float(1.5, 3.5);
+        for (let y = cy - 4; y <= cy + 4; y++) for (let x = cx - 4; x <= cx + 4; x++) if (inb(x, y) && t[I(x, y)] === T.CAVE && Math.hypot(x - cx, y - cy) < rr + g.float(-0.5, 0.5)) t[I(x, y)] = T.SAND;
+      }
+      if ((def.enemies.includes('raiz') || dressLvl >= 2) && g.chance(0.5)) for (let c = 0; c < g.int(2, 6); c++) { const [x, y] = pickCell(caveCells); placeBlock([[x, y]], T.ROOTS); }
+    }
+    // luz: algunos sectores tienen la iluminación de emergencia funcionando
+    const litP = { industrial: 0.7, ruinas: 0.4, caverna: 0.12, inundado: 0.25 }[s.type] - dressLvl * 0.07;
+    s.lit = !mods.apagon && g.chance(Math.max(0.05, litP)) ? 1 : 0;
+    if (s.lit) litSectors.push(s.id);
+  }
+  // raíles con vagoneta en pasillos rectos largos
+  const rails = [];
+  for (let tries = 0; tries < 40 && rails.length < 1 + (g.chance(0.5) ? 1 : 0); tries++) {
+    const x = g.int(3, W - 4), y = g.int(3, H - 4);
+    if (t[I(x, y)] !== T.FLOOR || room[I(x, y)]) continue;
+    const horiz = g.chance(0.5);
+    const run = [];
+    for (let i = 0; i < 30; i++) { const xx = horiz ? x + i : x, yy = horiz ? y : y + i; if (!inb(xx, yy) || t[I(xx, yy)] !== T.FLOOR) break; run.push([xx, yy]); }
+    if (run.length < 8) continue;
+    for (const [xx, yy] of run) t[I(xx, yy)] = T.RAIL;
+    rails.push(run);
+  }
+  // hielo (modificador «Helada»): el agua poco profunda se congela
+  if (mods.helada) for (let k = 0; k < N; k++) if (t[k] === T.WATER) t[k] = T.ICE;
+
+  // ---------------- Inserción y extracciones ----------------
   const open3 = (x, y) => {
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       const nx = x + dx, ny = y + dy;
@@ -353,15 +456,40 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
   const sides = ['W', 'E', 'N', 'S'];
   const startSide = g.pick(['W', 'E']);
   const opp = { W: 'E', E: 'W', N: 'S', S: 'N' };
+  const fl = opts.floor || 0, nFloors = opts.floors || 1;
   const start = edgeSpot(startSide);
-  const exitSides = [opp[startSide], g.pick(['N', 'S'])];
-  if ((opts.radar || 0) >= 5) exitSides.push(exitSides[1] === 'N' ? 'S' : 'N');
+  // pisos inferiores: se llega por el montacargas (no hay extracciones permanentes)
+  if (fl > 0) { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) t[I(start[0] + dx, start[1] + dy)] = dx || dy ? T.FLOOR : T.LIFT_UP; }
+  const exitSides = fl > 0 ? [] : [opp[startSide], g.pick(['N', 'S'])];
+  if (fl === 0 && (opts.radar || 0) >= 5) exitSides.push(exitSides[1] === 'N' ? 'S' : 'N');
   const SIDE_NAMES = { W: 'Oeste', E: 'Este', N: 'Norte', S: 'Sur' };
   const EXIT_NAMES = ['Montacargas', 'Pozo de ventilación', 'Escalera de servicio', 'Conducto de cables'];
   const exits = exitSides.map((sd, i) => {
     const [x, y] = edgeSpot(sd);
     return { x, y, perm: true, name: `${EXIT_NAMES[i % EXIT_NAMES.length]} ${SIDE_NAMES[sd]}` };
   });
+
+  // puertas blindadas: algunas puertas cierran salas pequeñas que pasan a ser cámaras acorazadas
+  const vaults = [];
+  for (let k = 0; k < N && vaults.length < 1 + Math.floor(dressLvl / 2); k++) {
+    if (t[k] !== T.DOOR || !g.chance(0.12)) continue;
+    const x = k % W, y = (k / W) | 0;
+    t[k] = T.ROCK; // provisional: ¿qué queda al otro lado?
+    const sides = D4.map(([dx, dy]) => I(x + dx, y + dy)).filter((nk) => walkable(t[nk]));
+    let vault = null;
+    for (const st of sides) {
+      const seen = new Set([st]), q = [st];
+      let pad = false;
+      for (let qi = 0; qi < q.length && q.length < 180; qi++) {
+        const c = q[qi], cx = c % W, cy = (c / W) | 0;
+        if (t[c] === T.PAD || t[c] === T.LIFT_UP) pad = true;
+        for (const [dx, dy] of D8) { const nk = I(cx + dx, cy + dy); if (!seen.has(nk) && walkable(t[nk])) { seen.add(nk); q.push(nk); } }
+      }
+      if (q.length < 180 && q.length >= 6 && !pad) { vault = q; break; }
+    }
+    if (vault) { t[k] = T.ARMORDOOR; vaults.push({ door: [x, y], cells: vault }); for (const c of vault) blocked[c] = 3; }
+    else t[k] = T.DOOR;
+  }
 
   // distancias desde el inicio
   const dist = new Int32Array(N).fill(-1);
@@ -387,6 +515,23 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
   const anomaly = new Uint8Array(N);
   const vents = [];
   const [lvMin, lvMax] = def.lvl;
+  // montacargas al piso inferior (lejos de la llegada) y simas
+  let lift = null;
+  const chasms = [];
+  if (fl < nFloors - 1) {
+    const cand = [];
+    for (let k = 0; k < N; k++) if (dist[k] > maxDist * 0.55 && !blocked[k] && open3(k % W, (k / W) | 0) && exits.every((ex) => Math.hypot(ex.x - (k % W), ex.y - ((k / W) | 0)) > 14)) cand.push(k);
+    const k = cand.length ? g.pick(cand) : null;
+    if (k != null) { lift = [k % W, (k / W) | 0]; t[k] = T.LIFT; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) blocked[I(lift[0] + dx, lift[1] + dy)] = 1; }
+    for (let c = 0; c < (g.chance(0.6) ? g.int(1, 2) : 0); c++) {
+      for (let tries = 0; tries < 80; tries++) {
+        const kk = g.int(0, N - 1);
+        if (dist[kk] < maxDist * 0.3 || blocked[kk]) continue;
+        const x = kk % W, y = (kk / W) | 0;
+        if (placeBlock([[x, y], [x + 1, y], [x, y + 1], [x + 1, y + 1]], T.CHASM)) { chasms.push([x, y]); break; }
+      }
+    }
+  }
   const levelAt = (k) => {
     const p = clamp(dist[k] / maxDist, 0, 1);
     let l = lvMin + Math.floor(p * (lvMax - lvMin + 1.4));
@@ -467,10 +612,10 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
     pois.push(p);
     const pi = pois.length - 1;
     let count = g.int(md.group[0], md.group[1]) + Math.floor(lvl / 4);
-    p.members += spawnGroup(main, lvl, x, y, count, 'dormido', pi);
+    p.members += spawnGroup(main, lvl, x, y, count, nestState, pi);
     if (g.chance(0.45)) {
       const second = g.pick(types);
-      p.members += spawnGroup(second, lvl, x, y, g.int(1, 2), 'dormido', pi);
+      p.members += spawnGroup(second, lvl, x, y, g.int(1, 2), nestState, pi);
     }
   }
   // Jefe en el nido más lejano
@@ -489,7 +634,7 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
       nest.boss = boss;
       nest.name = `Nido alfa · ${ENEMIES[boss].name}`;
       const pi = pois.indexOf(nest);
-      nest.members += spawnGroup(boss, lvl, nest.x, nest.y, 1, 'dormido', pi);
+      nest.members += spawnGroup(boss, lvl, nest.x, nest.y, 1, nestState, pi);
       for (const sp of spawns) if (sp.poi === pi) sp.lvl = lvl;
     }
   }
@@ -503,12 +648,12 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
     const k = I(x, y);
     const lvl = levelAt(k);
     blocked[k] = 1;
-    const amount = Math.round(g.int(18, 30) * (1 + 0.35 * (lvl - 1)));
+    const amount = Math.round(g.int(18, 30) * (1 + 0.35 * (lvl - 1)) * (mods.vetamadre ? 1.5 : 1));
     objects.push({ kind: 'vein', x, y, amount, max: amount, lvl });
     pois.push({ type: 'vein', x, y, lvl, name: 'Veta de esencia', sector: sec[k] });
-    if (g.chance(0.5)) {
+    if (mods.vetamadre || g.chance(0.5)) {
       const tp = g.pick(pickTypes(lvl));
-      spawnGroup(tp, lvl, x, y, g.int(1, 3), 'dormido', pois.length - 1);
+      spawnGroup(tp, lvl, x, y, g.int(1, 3) + (mods.vetamadre ? 1 : 0), 'dormido', pois.length - 1);
     }
   }
 
@@ -523,7 +668,7 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
     blocked[k] = 1;
     const items = [];
     const nItems = g.int(3, 5);
-    for (let i = 0; i < nItems; i++) items.push(rollLoot(lvl, g, { rarityBonus: 0.3 }));
+    for (let i = 0; i < nItems; i++) items.push(rollLoot(lvl, g, { rarityBonus: 0.3 + lootB }));
     const best = Math.max(...items.map((it) => it.r));
     objects.push({ kind: 'cache', x, y, items, opened: false, lvl, best });
     pois.push({ type: 'cache', x, y, lvl, name: 'Alijo de suministros', sector: sec[k], best });
@@ -534,12 +679,12 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
   }
 
   // Peligros
-  const hazCount = g.int(def.hazards[0], def.hazards[1]);
+  const hazCount = g.int(def.hazards[0], def.hazards[1]) + (mods.esporas ? 2 : 0);
   for (let n = 0; n < hazCount; n++) {
     const spot = findSpot({ minDist: 10, poiGap: 8 });
     if (!spot) continue;
     const [x, y] = spot;
-    const kind = g.weighted(['rad', 'gas', 'anomaly'], (k) => ({ rad: 0.5, gas: 0.25, anomaly: 0.25 }[k]));
+    const kind = g.weighted(['rad', 'gas', 'anomaly'], (k) => ({ rad: 0.5, gas: mods.esporas ? 0.75 : 0.25, anomaly: 0.25 }[k]));
     const lvl = levelAt(I(x, y));
     if (kind === 'rad') {
       const r = g.int(3, 6), inten = 1.6 + lvl * 0.35;
@@ -551,6 +696,8 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
       pois.push({ type: 'hazard', kind, x, y, r, lvl, name: 'Foco de radiación', sector: sec[I(x, y)] });
     } else if (kind === 'gas') {
       vents.push({ x, y, lvl });
+      // a veces un ventilador industrial cerca ayuda a despejar el gas
+      if (g.chance(0.5)) for (let tries = 0; tries < 20; tries++) { const fx = x + g.int(-5, 5), fy = y + g.int(-5, 5); if (inb(fx, fy) && Math.hypot(fx - x, fy - y) >= 3 && placeBlock([[fx, fy]], T.FAN)) break; }
       pois.push({ type: 'hazard', kind, x, y, r: 3, lvl, name: 'Fuga de esporas', sector: sec[I(x, y)] });
     } else {
       const cells = g.int(6, 12);
@@ -575,7 +722,21 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
     const lvl = levelAt(I(spot[0], spot[1]));
     const tp = g.pick(pickTypes(lvl).filter((e) => !ENEMIES[e].abil.includes('stationary')).concat(['rata']).filter((e) => def.enemies.includes(e)) || ['rata']);
     if (!tp) continue;
-    spawnGroup(tp, lvl, spot[0], spot[1], g.int(1, 3), 'errante', null);
+    spawnGroup(mods.esporas && g.chance(0.5) && ENEMIES.esporangio ? 'esporangio' : tp, lvl, spot[0], spot[1], g.int(1, 3), 'errante', null);
+  }
+  // Presencia extranjera: otras expediciones en la zona
+  if (mods.extranjeros) {
+    const SQUADS = { rda: [['rda_rifle', 2, 3], ['rda_officer', 0, 1], ['rda_scientist', 0, 1]], suecia: [['swe_guard', 1, 2], ['swe_scientist', 1, 2]], usa: [['usa_operator', 2, 3], ['usa_sniper', 0, 1]] };
+    const facs = g.shuffle(Object.keys(SQUADS)).slice(0, g.int(2, 3));
+    for (const fac of facs) {
+      const spot = findSpot({ minDist: 22, poiGap: 8, open: 14, openR: 2 });
+      if (!spot) continue;
+      const lvl = levelAt(I(spot[0], spot[1]));
+      for (const [type, a0, a1] of SQUADS[fac]) {
+        const n = g.int(a0, a1);
+        for (const [x, y] of freeCellsAround(spot[0], spot[1], 4, n)) spawns.push({ type, lvl, x, y, state: 'errante', poi: null, faction: fac });
+      }
+    }
   }
 
   // Contenedores dispersos (taquillas y cajas)
@@ -590,7 +751,7 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
     blocked[k] = 1;
     const items = [];
     const nItems = g.int(0, 2) + (g.chance(0.5) ? 1 : 0);
-    for (let i = 0; i < nItems; i++) items.push(rollLoot(lvl, g));
+    for (let i = 0; i < nItems; i++) items.push(rollLoot(lvl, g, { rarityBonus: lootB }));
     const kind = s && (s.type === 'industrial' || s.type === 'ruinas') ? (g.chance(0.6) ? 'locker' : 'crate') : g.chance(0.5) ? 'crate' : 'corpse';
     objects.push({ kind, x, y, items, opened: false, lvl });
   }
@@ -612,14 +773,58 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
       objects.push({ kind: 'survivor', x: spot[0], y: spot[1], line: g.int(0, SURVIVOR_LINES.length - 1), lvl: levelAt(I(spot[0], spot[1])), opened: false, items: [] });
     }
   }
+  // Cámaras acorazadas: botín bueno y un terminal fuera para abrirlas
+  for (const v of vaults) {
+    const lvl = Math.min(10, lvMax + 1);
+    const inner = v.cells.filter((c) => walkable(t[c]) && t[c] !== T.DOOR);
+    for (let i = 0; i < Math.min(2, inner.length); i++) {
+      const c = inner.splice(g.int(0, inner.length - 1), 1)[0];
+      const items = [];
+      for (let j = 0; j < g.int(2, 3); j++) items.push(rollLoot(lvl, g, { rarityBonus: 0.8 + lootB }));
+      objects.push({ kind: 'locker', x: c % W, y: (c / W) | 0, items, opened: false, lvl, vault: 1 });
+    }
+    const [dx0, dy0] = v.door;
+    for (let tries = 0; tries < 200; tries++) {
+      const x = dx0 + g.int(-12, 12), y = dy0 + g.int(-12, 12);
+      if (!inb(x, y) || blocked[I(x, y)] === 3 || dist[I(x, y)] < 0) continue;
+      if (placeBlock([[x, y]], T.TERMINAL)) break;
+    }
+  }
+  // Grafito expuesto (zonas profundas): muy radiactivo, se recogen muestras
+  if (dressLvl >= 2) for (let n = 0; n < g.int(1, 2); n++) {
+    const spot = findSpot({ minDist: 18, poiGap: 6 });
+    if (!spot) continue;
+    const [x, y] = spot;
+    for (let yy = y - 1; yy <= y + 1; yy++) for (let xx = x - 1; xx <= x + 1; xx++) if (inb(xx, yy) && plain(t[I(xx, yy)]) && g.chance(0.7)) t[I(xx, yy)] = T.GRAPHITE;
+    for (let yy = y - 4; yy <= y + 4; yy++) for (let xx = x - 4; xx <= x + 4; xx++) if (inb(xx, yy)) radField[I(xx, yy)] += Math.max(0, 4.5 - Math.hypot(xx - x, yy - y)) * 0.9;
+  }
+  // Cristales de esencia incrustados (pequeñas vetas)
+  for (let n = 0; n < g.int(1, 3) + Math.floor(dressLvl / 2); n++) {
+    const spot = findSpot({ minDist: 10, poiGap: 5, needFree: true, tries: 80 });
+    if (!spot) continue;
+    const k = I(spot[0], spot[1]);
+    if (sectors[sec[k]] && sectors[sec[k]].type === 'industrial') continue;
+    blocked[k] = 1;
+    const lvl = levelAt(k);
+    const amount = Math.round(g.int(6, 11) * (1 + 0.3 * (lvl - 1)) * (mods.vetamadre ? 1.5 : 1));
+    objects.push({ kind: 'shard', x: spot[0], y: spot[1], amount, max: amount, lvl });
+  }
+  // Vagonetas sobre los raíles
+  for (const run of rails) {
+    const [x, y] = run[g.chance(0.5) ? 0 : run.length - 1];
+    if (blocked[I(x, y)]) continue;
+    blocked[I(x, y)] = 1;
+    objects.push({ kind: 'cart', x, y, opened: true, items: [] });
+  }
+
   // Objetos sueltos en el suelo
   const looseCount = 5 + mapIdx * 2;
   for (let n = 0; n < looseCount; n++) {
     const spot = findSpot({ minDist: 6, poiGap: 2, tries: 60 });
     if (!spot) continue;
     const lvl = levelAt(I(spot[0], spot[1]));
-    floor.push({ x: spot[0], y: spot[1], item: rollLoot(lvl, g, { catW: { weapon: 4, armor: 2, helmet: 2, gadget: 2, backpack: 1 } }) });
+    floor.push({ x: spot[0], y: spot[1], item: rollLoot(lvl, g, { rarityBonus: lootB, catW: { weapon: 4, armor: 2, helmet: 2, gadget: 2, backpack: 1 } }) });
   }
 
-  return { w: W, h: H, t, sec, sectors, start, exits, pois, spawns, objects, floor, radField, anomaly, vents };
+  return { w: W, h: H, t, sec, sectors, start, exits, pois, spawns, objects, floor, radField, anomaly, vents, lift, chasms, litSectors };
 }

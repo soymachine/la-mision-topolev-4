@@ -7,6 +7,10 @@ import { createItem, itemValue, itemName, itemStats, mergeInto, rollRarity } fro
 import { createAgent, starterKit, agentStats, recruitCost, agentName, bagCapacity, giveXp, agentHooks, talentFlag } from './agents.js';
 import { ACQUIRED, MEDALS, woundCost, RETIRE_LEVEL, MAX_INSTRUCTORS, INSTRUCTOR_XP, ROOKIE_LEVEL } from '../data/honors.js';
 import { SPECS } from '../data/specs.js';
+import { rollZoneMods } from '../data/modifiers.js';
+
+// modificadores de cada zona para hoy (fase 16.4)
+export const zoneMods = (mapIdx) => (S.forceMods ? [...S.forceMods] : rollZoneMods(S.created >>> 0, S.day, mapIdx));
 import { bgName } from '../data/backgrounds.js';
 
 // los instructores retirados aceleran a los novatos
@@ -64,7 +68,7 @@ export function ensureShop() {
 }
 // suministros permanentes (cantidad ilimitada)
 export function shopSupplies() {
-  const list = ['bandage', 'ai2', 'antirad', 'molotov', 'flare', 'a_9x18', 'a_12', 'a_762x39', 'a_545', 'a_762', 'a_9x39', 'a_40', 'a_127', 'a_rpg', 'a_fuel', 'a_cell'];
+  const list = ['bandage', 'ai2', 'antirad', 'molotov', 'flare', 'rope', 'a_9x18', 'a_12', 'a_762x39', 'a_545', 'a_762', 'a_9x39', 'a_40', 'a_127', 'a_rpg', 'a_fuel', 'a_cell'];
   const cases = Object.keys(ITEMS).filter((b) => ITEMS[b].cat === 'case' && shopAvailable(b));
   return [...list, ...cases].filter((b) => shopAvailable(b)).map((b) => createItem(b, 0, rng, ITEMS[b].pack || 1));
 }
@@ -249,7 +253,7 @@ export function launchExpedition(mapIdx, agents) {
     }
   }
   S.stats.expeditions++;
-  const exp = Expedition.create(mapIdx, agents);
+  const exp = Expedition.create(mapIdx, agents, zoneMods(mapIdx));
   return exp;
 }
 

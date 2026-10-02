@@ -14,6 +14,7 @@ import { DIALOGS } from './data/dialogs.js';
 import { ATTRS, ATTR_MAX, TALENTS, TALENT_EVERY } from './data/talents.js';
 import { SPECS, SPEC_TALENTS, SPEC_LEVEL, rerollCost } from './data/specs.js';
 import { BACKGROUNDS } from './data/backgrounds.js';
+import { MODIFIERS } from './data/modifiers.js';
 import { ACQUIRED, MEDALS, WOUNDS, WOUND_CHANCE, RETIRE_LEVEL, MAX_INSTRUCTORS, INSTRUCTOR_XP, ROOKIE_LEVEL } from './data/honors.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -201,8 +202,14 @@ sec('Mundo', 'casillas', 'Casillas del mapa', TILES.length, () => table(TILES.ma
   { h: 'Nombre', v: (t) => `<span class="nm">${esc(t.name)}</span>`, s: (t) => t.name },
   { h: 'Transitable', v: (t) => (t.walk ? tag('sí', 'g') : t.fly ? tag('solo voladores', 'c') : tag('no', 'b')) },
   { h: 'Bloquea visión', v: (t) => (t.opaque ? 'sí' : 'no') },
-  { h: 'Animada', v: (t) => (t.anim ? tag(t.anim, 'c') : '—') },
-]), 'El agua (y sus variantes) está contaminada y añade radiación. Los peligros (gas, fuego, anomalías, focos de radiación) son capas encima de las casillas.');
+  { h: 'Mecánica', v: (t) => [t.cover ? tag(`cobertura −${t.cover}%`, 'g') : '', t.shoot ? tag('se dispara', 'b') : '', t.use ? tag('se usa (F)', 'c') : '', t.noise ? tag(`ruido ${t.noise}`, 'b') : '', t.slip ? tag('resbala', 'b') : '', t.quiet ? tag('silencioso', 'g') : '', t.fuel ? tag('inflamable', 'b') : '', t.light ? tag(`luz r${t.light}`, 'g') : '', t.anim ? tag(t.anim, 'c') : ''].join('') + (t.desc ? `<div class="desc">${esc(t.desc)}</div>` : '') },
+]), 'El agua (y sus variantes) está contaminada y añade radiación. Los peligros (gas, fuego, anomalías, focos de radiación) son capas encima de las casillas. Fase 16: cobertura (−% de impacto desde el otro lado), destructibles (barriles, tuberías, lámparas: apunta con T), puertas blindadas y terminales (Técnica), interruptores y lámparas (luz), montacargas y simas (pisos), escombros inestables (ruido fuerte), raíces que crecen, grafito (muestras), cristales de esencia y vagonetas sobre raíles.');
+sec('Mundo', 'modificadores', 'Modificadores de zona', Object.keys(MODIFIERS).length, () => table(Object.entries(MODIFIERS).map(([id, m]) => ({ id, ...m })), [
+  { h: '', g: true, v: (m) => `<span style="color:${m.color}">${esc(m.glyph)}</span>` },
+  { h: 'Modificador', v: (m) => `<span class="nm" style="color:${m.color}">${esc(m.name)}</span> <span class="desc">${m.id}</span>`, s: (m) => m.name },
+  { h: 'Riesgo', v: (m) => `<span style="color:var(--bad)">▼ ${esc(m.risk)}</span>` },
+  { h: 'Recompensa', v: (m) => `<span style="color:var(--good)">▲ ${esc(m.reward)}</span>` },
+]), 'Cada día, cada zona sale con 0–2 modificadores (los mismos para toda la jornada). Se ven en EXPEDICIÓN al elegir destino. El primer día la primera zona no tiene ninguno.');
 
 // ----- BASE -----
 sec('Base', 'modulos', 'Módulos', MODULES.length, renderModules);
@@ -314,7 +321,7 @@ function renderMaps() {
     return `<div class="block row-f"><h3>${i + 1}. ${esc(m.name)} <span style="color:var(--dim);font-weight:400">· nivel ${m.lvl[0]}–${m.lvl[1]}</span></h3>
       <div class="desc" style="margin-bottom:.6em">${esc(m.desc)}</div>
       <table><tr><td style="width:50%">
-        <div>Tamaño: <b>${m.w}×${m.h}</b> · ${m.sx}×${m.sy} = ${m.sx * m.sy} sectores</div>
+        <div>Tamaño: <b>${m.w}×${m.h}</b> · ${m.sx}×${m.sy} = ${m.sx * m.sy} sectores · <b>${[2, 2, 2, 3, 3][i] || 1} pisos</b> (cada piso inferior: +1 nivel, mejor botín, sin extracciones permanentes)</div>
         <div>Terreno: ${zones}</div>
         <div>Radiación ambiente: <b>${m.ambientRad}</b></div>
         <div>Nidos ${m.nests.join('–')} · Vetas ${m.veins.join('–')} · Alijos ${m.caches.join('–')} · Peligros ${m.hazards.join('–')}</div>

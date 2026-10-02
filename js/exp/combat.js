@@ -26,6 +26,7 @@ export class CombatPart {
     let h = ws.acc + st.acc * 2 - es.ev;
     if (e.stun > 0) h += 15;
     if (e.marked > 0 && this.isSquad(sq)) h += e.markPct || 25;
+    h -= this.coverAgainst(sq.x, sq.y, e.x, e.y);
     if (sq.a) {
       if (isHuman(e)) h += this.flag(sq, 'vsHuman');
       if (e.type === 'lobo') h += this.flag(sq, 'vsLobo');
@@ -284,6 +285,7 @@ export class CombatPart {
 
   noise(x, y, r) {
     if (r <= 0) return;
+    if (r >= 9) this.collapseNear(x, y, Math.min(4, Math.floor(r / 3)));
     for (const e of this.enemies) {
       if (e.state === 'alerta') { if (Math.hypot(e.x - x, e.y - y) <= r) e.mem = Math.max(e.mem, 12); continue; }
       if (Math.hypot(e.x - x, e.y - y) <= r) { e.state = 'alerta'; e.mem = 12; }
@@ -373,7 +375,9 @@ export class CombatPart {
       else if (ent.id) this.damageAgent(ent, Math.max(1, dmg - this.ast(ent).prot), 'explosión', null, delay + 60);
     }
     this._essBoost = 0;
+    this.blastTerrain(x, y, r, src);
     this.noise(x, y, opts.noise || 14);
+    this.flushBreaks();
   }
 
   checkTrap(e) {

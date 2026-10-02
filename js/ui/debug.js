@@ -9,6 +9,7 @@ import { DIALOGS } from '../data/dialogs.js';
 import { createItem, itemName, mergeInto, rarityColor } from '../core/items.js';
 import { agentStats, bagCapacity, giveXp, chooseSpec, talentDef, ALL_TALENTS } from '../core/agents.js';
 import { SPECS } from '../data/specs.js';
+import { MODIFIERS } from '../data/modifiers.js';
 import { runEffects } from '../core/events.js';
 import * as C from '../core/campaign.js';
 
@@ -77,9 +78,10 @@ export function installDebug(app) {
       for (const x of [...e.enemies]) if (w === 'all' || (e.isVisible(x.x, x.y) && e.attitudeToSquad(x) === 'hostile')) { e.killEnemy(x, e.cur); n++; }
       print(`${n} eliminados`);
     } },
-    tp: { a: '<x y | sector A-2 | exit>', d: 'teletransporta al agente activo', f: ([a, b]) => {
+    tp: { a: '<x y | sector A-2 | exit | lift>', d: 'teletransporta al agente activo', f: ([a, b]) => {
       const e = needExp(); const c = e.cur; let x, y;
-      if (a === 'exit') { const ex = e.exits.find((q) => q.perm) || e.exits[0]; [x, y] = [ex.x, ex.y]; }
+      if (a === 'exit') { const ex = e.exits.find((q) => q.perm) || e.exits[0]; if (!ex) throw new Error('no hay extracciones en este piso'); [x, y] = [ex.x, ex.y]; }
+      else if (a === 'lift') { if (!e.lift) throw new Error('no hay montacargas de bajada'); [x, y] = e.lift; }
       else if (/^[a-z]-\d+$/i.test(a)) { const s = e.sectors.find((q) => q.code.toLowerCase() === a.toLowerCase()); if (!s) throw new Error('sector desconocido'); [x, y] = [s.x + (s.w >> 1), s.y + (s.h >> 1)]; }
       else [x, y] = [Number(a), Number(b)];
       const f = freeNear(e, x, y, 0, 12)[0];
@@ -88,6 +90,14 @@ export function installDebug(app) {
       app.expUI.r.centerOn(c.x, c.y, true);
       print(`→ ${f[0]},${f[1]}`);
     } },
+    mods: { a: '<id,id… | off>', d: 'fuerza los modificadores de zona de las próximas expediciones', f: ([v]) => {
+      if (!v || v === 'off') { delete S.forceMods; print('modificadores: los del día'); return; }
+      const list = v.split(',').filter(Boolean);
+      for (const m of list) if (!MODIFIERS[m]) throw new Error('modificadores: ' + Object.keys(MODIFIERS).join(', '));
+      S.forceMods = list; print('forzados: ' + list.join(', '));
+      if (app.current() === 'base') app.base.render();
+    } },
+    floor: { a: '<n>', d: 'lleva al escuadrón al piso n (0 = superior)', f: ([n]) => { const e = needExp(); const to = num(n, e.floor + 1); if (!e.changeFloor(to, to > e.floor ? 'lift' : 'liftup')) throw new Error(`pisos: 0–${e.nFloors - 1}`); print(`piso ${to}`); } },
     reveal: { a: '', d: 'revela todo el mapa', f: () => { const e = needExp(); e.explored.fill(1); for (const x of e.enemies) x.seen = 1; print('mapa revelado'); } },
     heal: { a: '', d: 'cura a todos los agentes (salud y radiación)', f: () => { for (const a of S.agents) { a.hp = agentStats(a).hpMaxEff; a.rad = 0; } const e = exp(); if (e) for (const sq of e.squad) { sq.poison = 0; sq.burn = 0; } print('curados'); } },
     god: { a: '', d: 'activa/desactiva la invulnerabilidad del escuadrón', f: () => { const e = needExp(); e.god = !e.god; print('invulnerable: ' + (e.god ? 'SÍ' : 'NO')); } },

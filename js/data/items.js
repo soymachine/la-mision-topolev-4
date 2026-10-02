@@ -139,6 +139,10 @@ export const ITEMS = {
   // arrojadizos
   rg42: { cat: 'consumable', name: 'Granada RG-42', glyph: '•', tier: 0, stack: 6, use: 'throw', blast: 1, dmg: [8, 14], range: 6, value: 30, desc: 'Granada vieja de lata. Radio 1.' },
   molotov: { cat: 'consumable', name: 'Cóctel Molotov', glyph: '•', tier: 0, stack: 6, use: 'throw', blast: 1, fire: 1, dmg: [4, 7], range: 6, value: 30, desc: 'Incendia una zona de radio 1.' },
+  // fase 16: llaves y equipo de exploración (no se usan desde la mochila: se gastan al interactuar)
+  keycard: { cat: 'consumable', name: 'Tarjeta magnética de acceso', glyph: '=', tier: 1, stack: 5, use: 'tool', value: 60, desc: 'Abre una puerta blindada (F junto a ella). Se gasta al usarla.' },
+  soplete: { cat: 'consumable', name: 'Soplete de acetileno', glyph: '!', tier: 2, stack: 3, use: 'tool', value: 95, desc: 'Corta las bisagras de una puerta blindada. Ruidoso.' },
+  rope: { cat: 'consumable', name: 'Cuerda de escalada', glyph: '&', tier: 0, stack: 3, use: 'tool', value: 30, desc: 'Permite bajar por una sima sin hacerse daño (se gasta una por agente).' },
   flare: { cat: 'consumable', name: 'Bengala', glyph: '•', tier: 0, stack: 6, use: 'throw', lure: 14, light: 1, range: 8, value: 20, desc: 'Ilumina la zona y atrae a los chebylitas cercanos.' },
   bait: { cat: 'consumable', name: 'Carne de cebo', glyph: '•', tier: 0, stack: 5, use: 'throw', lure: 10, range: 6, value: 15, desc: 'Atrae a los chebylitas en silencio, sin iluminar.' },
   rgd5: { cat: 'consumable', name: 'Granada RGD-5', glyph: '•', tier: 1, stack: 6, use: 'throw', blast: 1, dmg: [10, 18], range: 6, value: 45, desc: 'Explosión en radio 1. Alcance 6.' },

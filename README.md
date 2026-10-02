@@ -55,11 +55,12 @@ Dentro del juego, la sección **Instrucciones** explica las reglas y los control
 python3 -m http.server 8000 &
 npm i -D playwright   # una sola vez
 node tests/smoke.cjs 0   # 0..4 = zona
-node tests/systems.cjs   # facciones, eventos, diálogos, consola, guardado, ascenso, contenedores y sistema RPG
+node tests/systems.cjs   # facciones, eventos, diálogos, consola, guardado, ascenso, contenedores, RPG, terreno, pisos y luz
+node tests/mapgen.mjs    # generación de todas las zonas, pisos y modificadores (sin navegador)
 ```
 
 ## Consola de depuración
 
 Pulsa **º** (o la tecla `` ` ``) en partida, o abre el juego con `?debug` en la URL. Escribe `help` para ver las órdenes:
-`give`, `spawn`, `kill`, `tp`, `reveal`, `heal`, `god`, `wait`, `extract`, `day`, `xp`, `spec`, `talent`, `cd`, `ess`, `rub`, `rel`, `rep`, `flag`, `events`, `event`, `dialog`.
+`give`, `spawn`, `kill`, `tp` (también `tp lift`), `floor`, `mods`, `reveal`, `heal`, `god`, `wait`, `extract`, `day`, `xp`, `spec`, `talent`, `cd`, `ess`, `rub`, `rel`, `rep`, `flag`, `events`, `event`, `dialog`.
 Tab completa órdenes e identificadores.

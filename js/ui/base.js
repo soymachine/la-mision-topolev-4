@@ -18,6 +18,8 @@ import { uiBurst, uiSparkEl, uiFly, uiText } from './fx.js';
 import { fmt } from '../util/rng.js';
 import { toggleFullscreen } from './expui.js';
 import { showDialog } from './dialog.js';
+import { MODIFIERS } from '../data/modifiers.js';
+import { floorsFor } from '../exp/expedition.js';
 
 const TABS = [
   { id: 'cuartel', label: 'CUARTEL' },
@@ -454,6 +456,20 @@ export class BaseUI {
     modal({ title: 'ASCENSO', body, width: 'min(104ch, 95vw)', actions: [{ label: 'CERRAR' }] });
   }
 
+  // modificadores de zona de hoy (fase 16.4)
+  modsBox(i) {
+    const zm = C.zoneMods(i);
+    const box = el('div', { class: 'mods-box' });
+    box.append(el('div', { class: 'h', text: `CONDICIONES DE HOY · DÍA ${S.day}` }));
+    if (!zm.length) { box.append(el('div', { class: 'dimt', text: 'Sin novedades: condiciones normales.' })); return box; }
+    for (const id of zm) {
+      const M = MODIFIERS[id];
+      box.append(el('div', { class: 'mod-row', html: `<span style="color:${M.color}"><b>${esc(M.glyph)} ${esc(M.name)}</b></span> <span class="bad">▼ ${esc(M.risk)}</span> <span class="good">▲ ${esc(M.reward)}</span>` }));
+    }
+    box.append(el('div', { class: 'dimt', text: 'Cambian cada día (cada expedición).' }));
+    return box;
+  }
+
   // contenido del contenedor de seguridad (en la base se puede llenar y vaciar libremente)
   vaultBox(a, c) {
     const d = ITEMS[c.b];
@@ -756,7 +772,9 @@ export class BaseUI {
       const locked = i >= S.unlocked;
       const avg = (m.lvl[0] + m.lvl[1]) / 2;
       const card = el('div', { class: `mapcard ${i === this.selMap ? 'sel' : ''} ${locked ? 'locked' : ''}` });
-      card.innerHTML = `<div class="o2">${locked ? '▒' : i + 1}</div><div><b>${locked ? '???' : m.name}</b><div class="dimt">${locked ? 'Extrae con éxito de la zona anterior' : m.short + ' · ' + (S.cleared[m.id] || 0) + ' extracciones'}</div></div><div class="dif" style="color:${diffColor(avg)}">Nv ${m.lvl[0]}–${m.lvl[1]}<br>${skulls(avg)}</div>`;
+      const zm = locked ? [] : C.zoneMods(i);
+      const zmHtml = zm.map((id) => `<span style="color:${MODIFIERS[id].color}" title="${esc(MODIFIERS[id].name)}">${MODIFIERS[id].glyph}</span>`).join(' ');
+      card.innerHTML = `<div class="o2">${locked ? '▒' : i + 1}</div><div><b>${locked ? '???' : m.name}</b><div class="dimt">${locked ? 'Extrae con éxito de la zona anterior' : m.short + ' · ' + floorsFor(i) + ' pisos · ' + (S.cleared[m.id] || 0) + ' extracciones'}</div>${zmHtml ? `<div class="zone-mods">${zmHtml}</div>` : ''}</div><div class="dif" style="color:${diffColor(avg)}">Nv ${m.lvl[0]}–${m.lvl[1]}<br>${skulls(avg)}</div>`;
       if (!locked) card.addEventListener('click', () => { this.selMap = i; sfx.click(); this.render(); });
       L.body.append(card);
     });
@@ -768,6 +786,7 @@ export class BaseUI {
     M.body.append(
       el('pre', { class: 'ascii-art', text: mapSchematic(this.selMap) }),
       el('div', { class: 'msg-topolev', text: m.desc }),
+      this.modsBox(this.selMap),
       el('div', { class: 'sep', text: '─'.repeat(80) }),
       el('div', { class: 'kv', html: `<span>Nivel medio</span><span style="color:${diffColor(avg)}"><b>${avg}</b> (rango ${m.lvl[0]}–${m.lvl[1]}, nidos ±1)</span><span>Tamaño</span><span>${m.w}×${m.h} · ${m.sx * m.sy} sectores</span><span>Radiación amb.</span><span>${m.ambientRad ? m.ambientRad.toFixed(2) + '/turno base' : 'baja'}</span><span>Nidos</span><span>${m.nests[0]}–${m.nests[1]}</span><span>Vetas · Alijos</span><span>${m.veins.join('–')} · ${m.caches.join('–')}</span>` }),
       el('div', { class: 'sep', text: '─'.repeat(80) }),

@@ -393,3 +393,8 @@ body.no-crt #crt { display: none; }
 .ab-btn { width: 100%; text-align: left; margin-top: 2px; }
 .ab-btn.cooling { opacity: .55; }
 @media (max-width: 700px) { .spec-tree { grid-template-columns: 1fr; } .attr-sheet { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.floor-tabs { display: flex; gap: 1ch; justify-content: center; margin: 2px 0 4px; }
+.floor-tabs .filter { cursor: pointer; }
+.zone-mods { letter-spacing: .3ch; margin-top: 1px; }
+.mods-box { margin: .5em 0; padding: .3em 1ch; border: 1px dashed var(--o5); }
+.mods-box .mod-row { margin: .15em 0; line-height: 1.4; }

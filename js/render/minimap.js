@@ -34,10 +34,13 @@ export class Minimap {
       if (t === T.WATER || t === T.DEEP) { r = 30; g = v ? 120 : 60; b = v ? 120 : 60; }
       else if (TILES[t].walk) { r = v ? 140 : 70; g = v ? 66 : 32; b = v ? 18 : 8; }
       else if (t === T.MACHINE) { r = v ? 120 : 60; g = v ? 70 : 34; b = 14; }
+      else if (t === T.CHASM) { r = 0; g = 0; b = 0; }
+      else if (t === T.ARMORDOOR || t === T.TERMINAL) { r = 220; g = 180; b = 80; }
       else { r = v ? 210 : 110; g = v ? 100 : 48; b = v ? 26 : 12; }
       if (e.rad[k] > 1.2) { g = Math.min(255, g + 30); }
       if (e.gas[k]) { r = 120; g = 40; b = 160; }
       if (e.fire[k]) { r = 255; g = 90; b = 20; }
+      if (t === T.LIFT || t === T.LIFT_UP) { r = 95; g = 247; b = 255; }
       d[i] = r; d[i + 1] = g; d[i + 2] = b; d[i + 3] = 255;
     }
     this.tctx.putImageData(this.img, 0, 0);
@@ -90,7 +93,9 @@ export class Minimap {
     }
     // POIs
     ctx.font = `700 ${fz}px ${FONT}`;
+    const storm = !!opts.storm;
     for (const p of e.pois) {
+      if (storm && !e.explored[p.y * e.w + p.x]) continue; // tormenta: sin radar, solo lo ya visto
       const [x, y] = P(p.x, p.y);
       let g, col, label = null;
       if (p.type === 'nest') {
@@ -133,7 +138,7 @@ export class Minimap {
     for (const en of e.enemies) {
       const vis = e.visible[en.y * e.w + en.x] > 0;
       const sensed = e.sensed(en);
-      if (!vis && !sensed && !(opts.radar >= 3 && en.state === 'errante')) continue;
+      if (!vis && (storm || (!sensed && !(opts.radar >= 3 && en.state === 'errante')))) continue;
       const [x, y] = P(en.x, en.y);
       ctx.fillStyle = actorColor(en);
       ctx.globalAlpha = vis ? 1 : 0.45 + 0.2 * Math.sin(T_ * 4);
@@ -158,7 +163,28 @@ export class Minimap {
       this.markers.push({ x, y, r: fz * 0.8, exit: ex });
     }
     for (const p of e.pending) { const [x, y] = P(p.x, p.y); ctx.fillStyle = '#5ff7ff'; ctx.fillText('◊', x, y); }
+    // montacargas y simas (fase 16.2)
+    const conn = (cx, cy, g, col, label) => {
+      if (!e.explored[cy * e.w + cx] && !big) return;
+      const [x, y] = P(cx, cy);
+      ctx.fillStyle = '#000'; ctx.fillRect(x - fz * 0.55, y - fz * 0.6, fz * 1.1, fz * 1.2);
+      ctx.fillStyle = col; ctx.fillText(g, x, y + 1);
+      if (big) { ctx.font = `700 ${Math.round(fz * 0.7)}px ${FONT}`; ctx.fillText(label, x, y + fz * 1.05); ctx.font = `700 ${fz}px ${FONT}`; }
+      this.markers.push({ x, y, r: fz * 0.8, conn: label });
+    };
+    if (e.lift) conn(e.lift[0], e.lift[1], '↓', '#5ff7ff', 'montacargas ↓');
+    if (e.floor > 0 && e.start) conn(e.start[0], e.start[1], '↑', '#9fe8a0', 'montacargas ↑');
+    for (const c of e.chasms || []) conn(c[0], c[1], '◌', '#c08040', 'sima');
     for (const f of e.flares) { const [x, y] = P(f.x, f.y); ctx.fillStyle = '#ff6ad5'; ctx.fillText('*', x, y); }
+    // interferencias de la tormenta electromagnética
+    if (storm) {
+      ctx.fillStyle = 'rgba(127,184,255,.25)';
+      for (let i = 0; i < 60; i++) ctx.fillRect(Math.random() * W, Math.random() * H, 2, 1);
+      ctx.font = `700 ${Math.round(fz * 0.8)}px ${FONT}`;
+      ctx.fillStyle = `rgba(127,184,255,${0.5 + 0.3 * Math.sin(T_ * 6)})`;
+      ctx.fillText('ϟ SIN SEÑAL', W / 2, fz);
+      ctx.font = `700 ${fz}px ${FONT}`;
+    }
     // agentes
     for (const sq of e.squad) {
       if (!e.inMap(sq)) continue;

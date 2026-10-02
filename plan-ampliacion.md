@@ -159,7 +159,7 @@ Al llegar a nivel 5 el agente elige una **especialización**. Cada una tiene un 
 
 ---
 
-## FASE 16 — Mundo: casillas con sentido y nuevas reglas de mapa
+## FASE 16 — Mundo: casillas con sentido y nuevas reglas de mapa ✔ (salvo los contratos, que dependen de la fase 20)
 
 ### 16.1 Casillas nuevas con mecánica (L)
 Cada casilla tiene propósito táctico, no solo decorativo:
@@ -188,20 +188,24 @@ Cada casilla tiene propósito táctico, no solo decorativo:
 | Vagoneta en raíles | `Ш` | Se empuja: transporta botín pesado o aplasta enemigos |
 | Lámpara de emergencia | `☼` | Fuente de luz que se puede romper de un disparo |
 
-- [ ] Sistema de **cobertura** (ver también fase 23) y de **objetos destructibles**.
-- [ ] Cada nueva casilla, con su animación (vapor, chispas, parpadeo de lámparas).
+- [x] Sistema de **cobertura** (ver también fase 23) y de **objetos destructibles**.
+- [x] Cada nueva casilla, con su animación (vapor, chispas, parpadeo de lámparas).
+  - *Hecho:* 26 casillas nuevas en `data/tiles.js` con propiedades (`cover`, `shoot`, `use`, `noise`, `slip`, `quiet`, `fuel`, `light`, `anim`). Colocación en `mapgen.js` sin romper la conectividad (`placeBlock`), cámaras acorazadas tras puertas blindadas con terminal cercano, vagonetas en raíles, cristales `shard`. Mecánicas en `exp/terrain.js` (cobertura en ambos sentidos, disparar a casillas con T, reacciones en cadena, vapor, ventiladores, derrumbes por ruido, raíces que crecen, terminales con Técnica, interruptores, grafito). Objetos nuevos: tarjeta magnética, soplete, cuerda. El hielo sale con el modificador «Helada». Prueba: `tests/mapgen.mjs`.
 
 ### 16.2 Niveles verticales (L)
-- [ ] Una zona puede tener **2–3 pisos** conectados por montacargas, escaleras y simas. Bajar aumenta el nivel de los enemigos y la calidad del botín (mismo dilema de riesgo, en vertical).
-- [ ] Cada piso es un mapa generado; el minimapa muestra el piso actual y un selector.
-- [ ] Las extracciones permanentes solo están en el piso superior: cuanto más bajas, más lejos queda la salida.
+- [x] Una zona puede tener **2–3 pisos** conectados por montacargas, escaleras y simas. Bajar aumenta el nivel de los enemigos y la calidad del botín (mismo dilema de riesgo, en vertical).
+- [x] Cada piso es un mapa generado; el minimapa muestra el piso actual y un selector.
+- [x] Las extracciones permanentes solo están en el piso superior: cuanto más bajas, más lejos queda la salida.
+  - *Hecho:* `floorsFor` (2, 2, 2, 3, 3), `buildFloor`/`mapState`/`applyMapState`/`changeFloor` en `exp/expedition.js`; los pisos visitados se guardan comprimidos en `floorStore`. Montacargas ↓/↑ y simas (con cuerda, sin daño); el escuadrón debe estar reunido. Selector de pisos en el mapa grande (M) con vista de solo lectura.
 
 ### 16.3 Luz y oscuridad (M)
-- [ ] Mapa de luz por casilla: zonas iluminadas y oscuras. En la oscuridad, la visión baja a la mitad salvo con linterna, visor nocturno o bengalas.
-- [ ] Las linternas encendidas **delatan** al agente (los enemigos lo ven desde más lejos). Se pueden apagar (tecla `L`): decisión entre sigilo y visión.
+- [x] Mapa de luz por casilla: zonas iluminadas y oscuras. En la oscuridad, la visión baja a la mitad salvo con linterna, visor nocturno o bengalas.
+- [x] Las linternas encendidas **delatan** al agente (los enemigos lo ven desde más lejos). Se pueden apagar (tecla `L`): decisión entre sigilo y visión.
+  - *Hecho:* sectores iluminados (según tipo y profundidad), lámparas (radio 5, se rompen), interruptores y terminales, fuego y bengalas. A oscuras la visión baja a la mitad (visor nocturno: −1); linterna (gadgets de luz, linterna táctica, queroseno de un compañero) da toda la visión. Enemigos: a oscuras te ven a un 65% de distancia; con linterna, +3.
 
 ### 16.4 Modificadores de zona por expedición (M)
 Cada día, cada zona sale con 0–2 modificadores (visibles al elegir destino), que cambian riesgo y recompensa:
+- [x] Modificadores (`data/modifiers.js`, deterministas por día y zona): Apagón, Inundación, Tormenta electromagnética (sin radar), Plaga de esporas, Nidos inquietos, Veta madre, Presencia extranjera (las otras expediciones aparecen por fin en los mapas), Lluvia radiactiva, Niebla, Pulso temprano y Helada. Se ven en EXPEDICIÓN y en el registro; la consola los fuerza con `mods`.
 - «Apagón» (sin luz, +botín), «Inundación» (más agua), «Tormenta electromagnética» (sin radar), «Plaga de esporas», «Nidos inquietos» (los nidos empiezan despiertos), «Veta madre» (×1,5 esencia), «Presencia extranjera» (facciones garantizadas), «Lluvia radiactiva» (superficie), «Niebla», «Pulso temprano».
 - [ ] Contratos especiales con objetivo (ver fase 20) asociados a modificadores.
 

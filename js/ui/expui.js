@@ -120,6 +120,14 @@ export class ExpeditionUI {
     exp.on('end', () => this.onEnd());
     exp.on('note', (o) => this.openNote(o));
     exp.on('dialog', () => this.openDialog());
+    exp.on('floor', () => {
+      this.travel = null; this.cancelMode();
+      if (this.big) this.toggleBigMap();
+      this.r.attach(exp); this.mm.attach(exp);
+      this.r.centerOn(exp.cur.x, exp.cur.y, true);
+      sfx.radio();
+      this.refresh();
+    });
     this.renderLog();
     this.refresh();
     this.dlgClose = null;
@@ -136,8 +144,9 @@ export class ExpeditionUI {
       if (!this.mmT || now - this.mmT > 90) {
         this.mmT = now;
         const cols = this.r.vw / this.r.cw, rows = this.r.vh / this.r.ch;
-        this.mm.draw(now, { radar: S.modules.radar, view: { x: this.r.cam.x, y: this.r.cam.y, w: cols, h: rows } });
-        if (this.big) this.big.mm.draw(now, { big: true, radar: S.modules.radar });
+        const storm = (this.exp.mods || []).includes('tormenta');
+        this.mm.draw(now, { radar: S.modules.radar, storm, view: { x: this.r.cam.x, y: this.r.cam.y, w: cols, h: rows } });
+        if (this.big) this.big.mm.draw(now, { big: true, radar: S.modules.radar, storm });
       }
       this.stepTravel(now);
       requestAnimationFrame(loop);
@@ -228,7 +237,8 @@ export class ExpeditionUI {
     this.top.innerHTML = '';
     this.top.append(
       el('span', { class: 'loc', text: e.def.name.toUpperCase() }),
-      el('span', { class: 'dimt', html: `Nv ${e.def.lvl[0]}–${e.def.lvl[1]}` }),
+      el('span', { class: 'dimt', html: `Nv ${Math.min(10, e.def.lvl[0] + (e.floor || 0))}–${Math.min(10, e.def.lvl[1] + (e.floor || 0))}` }),
+      (e.nFloors || 1) > 1 ? el('span', { html: `<span class="dimt">PISO</span> <b class="${e.floor ? 'warn' : ''}">${e.floor ? '−' + e.floor : 'SUP'}</b><span class="dimt">/${e.nFloors}</span>` }) : '',
       el('span', { html: sec ? `<span class="dimt">SECTOR</span> ${sec.code} · ${esc(sec.name)}` : '' }),
       el('span', { html: `<span class="dimt">TURNO</span> <b>${e.turn}</b>` }),
       el('span', { html: surge ? `<span class="bad pulse-red">☢ PULSO ×${surge}</span>` : pulseIn <= 60 ? `<span class="warn">☢ pulso en ${pulseIn}</span>` : `<span class="dimt">☢ amb.</span> ${amb.toFixed(2)}` }),
@@ -315,6 +325,11 @@ export class ExpeditionUI {
     }
     const prot = el('div', { class: 'dimt', html: `PROT <b>${st.prot}</b> · RES.RAD <b>${st.rad}%</b> · AGI <b>${st.ev}</b> · VIS <b>${st.vision}</b>` });
     b.append(prot);
+    // luz (fase 16.3)
+    const lit = e.isLit(sq.x, sq.y), lamp = e.agentLight(sq), own = e.hasLightSource(sq);
+    const lightEl = el('div', { class: 'dimt', html: `${lit ? '<span class="warn">☼ zona iluminada</span>' : '<span class="o4">● oscuridad</span>'} · ${own ? (sq.lightOff ? 'linterna <b>apagada</b>' : '<span class="warn">linterna encendida</span>') : lamp ? 'luz de un compañero' : e.nightVision(sq) ? 'visor nocturno' : 'sin linterna'}${own ? ' <span class="dimt">[L]</span>' : ''}` });
+    tip(lightEl, () => '<div class="tt-title">Luz y oscuridad</div><div>A oscuras ves la mitad de lejos, pero a los enemigos les cuesta más verte. Una linterna encendida te deja ver todo tu alcance… y te delata desde más lejos. <b>L</b> la enciende o la apaga.</div>');
+    b.append(lightEl);
     b.append(el('div', { class: 'sep', text: '─'.repeat(80) }));
     b.append(el('div', { class: 'spread' }, el('span', { class: 'h', text: `MOCHILA ${a.bag.length}/${bagCapacity(a)}` }), el('span', { class: 'dimt', text: 'clic usar · dcho soltar' })));
     const list = el('div', { class: 'inv-grid' });
@@ -344,7 +359,7 @@ export class ExpeditionUI {
 
   defaultActionText(it) {
     const d = ITEMS[it.b];
-    if (d.cat === 'consumable') return d.use === 'throw' ? 'Clic: lanzar (elige destino)' : d.use === 'trap' ? 'Clic: colocar en una casilla adyacente' : 'Clic: usar (1 turno)';
+    if (d.cat === 'consumable') return d.use === 'throw' ? 'Clic: lanzar (elige destino)' : d.use === 'trap' ? 'Clic: colocar en una casilla adyacente' : d.use === 'tool' ? 'Se usa al interactuar (F) con lo que corresponda' : 'Clic: usar (1 turno)';
     if (d.cat === 'mod') return 'Mod de arma: se instala en la base (EQUIPO).';
     if (['weapon', 'armor', 'helmet', 'gadget', 'backpack'].includes(d.cat)) return 'Clic: equipar (1 turno)';
     return 'Botín: llévalo a la base para venderlo.';
@@ -354,6 +369,7 @@ export class ExpeditionUI {
     const d = ITEMS[it.b];
     if (d.cat === 'consumable') {
       if (d.use === 'throw' || d.use === 'trap') { this.enterThrow(it); return; }
+      if (d.use === 'tool') { this.exp.say(`${esc(d.name)}: ${esc(d.desc)}`, 'dimt'); return; }
       e.act((sq) => e.useItem(sq, it));
       return;
     }
@@ -438,6 +454,7 @@ export class ExpeditionUI {
       case 't': ev.preventDefault(); this.enterFire(); break;
       case 'h': ev.preventDefault(); this.quickHeal(); break;
       case 'v': ev.preventDefault(); this.useAbility(); break;
+      case 'l': ev.preventDefault(); e.toggleLight(e.cur); this.refresh(); break;
       case 'b': ev.preventDefault(); this.quickGrenade(); break;
       case 'i': ev.preventDefault(); this.openInventory(); break;
       case 'm': ev.preventDefault(); this.toggleBigMap(); break;
@@ -507,7 +524,8 @@ export class ExpeditionUI {
     return e.enemies.filter((en) => e.isVisible(en.x, en.y) && e.hostile(c, en)).sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y));
   }
   enterFire() {
-    const list = this.visibleEnemies();
+    // enemigos primero; después barriles, tuberías y lámparas a tiro
+    const list = [...this.visibleEnemies(), ...this.exp.shootTargets(this.exp.cur)];
     if (!list.length) { this.exp.say('No hay objetivos a la vista.', 'dimt'); return; }
     this.mode = { type: 'fire', list, i: 0, cx: list[0].x, cy: list[0].y };
     this.showBanner();
@@ -574,6 +592,11 @@ export class ExpeditionUI {
       return;
     }
     const en = e.enemyAt(x, y);
+    if ((!en || !e.isVisible(x, y)) && e.shootable(x, y)) {
+      e.act((sq) => e.shootTile(sq, x, y));
+      if (this.mode) { const list = [...this.visibleEnemies(), ...e.shootTargets(e.cur)]; if (!list.length) this.cancelMode(); else { this.mode.list = list; this.mode.i = Math.min(this.mode.i, list.length - 1); this.mode.cx = list[this.mode.i].x; this.mode.cy = list[this.mode.i].y; this.updateTargetOverlay(); } }
+      return;
+    }
     if (!en || !e.isVisible(x, y)) { e.say('No hay objetivo ahí.', 'dimt'); return; }
     if (!e.hostile(e.cur, en)) { this.confirmAttack(en); return; }
     e.act((sq) => e.attack(sq, en));
@@ -601,9 +624,11 @@ export class ExpeditionUI {
       ov.line = [c.x, c.y, m.cx, m.cy, !!e.enemyAt(m.cx, m.cy)];
     } else if (m.type === 'fire') {
       const en = e.enemyAt(m.cx, m.cy);
-      const ok = en && e.isVisible(m.cx, m.cy) && e.canShoot(c, en) === 'ok';
+      const tileT = !en && e.shootable(m.cx, m.cy);
+      const ok = tileT ? true : en && e.isVisible(m.cx, m.cy) && e.canShoot(c, en) === 'ok';
       ov.line = [c.x, c.y, m.cx, m.cy, ok];
       if (en && e.isVisible(m.cx, m.cy)) ov.hit = e.hitChance(c, en);
+      else if (tileT) { ov.hit = 88; if (TILES[e.tile(m.cx, m.cy)].shoot === 'barrel') ov.blast = { x: m.cx, y: m.cy, r: 2 }; }
     } else {
       const d = ITEMS[m.it.b];
       const inRange = Math.hypot(m.cx - c.x, m.cy - c.y) <= d.range + 0.5;
@@ -766,7 +791,7 @@ export class ExpeditionUI {
     if (trap) parts.push(`<div class="bad">× ${esc(ITEMS[trap.b].name)} (tuya)</div>`);
     const td = TILES[e.t[k]];
     const sec = e.sectorAt(x, y);
-    parts.push(`<div class="tt-sep">${'─'.repeat(40)}</div><div class="dimt">${td.name}${sec ? ` · ${sec.code} ${esc(sec.name)}` : ''}${vis ? '' : ' (recordado)'}</div>`);
+    parts.push(`<div class="tt-sep">${'─'.repeat(40)}</div><div class="dimt">${td.name}${sec ? ` · ${sec.code} ${esc(sec.name)}` : ''}${vis ? '' : ' (recordado)'}</div>${td.desc ? `<div class="o1">${esc(td.desc)}</div>` : ''}${td.shoot ? '<div class="dimt">Apunta con <b>T</b> para dispararle.</div>' : ''}${td.use ? '<div class="dimt">Ponte al lado y pulsa <b>F</b>.</div>' : ''}`);
     if (vis) {
       const r = e.rad[k] + e.ambient;
       const hz = [];
@@ -783,6 +808,7 @@ export class ExpeditionUI {
   markerTooltip(m) {
     const e = this.exp;
     if (m.exit) return `<div class="tt-title cyan">⌂ ${esc(m.exit.name)}</div><div class="dimt">${m.exit.perm ? 'Extracción permanente' : `Temporal: ${m.exit.expires - e.turn} turnos`}</div>`;
+    if (m.conn) return `<div class="tt-title cyan">${esc(m.conn)}</div><div class="dimt">${m.conn === 'sima' ? 'Baja al piso inferior (con cuerda, sin daño). F junto a ella.' : m.conn.includes('↓') ? 'Baja al piso inferior: más peligro, mejor botín. Reunid al escuadrón y pulsad F.' : 'Sube al piso superior. Reunid al escuadrón y pulsad F.'}</div>`;
     const p = m.poi;
     const sec = e.sectors[p.sector];
     let h = `<div class="tt-title">${esc(p.name)}</div>`;
@@ -797,12 +823,21 @@ export class ExpeditionUI {
   }
 
   // ------------------------------------------------------------ mapa completo
-  toggleBigMap() {
-    if (this.big) { this.big.wrap.remove(); this.big = null; return; }
-    const e = this.exp;
+  toggleBigMap(viewFloor = null) {
+    if (this.big) { this.big.wrap.remove(); this.big = null; if (viewFloor == null) return; }
+    const ex = this.exp;
+    const e = viewFloor != null ? ex.floorView(viewFloor) || ex : ex;
     const cv = el('canvas');
+    // selector de pisos
+    const tabs = el('div', { class: 'floor-tabs' });
+    if ((ex.nFloors || 1) > 1) for (let f = 0; f < ex.nFloors; f++) {
+      const known = f === ex.floor || ex.floorStore[f];
+      const cur = f === (e.readonly ? e.floor : ex.floor);
+      tabs.append(el('span', { class: `filter ${cur ? 'active' : ''} ${known ? '' : 'dimt'}`, text: `${f === 0 ? 'SUPERIOR' : '−' + f}${f === ex.floor ? ' ●' : ''}${known ? '' : ' ?'}`, onclick: () => { if (known && !cur) { sfx.click(); this.toggleBigMap(f); } } }));
+    }
     const wrap = el('div', { class: 'bigmap-wrap' },
-      el('div', { class: 'h', text: `══[ ${e.def.name.toUpperCase()} · MAPA DEL RADAR ]══` }),
+      el('div', { class: 'h', text: `══[ ${ex.def.name.toUpperCase()} · MAPA DEL RADAR${(ex.nFloors || 1) > 1 ? ` · PISO ${e.readonly ? (e.floor ? '−' + e.floor : 'SUPERIOR') : ex.floor ? '−' + ex.floor : 'SUPERIOR'}` : ''} ]══` }),
+      tabs,
       cv,
       el('div', { class: 'legend', html: '<span><span style="color:#ff6a6a">▲</span><b>n</b> nido (nivel)</span><span style="color:#ff3b30">☠ nido alfa</span><span class="cyan">✦ veta</span><span style="color:#ffb02e">■ alijo</span><span style="color:#b8f53d">☢ radiación</span><span style="color:#c06cff">≋ esporas</span><span style="color:#7fb8ff">ϟ anomalía</span><span class="cyan">⌂ extracción</span><span class="dimt">clic: viajar · M/Esc: cerrar</span>' }),
     );
@@ -814,7 +849,7 @@ export class ExpeditionUI {
     cv.style.width = e.w * s + 'px'; cv.style.height = e.h * s + 'px';
     const mm = new Minimap(cv);
     mm.attach(e);
-    mm.draw(performance.now(), { big: true, radar: S.modules.radar, force: true });
+    mm.draw(performance.now(), { big: true, radar: S.modules.radar, force: true, storm: (ex.mods || []).includes('tormenta') });
     this.big = { wrap, mm };
     cv.addEventListener('pointermove', (ev) => {
       const rc = cv.getBoundingClientRect();
@@ -829,7 +864,7 @@ export class ExpeditionUI {
       const cell = mm.cellAt((ev.clientX - rc.left) * dpr, (ev.clientY - rc.top) * dpr);
       hideTooltip();
       this.toggleBigMap();
-      if (cell && e.explored[e.key(cell[0], cell[1])]) this.startTravel(cell[0], cell[1]);
+      if (!e.readonly && cell && e.explored[e.key(cell[0], cell[1])]) this.startTravel(cell[0], cell[1]);
     });
   }
 

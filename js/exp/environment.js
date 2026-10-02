@@ -53,6 +53,9 @@ export class EnvironmentPart {
         this.igniteCell(x + dx, y + dy, f - 2);
       }
     }
+    // casillas con mecánica: vapor, ventiladores, aceite, raíces
+    this.terrainTick();
+    if (this.ended) return;
     // humo y detector
     for (let k = 0; k < N; k++) if (this.smoke[k]) this.smoke[k]--;
     if (this.sense > 0) this.sense--;

@@ -10,8 +10,8 @@ import { ESSENCE_COLOR } from '../exp/shared.js';
 
 export const FONT = '"JetBrains Mono", "DejaVu Sans Mono", Consolas, monospace';
 const hash = (x, y) => { let h = (x * 374761393 + y * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177; return (h ^ (h >>> 16)) >>> 0; };
-const OBJ_GLYPH = { vein: '✦', cache: '■', locker: '▤', crate: '□', corpse: '%', note: '?', survivor: '☺' };
-const OBJ_NAME = { vein: 'Veta de esencia', cache: 'Alijo de suministros', locker: 'Taquilla', crate: 'Caja de material', corpse: 'Cadáver de liquidador', note: 'Nota', survivor: 'Superviviente' };
+const OBJ_GLYPH = { vein: '✦', cache: '■', locker: '▤', crate: '□', corpse: '%', note: '?', survivor: '☺', shard: '✧', cart: 'Ш' };
+const OBJ_NAME = { vein: 'Veta de esencia', cache: 'Alijo de suministros', locker: 'Taquilla', crate: 'Caja de material', corpse: 'Cadáver de liquidador', note: 'Nota', survivor: 'Superviviente', shard: 'Cristal de esencia incrustado', cart: 'Vagoneta' };
 export { OBJ_NAME };
 
 export class MapRenderer {
@@ -373,6 +373,18 @@ export class MapRenderer {
           ctx.fillStyle = `rgba(90,85,80,${a * 0.6})`; ctx.fillRect(sx, sy, cw, ch);
           glyph(x, y, Math.sin(T_ * 1.5 + x * 0.7 + y) > 0 ? '▒' : '░', `rgba(170,160,150,${a})`);
         }
+        // casillas animadas de la fase 16
+        const an = TILES[tt].anim;
+        if (an === 'blink') { const p = 0.55 + 0.45 * Math.sin(T_ * 4 + x); glyph(x, y, TILES[tt].glyphs[0], tt === T.TERMINAL ? `rgba(95,208,255,${p})` : tt === T.LIFT ? `rgba(95,247,255,${p})` : `rgba(159,232,160,${p})`, TILES[tt].bg, 1.05, true); }
+        else if (an === 'fan') glyph(x, y, ['✣', '✢', '✤', '✥'][Math.floor(T_ * 8 + x) % 4], '#c8c8c8', '#0e0e0e');
+        else if (an === 'lamp') {
+          const fl = Math.sin(T_ * 23 + x * 9) > 0.96 ? 0.35 : 1;
+          const [sx, sy] = S(x, y);
+          ctx.fillStyle = `rgba(255,224,138,${0.07 * fl})`; ctx.fillRect(sx - cw, sy - ch, cw * 3, ch * 3);
+          glyph(x, y, '☼', `rgba(255,224,138,${fl})`, '#1a1404', 1.05, true);
+        } else if (an === 'graphite' && Math.sin(T_ * 2.5 + x * 1.7 + y) > 0.7) glyph(x, y, '▪', 'rgba(150,255,60,.55)', '#0a0a0a');
+        else if (tt === T.CHASM && Math.sin(T_ * 1.3 + x * 2.1 + y * 0.7) > 0.95) glyph(x, y, '.', 'rgba(120,80,40,.5)', '#000');
+        else if (tt === T.PIPE_BROKEN) { const [sx, sy] = S(x, y); ctx.fillStyle = 'rgba(220,220,220,.5)'; ctx.fillText(rng.pick(['°', '˚', '·', '∘']), sx + cw / 2 + rng.float(-cw, cw), sy + ch / 2 + rng.float(-ch, ch * 0.2)); }
         if (e.fire[k]) {
           const f = Math.sin(T_ * 17 + x * 5 + y * 3);
           glyph(x, y, f > 0.3 ? '▲' : f > -0.4 ? '^' : '*', f > 0.3 ? '#ffd23f' : f > -0.4 ? '#ff8a1f' : '#ff3b1f', 'rgba(80,10,0,.6)');
@@ -387,7 +399,8 @@ export class MapRenderer {
       if (!e.explored[k]) continue;
       const vis = e.visible[k] > 0;
       let col, g = OBJ_GLYPH[o.kind];
-      if (o.kind === 'vein') {
+      if (o.kind === 'cart') { glyph(o.x, o.y, 'Ш', vis ? '#d9a066' : '#6a4a2a', vis ? '#140a02' : null, 1.05, true); continue; }
+      if (o.kind === 'vein' || o.kind === 'shard') {
         if (o.amount <= 0) col = '#2a5a5a';
         else { const p = 0.6 + 0.4 * Math.sin(T_ * 3 + o.x); col = vis ? `rgba(95,247,255,${p})` : 'rgba(95,247,255,.35)'; }
         if (vis && o.amount > 0) { ctx.shadowColor = ESSENCE_COLOR; ctx.shadowBlur = 10; }

@@ -360,6 +360,7 @@ export class HelpScreen {
 <span>X</span><span>Cambiar de arma</span>
 <span>H</span><span>Curarse con el mejor botiquín</span>
 <span>V</span><span>Habilidad de la especialización (con objetivo: apunta y confirma)</span>
+<span>L</span><span>Encender / apagar la linterna</span>
 <span>B</span><span>Lanzar granada / objeto arrojadizo (o colocar trampas desde el inventario)</span>
 <span>I</span><span>Inventario (arrastrar y soltar para equipar, soltar o dar a compañeros)</span>
 <span>Tab · 1-4</span><span>Cambiar de agente controlado</span>
@@ -405,6 +406,23 @@ export class HelpScreen {
 <h2>CHEBYLITAS Y NIVELES</h2>
 <p>Cada especie tiene su propio color. Cuanto <b>más intenso</b> es, <b>más nivel</b> tiene: ${lvlDemo}</p>
 <p>Los nidos duermen hasta que te acercas o haces ruido. Algunos chebylitas envenenan, otros revientan en esporas, embisten, disparan rayos o engendran más criaturas. Consulta el bestiario en el ARCHIVO.</p>
+
+<h2>EL TERRENO</h2>
+<ul>
+<li><b>Cobertura</b>: sacos terreros <b>▄</b> y consolas <b>▬</b> restan un 25% de impacto a quien se cubre detrás (a ti y a ellos).</li>
+<li><b>Se pueden disparar</b> (apunta con <b>T</b>): barriles <b>◘</b> (explotan e incendian), tuberías <b>║</b> (vapor ardiente) y lámparas <b>☼</b> (oscuridad).</li>
+<li><b>Ruido</b>: pasarelas metálicas <b>═</b> y cristales rotos <b>∴</b> despiertan nidos; la arena <b>░</b> amortigua los pasos. Un ruido fuerte derrumba los escombros inestables <b>▒</b>.</li>
+<li><b>Resbala</b>: el aceite <b>≋</b> (inflamable) cuesta un turno más; en el hielo puedes caer.</li>
+<li><b>Se usan con F</b>: puertas blindadas <b>▓</b> (tarjeta, Técnica 7, soplete o un terminal), terminales <b>▣</b> (piratear con Técnica), interruptores <b>¥</b> (iluminan el sector), grafito <b>▪</b> (muestras, muy radiactivo).</li>
+<li>Las raíces <b>ψ</b> crecen y cierran pasillos: córtalas cuerpo a cuerpo o quémalas. Las vagonetas <b>Ш</b> se empujan por los raíles y arrollan lo que encuentran. Los cristales <b>✧</b> se minan como vetas pequeñas.</li>
+</ul>
+
+<h2>PISOS, LUZ Y CONDICIONES</h2>
+<ul>
+<li>Las zonas tienen <b>2–3 pisos</b>. El montacargas <b>↓</b> o una sima <b>◌</b> llevan abajo: más nivel y mejor botín, pero las extracciones permanentes solo están arriba (sube por el montacargas <b>↑</b>). Reúne al escuadrón antes de usarlos. Bajar por una sima sin <b>cuerda</b> hace daño. En el mapa (M) puedes consultar los pisos ya visitados.</li>
+<li><b>Luz</b>: en las zonas oscuras ves la mitad de lejos; los sectores iluminados, lámparas, fuego y bengalas se ven desde lejos. Una <b>linterna</b> (gadget o linterna táctica) te deja ver todo tu alcance, pero te delata; <b>L</b> la apaga. A oscuras, a los enemigos también les cuesta verte.</li>
+<li>Cada día, cada zona puede tener <b>modificadores</b> (Apagón, Niebla, Nidos inquietos, Presencia extranjera…) con su riesgo y su recompensa. Se ven en EXPEDICIÓN antes de lanzar.</li>
+</ul>
 
 <h2>PERSONAS Y CONVERSACIONES</h2>
 <p>No estáis solos ahí abajo. Las personas (<b>@</b>) llevan un recuadro según su postura: <span class="good">verde</span> aliados, <span class="warn">amarillo</span> neutrales y <span class="bad">rojo</span> hostiles. Los aliados se apartan si chocas con ellos y combaten a vuestro lado; los neutrales no os molestarán... salvo que abráis fuego contra ellos: entonces toda su facción se vuelve hostil.</p>

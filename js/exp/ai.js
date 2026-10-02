@@ -91,6 +91,7 @@ export class AIPart {
   enemyStepTo(e, x, y) {
     if (this.tile(x, y) === T.DOOR) { this.t[this.key(x, y)] = T.DOOR_OPEN; this.dirty = true; }
     this.moveEntity(e, x, y);
+    this.onStep(e, false);
     if (this.traps.length && this.attitudeToSquad(e) === 'hostile') this.checkTrap(e);
   }
   enemyLOS(e, sq) { return this.los(e.x, e.y, sq.x, sq.y); }
@@ -101,10 +102,16 @@ export class AIPart {
     for (const c of this.combatants()) {
       if (c === e) continue;
       const d = Math.hypot(c.x - e.x, c.y - e.y);
-      if (d > sight || d >= td) continue;
+      if (d > sight + 3 || d >= td) continue;
       if (!this.hostile(e, c)) continue;
       if (c.a && d > 1.5 && this.flag(c, 'vanish')) continue; // Desaparecer (Explorador)
-      const sg = dormant && this.isSquad(c) ? Math.max(1, sight - this.flag(c, 'stealth')) : sight;
+      // sigilo: talentos/gadgets, arena (amortigua los pasos); luz: a oscuras cuesta más verte, la linterna te delata
+      let sg = dormant && this.isSquad(c) ? Math.max(1, sight - this.flag(c, 'stealth') - (this.tile(c.x, c.y) === T.SAND ? 2 : 0) - ((this.mods || []).includes('niebla') ? 1 : 0)) : sight;
+      if (c.a) {
+        const lit = this.isLit(c.x, c.y), lamp = this.agentLight(c);
+        if (lamp) sg += 3;
+        else if (!lit) sg = Math.max(1, Math.round(sg * 0.65));
+      }
       if (d <= sg && this.los(e.x, e.y, c.x, c.y)) { tgt = c; td = d; }
     }
     return [tgt, td];
@@ -264,7 +271,7 @@ export class AIPart {
     const st = this.est(e);
     const dfn = this.defenseOf(t);
     const d = Math.hypot(t.x - e.x, t.y - e.y);
-    const hc = clamp(st.acc - dfn.ev - Math.max(0, d - 4) * 3, 5, 95);
+    const hc = clamp(st.acc - dfn.ev - Math.max(0, d - 4) * 3 - this.coverAgainst(e.x, e.y, t.x, t.y), 5, 95);
     const hit = rng.int(1, 100) <= hc;
     this.fx.push({ type: 'ebolt', x0: e.x, y0: e.y, x1: t.x, y1: t.y, hit, color: actorColor(e, Math.max(6, e.lvl)) });
     if (!hit) { this.fx.push({ type: 'miss', x: t.x, y: t.y, delay: 140 }); return; }
@@ -338,6 +345,7 @@ export class AIPart {
       let hc = ws.acc + st.acc * 2 - dfn.ev;
       if (!melee && d > ws.range) hc -= (d - ws.range) * 7;
       if (ws.scope && d < 2) hc -= 20;
+      if (!melee) hc -= this.coverAgainst(e.x, e.y, t.x, t.y);
       hc = clamp(Math.round(hc), 5, 95);
       const hit = rng.int(1, 100) <= hc;
       this.fx.push({ type: melee ? 'slash' : 'shot', x0: e.x, y0: e.y, x1: t.x, y1: t.y, hit, delay: i * 70, wtype: ws.wtype });

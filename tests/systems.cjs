@@ -307,6 +307,93 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
   ok(ins.n === 1 && Math.abs(ins.mult - 1.15) < 1e-9, `retiro como instructor (+${Math.round((ins.mult - 1) * 100)}% XP a novatos)`);
   await ctx3.close();
 
+  // ================================================================ fase 16
+  console.log('· Fase 16: terreno, pisos, luz y modificadores');
+  const ctx4 = await b.newContext({ viewport: { width: 1440, height: 860 } });
+  const F = await ctx4.newPage();
+  F.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
+  F.on('console', (m) => { if ((m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) || m.type() === 'warning') errs.push(m.text()); });
+  const fd = (line) => F.evaluate((l) => window.__topolev.debug.run(l), line);
+  await F.goto(URL); await F.waitForTimeout(800);
+  await F.click('text=NUEVA PARTIDA'); await F.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await F.click('#screen-intro'); await F.click('text=COMENZAR');
+  await F.waitForTimeout(300);
+  await F.evaluate(() => { for (const a of window.__topolev.S.agents) { a.baseHp = 200; a.hp = 400; a.attr.tec = 8; } });
+  await fd('mods apagon,extranjeros');
+  await F.click('.tab:has-text("EXPEDICIÓN")'); await F.waitForTimeout(200);
+  ok(await F.$('.mods-box .mod-row:has-text("Apagón")'), 'los modificadores del día se ven al elegir destino');
+  for (let i = 0; i < 2; i++) { const rows = await F.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+  await F.click('text=LANZAR EXPEDICIÓN'); await F.waitForTimeout(300);
+  if (await F.$('.modal-back')) await F.click('.modal-back >> text=LANZAR');
+  await F.waitForTimeout(700);
+  await fd('god');
+  const m1 = await F.evaluate(() => { const e = window.__topolev.exp; const c = e.cur; return { mods: e.mods, lit: e.lightMap.reduce((a, b) => a + b, 0), dark: e.darkRadius(c, e.ast(c).vision), vis: e.ast(c).vision, humans: e.enemies.filter((x) => x.w).length, floors: e.nFloors }; });
+  ok(m1.lit === 0 && m1.dark < m1.vis, `Apagón: sin luz, visión a oscuras ${m1.dark}/${m1.vis}`);
+  ok(m1.humans > 0, `Presencia extranjera: ${m1.humans} personas en el mapa`);
+  const lt = await F.evaluate(() => {
+    const e = window.__topolev.exp; const a = e.cur.a;
+    window.__topolev.debug.run('give torch'); const it = a.bag.find((x) => x.b === 'torch'); a.bag.splice(a.bag.indexOf(it), 1); a.equip.g1 = it;
+    const on = e.darkRadius(e.cur, e.ast(e.cur).vision); e.toggleLight(e.cur); const off = e.darkRadius(e.cur, e.ast(e.cur).vision); e.toggleLight(e.cur);
+    return { on, off };
+  });
+  ok(lt.on > lt.off, `la linterna amplía la visión a oscuras (${lt.off} → ${lt.on}) y se apaga con L`);
+  // terreno: preparado en una sala con casillas colocadas a mano
+  const tr = await F.evaluate(() => {
+    const e = window.__topolev.exp; const c = e.cur; const out = {};
+    const T = { SANDBAG: 12, BARREL: 14, ARMORDOOR: 21, TERMINAL: 22, SWITCH: 23, ROOTS: 30, UNSTABLE: 27, RAIL: 32 };
+    const free = (dx, dy) => e.passable(c.x + dx, c.y + dy) && !e.entityAt(c.x + dx, c.y + dy);
+    // cobertura: enemigo a 4 casillas con un saco terrero delante
+    let spot = null;
+    for (const [dx, dy] of [[4, 0], [-4, 0], [0, 4], [0, -4], [3, 3], [-3, -3]]) if (free(dx, dy) && e.walkTile(c.x + Math.sign(dx) * 3, c.y + Math.sign(dy) * 3)) { spot = [c.x + dx, c.y + dy, c.x + Math.sign(dx) * 3, c.y + Math.sign(dy) * 3]; break; }
+    if (spot) {
+      const en = e.spawnEnemy('lobo', 1, spot[0], spot[1], 'dormido');
+      const h0 = e.hitChance(c, en);
+      const old = e.t[e.key(spot[2], spot[3])]; e.t[e.key(spot[2], spot[3])] = T.SANDBAG;
+      out.cover = [h0, e.hitChance(c, en)];
+      e.t[e.key(spot[2], spot[3])] = old;
+      e.killEnemy(en, null);
+    }
+    // barril: disparo → escombros y fuego
+    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]];
+    const nb = (fn) => { for (const [dx, dy] of dirs) if (fn(c.x + dx * 2, c.y + dy * 2)) return [c.x + dx * 2, c.y + dy * 2]; return null; };
+    const bp = nb((x, y) => e.passable(x, y) && !e.entityAt(x, y));
+    if (bp) { e.t[e.key(...bp)] = T.BARREL; e.computeVisibility(true); let n = 0; while (e.tile(...bp) === T.BARREL && n++ < 6) e.act((s) => e.shootTile(s, ...bp)); out.barrel = e.tile(...bp); out.fire = e.fire.some((f) => f); }
+    // puerta blindada con Técnica 8
+    const adj = dirs.map(([dx, dy]) => [c.x + dx, c.y + dy]).find(([x, y]) => e.passable(x, y) && !e.entityAt(x, y));
+    e.t[e.key(...adj)] = T.ARMORDOOR; out.door = [e.useTile(c, ...adj), e.tile(...adj)];
+    // interruptor: ilumina el sector
+    e.t[e.key(...adj)] = T.SWITCH; e.useTile(c, ...adj); e.computeVisibility(true); out.lit = e.isLit(c.x, c.y);
+    // raíces: se cortan cuerpo a cuerpo
+    e.t[e.key(...adj)] = T.ROOTS; c.cur = 'w2'; out.roots = [e.clearObstacle(c, ...adj), e.tile(...adj)]; c.cur = 'w1';
+    // escombros inestables: se derrumban con ruido fuerte
+    e.t[e.key(...adj)] = T.UNSTABLE; for (let i = 0; i < 10 && e.tile(...adj) === T.UNSTABLE; i++) e.noise(c.x, c.y, 12); out.collapse = e.tile(...adj);
+    return out;
+  });
+  ok(tr.cover && tr.cover[1] === tr.cover[0] - 25, `cobertura: ${tr.cover && tr.cover.join('% → ')}%`);
+  ok(tr.barrel === 8 && tr.fire, 'disparar a un barril lo hace explotar e incendia');
+  ok(tr.door && tr.door[0] && tr.door[1] === 5, 'Técnica 7+ abre una puerta blindada');
+  ok(tr.lit, 'el interruptor ilumina el sector');
+  ok(tr.roots && tr.roots[0] && tr.roots[1] === 3, 'las raíces se cortan con un arma cuerpo a cuerpo');
+  ok(tr.collapse === 28 || tr.collapse === 8, 'un ruido fuerte derrumba los escombros inestables');
+  // pisos
+  await fd('tp lift');
+  const fl = await F.evaluate(() => {
+    const e = window.__topolev.exp;
+    for (const s of e.team) if (s !== e.cur) { for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1]]) if (e.passable(e.cur.x + dx, e.cur.y + dy) && !e.entityAt(e.cur.x + dx, e.cur.y + dy)) { e.moveEntity(s, e.cur.x + dx, e.cur.y + dy); break; } }
+    const t0 = e.turn; e.interact();
+    return { floor: e.floor, exits: e.exits.length, store: !!e.floorStore[0], onLift: e.tile(e.cur.x, e.cur.y) === 35 || Math.hypot(e.cur.x - e.start[0], e.cur.y - e.start[1]) < 3, turn: e.turn > t0 };
+  });
+  ok(fl.floor === 1 && fl.exits === 0 && fl.store && fl.onLift, 'el montacargas baja al escuadrón al piso −1 (sin extracciones permanentes)');
+  await F.evaluate(async () => { (await import('./js/core/state.js')).save(); });
+  await F.reload(); await F.waitForTimeout(800); await F.click('text=CONTINUAR'); await F.waitForTimeout(900);
+  const fl2 = await F.evaluate(() => { const e = window.__topolev.exp; return { floor: e.floor, store: !!e.floorStore[0], view: !!e.floorView(0) }; });
+  ok(fl2.floor === 1 && fl2.store && fl2.view, 'el piso y los pisos visitados sobreviven a recargar');
+  await F.keyboard.press('m'); await F.waitForTimeout(250);
+  ok((await F.$$('.floor-tabs .filter')).length === 2, 'el mapa grande tiene selector de pisos');
+  await F.keyboard.press('Escape');
+  const up = await F.evaluate(() => { const e = window.__topolev.exp; window.__topolev.debug.run('god'); e.moveEntity(e.cur, ...e.start); for (const s of e.team) if (s !== e.cur) e.moveEntity(s, e.cur.x + 1, e.cur.y); e.interact(); return { floor: e.floor, exits: e.exits.length }; });
+  ok(up.floor === 0 && up.exits >= 2, 'el montacargas de subida vuelve al piso superior');
+  await ctx4.close();
+
   console.log(errs.length ? 'ERRORES:\n' + errs.join('\n') : '  ✓ sin errores en consola');
   await b.close();
   if (fails || errs.length) { console.log(`FALLOS: ${fails}`); process.exit(1); }
