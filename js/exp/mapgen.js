@@ -3,7 +3,7 @@ import { RNG, clamp } from '../util/rng.js';
 import { T, TILES } from '../data/tiles.js';
 import { SECTOR_NAMES } from '../data/world.js';
 import { ENEMIES } from '../data/enemies.js';
-import { rollLoot } from '../core/items.js';
+import { rollLoot, createItem } from '../core/items.js';
 import { NOTES, SURVIVOR_LINES } from '../data/lore.js';
 
 const D8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
@@ -191,12 +191,153 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
     }
   }
 
+  // ---------------- Fase 17: superficie y subsuelo nuevo ----------------
+  const SURF = { ciudad: 1, bosque: 1, ferroviario: 1, chatarreria: 1, antena: 1, lago: 1 };
+  const hot = []; // casillas muy radiactivas [k, intensidad]
+  const refuge = []; // interiores protegidos de la radiación (blindados)
+  const wagons = []; // interiores de vagones y vehículos (contenedores de botín)
+  const cables = []; // cables de la antena (anomalías)
+  const extraObjects = [];
+  let antennaAt = null;
+  const surfGround = (x, y) => (noise2(x, y) > 0.62 ? T.GRASS : T.GROUND);
+  function noise2(x, y) { const v = Math.sin(x * 0.21 + seed * 1e-5) * Math.cos(y * 0.27 - seed * 3e-6) + Math.sin((x + y) * 0.13); return (v + 2) / 4; }
+  function fillSector(s, fn) { for (let y = s.y; y < s.y + s.h; y++) for (let x = s.x; x < s.x + s.w; x++) if (inb(x, y)) t[I(x, y)] = fn(x, y); }
+  function rectFree(x0, y0, w, h, ok) { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (!inb(x, y) || x < 2 || y < 2 || x >= W - 2 || y >= H - 2 || !ok(t[I(x, y)])) return false; return true; }
+  // edificio: muros, interior transitable y 1–2 puertas
+  function building(x0, y0, w, h, inner = T.FLOOR, wall = T.WALL) {
+    for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+      const edge = x === x0 || y === y0 || x === x0 + w - 1 || y === y0 + h - 1;
+      t[I(x, y)] = edge ? wall : inner;
+      if (!edge) room[I(x, y)] = 1;
+    }
+    const nd = g.chance(0.5) ? 2 : 1;
+    for (let d = 0; d < nd; d++) {
+      const side = g.int(0, 3);
+      const dx = side < 2 ? g.int(x0 + 1, x0 + w - 2) : side === 2 ? x0 : x0 + w - 1;
+      const dy = side >= 2 ? g.int(y0 + 1, y0 + h - 2) : side === 0 ? y0 : y0 + h - 1;
+      t[I(dx, dy)] = wall === T.HULL ? T.FLOOR : T.DOOR;
+    }
+    return { x0, y0, w, h };
+  }
+  const openish = (tt) => tt === T.GROUND || tt === T.GRASS || tt === T.ASPHALT;
+  function genCity(s) {
+    fillSector(s, surfGround);
+    const sp = g.int(13, 16);
+    for (let y = s.y + 1; y < s.y + s.h; y += sp) for (let yy = y; yy < y + 2; yy++) for (let x = s.x; x < s.x + s.w; x++) if (inb(x, yy)) t[I(x, yy)] = T.ASPHALT;
+    for (let x = s.x + 1; x < s.x + s.w; x += sp + 4) for (let xx = x; xx < x + 2; xx++) for (let y = s.y; y < s.y + s.h; y++) if (inb(xx, y)) t[I(xx, y)] = T.ASPHALT;
+    const park = /Parque|Plaza|Estadio/.test(s.name);
+    for (let n = 0; n < (park ? 2 : 7); n++) {
+      const w = g.int(7, 14), h = g.int(5, 9);
+      const x0 = g.int(s.x + 1, Math.max(s.x + 1, s.x + s.w - w - 1)), y0 = g.int(s.y + 1, Math.max(s.y + 1, s.y + s.h - h - 1));
+      if (rectFree(x0 - 1, y0 - 1, w + 2, h + 2, (tt) => tt === T.GROUND || tt === T.GRASS)) building(x0, y0, w, h);
+    }
+    if (park) for (let n = 0; n < g.int(3, 6); n++) { const x = g.int(s.x + 2, s.x + s.w - 3), y = g.int(s.y + 2, s.y + s.h - 3); if (openish(t[I(x, y)])) t[I(x, y)] = g.chance(0.6) ? T.SWING : T.PINE; }
+    for (let n = 0; n < g.int(4, 9); n++) { const x = g.int(s.x + 1, s.x + s.w - 2), y = g.int(s.y + 1, s.y + s.h - 2); if (t[I(x, y)] === T.ASPHALT) t[I(x, y)] = T.CAR; }
+    for (let n = 0; n < g.int(4, 10); n++) { const x = g.int(s.x + 1, s.x + s.w - 2), y = g.int(s.y + 1, s.y + s.h - 2); if (t[I(x, y)] === T.GROUND || t[I(x, y)] === T.GRASS) t[I(x, y)] = T.PINE; }
+  }
+  function genForest(s) {
+    fillSector(s, surfGround);
+    for (let y = s.y; y < s.y + s.h; y++) for (let x = s.x; x < s.x + s.w; x++) if (noise2(x * 1.7, y * 1.9) > 0.55 && g.chance(0.45)) t[I(x, y)] = T.PINE;
+    for (let n = 0; n < (g.chance(0.65) ? g.int(1, 2) : 0); n++) {
+      const w = g.int(6, 11), h = g.int(3, 6);
+      const x0 = g.int(s.x + 2, Math.max(s.x + 2, s.x + s.w - w - 2)), y0 = g.int(s.y + 2, Math.max(s.y + 2, s.y + s.h - h - 2));
+      for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (inb(x, y)) { t[I(x, y)] = T.DUG; hot.push([I(x, y), 2.2]); }
+    }
+  }
+  function genRail(s) {
+    fillSector(s, surfGround);
+    for (let y = s.y + 3; y < s.y + s.h - 2; y += 6) {
+      for (let x = s.x; x < s.x + s.w; x++) t[I(x, y)] = T.RAIL;
+      // vagones sobre la vía (3 de alto, con puerta lateral)
+      let x = s.x + g.int(1, 6);
+      while (x < s.x + s.w - 10) {
+        const len = g.int(6, 10);
+        if (g.chance(0.6) && rectFree(x, y - 1, len, 3, (tt) => tt === T.RAIL || tt === T.GROUND || tt === T.GRASS)) {
+          for (let yy = y - 1; yy <= y + 1; yy++) for (let xx = x; xx < x + len; xx++) t[I(xx, yy)] = yy === y && xx > x && xx < x + len - 1 ? T.FLOOR : T.HULL;
+          const dx = g.int(x + 1, x + len - 2);
+          t[I(dx, g.chance(0.5) ? y - 1 : y + 1)] = T.FLOOR;
+          wagons.push({ x: x + 1, y, len: len - 2 });
+        }
+        x += len + g.int(2, 6);
+      }
+    }
+  }
+  function genJunk(s) {
+    fillSector(s, (x, y) => (noise2(x, y) > 0.55 ? T.ASPHALT : T.GROUND));
+    for (let y = s.y + 2; y < s.y + s.h - 4; y += g.int(5, 7)) {
+      let x = s.x + g.int(1, 4);
+      while (x < s.x + s.w - 8) {
+        const kind = g.pick(['heli', 'truck', 'btr']);
+        const w = kind === 'heli' ? 7 : kind === 'truck' ? 5 : 6, h = kind === 'btr' ? 4 : kind === 'heli' ? 3 : 2;
+        if (rectFree(x, y, w, h, openish)) {
+          if (kind === 'btr') {
+            building(x, y, w, h, T.FLOOR, T.HULL);
+            for (let yy = y + 1; yy < y + h - 1; yy++) for (let xx = x + 1; xx < x + w - 1; xx++) refuge.push(I(xx, yy));
+            wagons.push({ x: x + 1, y: y + 1, len: w - 2 });
+          } else for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) if (!(kind === 'heli' && yy !== y + 1 && (xx === x || xx >= x + w - 2))) t[I(xx, yy)] = T.HULL;
+        }
+        x += w + g.int(2, 5);
+      }
+    }
+  }
+  function genAntenna(s) {
+    fillSector(s, surfGround);
+    const ox = g.int(0, 4);
+    for (let y = s.y + 1; y < s.y + s.h - 1; y++) for (let x = s.x + 1; x < s.x + s.w - 1; x++) {
+      if ((x + ox) % 6 === 0 && y % 4 !== 0) { t[I(x, y)] = T.LATTICE; if (g.chance(0.12)) cables.push(I(x + 1, y)); }
+      else if (y % 8 === 0 && (x + ox) % 6 !== 3 && g.chance(0.5)) t[I(x, y)] = T.LATTICE;
+    }
+    if (!antennaAt && /control/i.test(s.name + ' control')) {
+      const w = 9, h = 7, x0 = s.x + Math.floor(s.w / 2) - 4, y0 = s.y + Math.floor(s.h / 2) - 3;
+      for (let y = y0 - 1; y < y0 + h + 1; y++) for (let x = x0 - 1; x < x0 + w + 1; x++) if (inb(x, y)) t[I(x, y)] = T.GROUND;
+      building(x0, y0, w, h);
+      antennaAt = [x0 + 4, y0 + 3];
+      t[I(antennaAt[0], antennaAt[1])] = T.ANTENNA;
+    }
+  }
+  function genLake(s) {
+    fillSector(s, () => T.DEEP);
+    // orillas en el borde del mapa
+    for (let y = s.y; y < s.y + s.h; y++) for (let x = s.x; x < s.x + s.w; x++) {
+      const d = Math.min(x, y, W - 1 - x, H - 1 - y) + (noise2(x, y) - 0.5) * 4;
+      if (d < 5) t[I(x, y)] = surfGround(x, y); else if (d < 7) t[I(x, y)] = T.WATER;
+    }
+    // islotes
+    for (let n = 0; n < g.int(1, 3); n++) {
+      const cx = g.int(s.x + 4, s.x + s.w - 5), cy = g.int(s.y + 3, s.y + s.h - 4), r = g.float(2.5, 4.5);
+      for (let y = cy - 6; y <= cy + 6; y++) for (let x = cx - 7; x <= cx + 7; x++) {
+        if (!inb(x, y) || sec[I(x, y)] !== s.id) continue;
+        const d = Math.hypot((x - cx) * 0.8, y - cy);
+        if (d < r) t[I(x, y)] = surfGround(x, y); else if (d < r + 1.3 && t[I(x, y)] === T.DEEP) t[I(x, y)] = T.WATER;
+      }
+    }
+  }
+  function genMetro(s) {
+    genIndustrial(s);
+    const cy = s.y + Math.floor(s.h / 2);
+    for (let y = cy - 1; y <= cy + 1; y++) for (let x = s.x; x < s.x + s.w; x++) if (inb(x, y)) { t[I(x, y)] = y === cy ? T.RAIL : T.FLOOR; room[I(x, y)] = 0; }
+    // andén
+    const px = g.int(s.x + 2, Math.max(s.x + 2, s.x + s.w - 14));
+    for (let y = cy - 4; y <= cy - 2; y++) for (let x = px; x < px + 12; x++) if (inb(x, y)) { t[I(x, y)] = T.FLOOR; room[I(x, y)] = 1; }
+    // vagones de metro sobre la vía
+    let x = s.x + g.int(2, 8);
+    while (x < s.x + s.w - 9) { if (g.chance(0.45)) { for (let xx = x; xx < x + 7; xx++) t[I(xx, cy)] = T.HULL; } x += g.int(10, 16); }
+  }
+
+  const organic = new Set();
   for (const s of sectors) {
-    if (s.type === 'industrial' || s.type === 'ruinas') {
+    if (s.type === 'industrial' || s.type === 'ruinas' || s.type === 'campamento' || s.type === 'base' || s.type === 'laboratorio') {
       genIndustrial(s);
       if (def.zones.inundado && g.chance(0.4)) floodBlobs(s, g.int(1, 2), [T.FLOOR, T.GRATE]);
-    } else genCave(s, s.type === 'inundado');
-    if (opts.mods && opts.mods.inundacion) floodBlobs(s, g.int(2, 4), [T.FLOOR, T.GRATE, T.CAVE]);
+    } else if (s.type === 'ciudad') genCity(s);
+    else if (s.type === 'bosque') genForest(s);
+    else if (s.type === 'ferroviario') genRail(s);
+    else if (s.type === 'chatarreria') genJunk(s);
+    else if (s.type === 'antena') genAntenna(s);
+    else if (s.type === 'lago') genLake(s);
+    else if (s.type === 'metro') genMetro(s);
+    else { genCave(s, s.type === 'inundado'); if (s.type === 'organico') organic.add(s.id); }
+    if (opts.mods && opts.mods.inundacion && !SURF[s.type]) floodBlobs(s, g.int(2, 4), [T.FLOOR, T.GRATE, T.CAVE]);
   }
 
   // ---------------- Conexión entre sectores ----------------
@@ -218,11 +359,12 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
     if (i + 1 < def.sx) links.push([sectorAt(i + 1, j), 'E', 'W']);
     if (j + 1 < def.sy) links.push([sectorAt(i, j + 1), 'S', 'N']);
     for (const [b, sa, sb] of links) {
+      if ((SURF[a.type] && SURF[b.type]) && !(a.type === 'lago' || b.type === 'lago')) continue; // a cielo abierto ya está conectado
       const n = g.chance(0.35) ? 2 : 1;
       for (let k = 0; k < n; k++) {
         const [ax, ay] = borderPick(a, sa), [bx2, by2] = borderPick(b, sb);
         const cave = a.type === 'caverna' || a.type === 'inundado' || b.type === 'caverna' || b.type === 'inundado';
-        carveCorr(ax, ay, bx2, by2, cave ? T.CAVE : T.FLOOR, cave);
+        carveCorr(ax, ay, bx2, by2, a.type === 'lago' || b.type === 'lago' ? T.BOAT : SURF[a.type] ? T.GROUND : cave ? T.CAVE : T.FLOOR, cave);
       }
     }
   }
@@ -278,7 +420,7 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
       while (c >= 0 && prev[c] !== -1) {
         if (!walkable(t[c])) {
           const s = sectors[sec[c]];
-          t[c] = t[c] === T.DEEP ? T.WATER : s && (s.type === 'caverna' || s.type === 'inundado') ? T.CAVE : T.FLOOR;
+          t[c] = t[c] === T.DEEP ? (s && s.type === 'lago' ? T.BOAT : T.WATER) : s && SURF[s.type] ? T.GROUND : s && (s.type === 'caverna' || s.type === 'inundado' || s.type === 'organico' || s.type === 'corium') ? T.CAVE : T.FLOOR;
         }
         c = prev[c];
       }
@@ -296,6 +438,8 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
       if (nt === T.FLOOR || nt === T.GRATE || (nt === T.WATER && room[I(nx, ny)])) { t[k] = T.WALL; break; }
     }
   }
+  // en superficie, lo que queda entre edificios es terreno abierto
+  if (opts.surface || def.surface) for (let k = 0; k < N; k++) if (t[k] === T.ROCK) { const x = k % W, y = (k / W) | 0; if (x > 0 && y > 0 && x < W - 1 && y < H - 1) t[k] = noise2(x, y) > 0.6 ? T.GRASS : T.GROUND; }
   // puertas
   for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
     const k = I(x, y);
@@ -320,9 +464,17 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
       } else if (t[k] === T.FLOOR && g.chance(0.12)) t[k] = T.RUBBLE;
     }
   }
-  // bordes
-  for (let x = 0; x < W; x++) { t[I(x, 0)] = T.ROCK; t[I(x, H - 1)] = T.ROCK; }
-  for (let y = 0; y < H; y++) { t[I(0, y)] = T.ROCK; t[I(W - 1, y)] = T.ROCK; }
+  // bordes (en superficie, la alambrada de la zona de exclusión)
+  const surface = !!(opts.surface || def.surface);
+  const edge = surface ? T.FENCE : T.ROCK;
+  for (let x = 0; x < W; x++) { t[I(x, 0)] = edge; t[I(x, H - 1)] = edge; }
+  for (let y = 0; y < H; y++) { t[I(0, y)] = edge; t[I(W - 1, y)] = edge; }
+  // cavernas orgánicas: la roca expuesta es pared viva
+  if (organic.size) for (let k = 0; k < N; k++) {
+    if (t[k] !== T.ROCK || !organic.has(sec[k])) continue;
+    const x = k % W, y = (k / W) | 0;
+    if (D8.some(([dx, dy]) => inb(x + dx, y + dy) && walkable(t[I(x + dx, y + dy)]))) t[k] = T.ORGWALL;
+  }
   // después de los derrumbes puede quedar algo aislado: conectividad final simple
   {
     const { regs } = regions();
@@ -346,7 +498,8 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
     return true;
   }
   const mods = opts.mods || {};
-  const dressLvl = mapIdx + (opts.floor || 0);
+  const tier = def.tier || 0;
+  const dressLvl = Math.floor(tier / 2) + (opts.floor || 0);
   const lootB = (opts.floor || 0) * 0.15 + (mods.apagon ? 0.45 : 0) + (mods.esporas ? 0.2 : 0) + (mods.niebla ? 0.2 : 0);
   const nestState = mods.inquietos ? 'errante' : 'dormido';
   // salas: componentes del mapa de salas
@@ -415,7 +568,7 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
       if ((def.enemies.includes('raiz') || dressLvl >= 2) && g.chance(0.5)) for (let c = 0; c < g.int(2, 6); c++) { const [x, y] = pickCell(caveCells); placeBlock([[x, y]], T.ROOTS); }
     }
     // luz: algunos sectores tienen la iluminación de emergencia funcionando
-    const litP = { industrial: 0.7, ruinas: 0.4, caverna: 0.12, inundado: 0.25 }[s.type] - dressLvl * 0.07;
+    const litP = ({ industrial: 0.7, ruinas: 0.4, caverna: 0.12, inundado: 0.25, campamento: 1.3, base: 0.95, laboratorio: 0.55, metro: 0.35, organico: 0.05, corium: 0.8 }[s.type] ?? 0) - dressLvl * 0.07;
     s.lit = !mods.apagon && g.chance(Math.max(0.05, litP)) ? 1 : 0;
     if (s.lit) litSectors.push(s.id);
   }
@@ -621,8 +774,8 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
   // Jefe en el nido más lejano
   if (bossPool.length) {
     const nests = pois.filter((p) => p.type === 'nest').sort((a, b) => dist[I(b.x, b.y)] - dist[I(a.x, a.y)]);
-    const bossChance = mapIdx >= 4 ? 1 : mapIdx >= 3 ? 0.75 : 0.5;
-    const nBoss = mapIdx >= 4 ? 2 : 1;
+    const bossChance = tier >= 8 ? 1 : tier >= 6 ? 0.75 : 0.5;
+    const nBoss = tier >= 8 ? 2 : 1;
     for (let b = 0; b < Math.min(nBoss, nests.length); b++) {
       if (!g.chance(bossChance)) continue;
       const nest = nests[b];
@@ -715,7 +868,7 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
   }
 
   // Errantes
-  const wanderGroups = 3 + mapIdx + g.int(0, 2);
+  const wanderGroups = 3 + Math.round(tier / 2) + g.int(0, 2);
   for (let n = 0; n < wanderGroups; n++) {
     const spot = findSpot({ minDist: 18, poiGap: 6 });
     if (!spot) continue;
@@ -817,8 +970,192 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
     objects.push({ kind: 'cart', x, y, opened: true, items: [] });
   }
 
+  // ---------------- Fase 17: contenido propio de cada zona ----------------
+  const sp = def.special;
+  // radiación de fosas y corium; los blindados protegen
+  for (const [k, v] of hot) radField[k] += v;
+  // contenedores en vagones y vehículos
+  for (const w of wagons) {
+    if (!g.chance(0.6)) continue;
+    const x = w.x + g.int(0, Math.max(0, w.len - 1)), y = w.y;
+    const k = I(x, y);
+    if (!walkable(t[k]) || blocked[k]) continue;
+    blocked[k] = 1;
+    const lvl = levelAt(k) || lvMin;
+    const items = [];
+    for (let i = 0; i < g.int(1, 3); i++) items.push(rollLoot(lvl, g, { rarityBonus: lootB + 0.1 }));
+    if (def.zones.chatarreria) items.push(createItem('parts', 0, g, g.int(1, 4)));
+    objects.push({ kind: 'crate', x, y, items, opened: false, lvl });
+  }
+  // cables de la antena: anomalías eléctricas
+  for (const k of cables) if (walkable(t[k])) for (let i = 0; i < 4; i++) { const kk = k + g.int(-1, 1) + g.int(-2, 2) * W; if (kk > 0 && kk < N && walkable(t[kk])) anomaly[kk] = 1; }
+  // estanque: siluros gigantes en el agua profunda
+  if (sp === 'lago') {
+    const deep = [];
+    for (let k = 0; k < N; k++) if (t[k] === T.DEEP) deep.push(k);
+    for (let n = 0; n < Math.min(deep.length, g.int(3, 6)); n++) { const k = g.pick(deep); spawns.push({ type: 'siluro', lvl: Math.min(10, lvMax), x: k % W, y: (k / W) | 0, state: 'dormido', poi: null }); }
+  }
+  // Prípiat, sótano del hospital: la ropa de los bomberos de la primera noche
+  if (def.id === 'pripyat' && fl > 0) {
+    const spot = findSpot({ minDist: 20, poiGap: 6, needFree: true });
+    if (spot) {
+      const k = I(spot[0], spot[1]);
+      blocked[k] = 1;
+      objects.push({ kind: 'locker', x: spot[0], y: spot[1], items: [createItem('firecoat', 0, g), createItem('firecoat', 0, g)], opened: false, lvl: lvMax, special: 'hospital' });
+      for (let yy = spot[1] - 4; yy <= spot[1] + 4; yy++) for (let xx = spot[0] - 4; xx <= spot[0] + 4; xx++) if (inb(xx, yy)) radField[I(xx, yy)] += Math.max(0, 4.5 - Math.hypot(xx - spot[0], yy - spot[1])) * 1.1;
+      pois.push({ type: 'hazard', kind: 'rad', x: spot[0], y: spot[1], r: 4, lvl: lvMax, name: 'Ropa de los bomberos', sector: sec[k] });
+    }
+  }
+  // Campamento «Wismut»: comerciante, enfermería y tablón de rumores; residentes de la RDA
+  if (sectors.some((s2) => s2.type === 'campamento')) {
+    for (const kind of ['trader', 'medic', 'board']) {
+      const spot = findSpot({ minDist: 6, poiGap: 6, needFree: true, tries: 400 }) || findSpot({ minDist: 3, poiGap: 2, needFree: true, tries: 400 });
+      if (!spot) continue;
+      blocked[I(spot[0], spot[1])] = 1;
+      objects.push({ kind, x: spot[0], y: spot[1], opened: true, items: [] });
+    }
+    for (let n = 0; n < g.int(6, 9); n++) {
+      const spot = findSpot({ minDist: 4, poiGap: 2, tries: 200 });
+      if (spot) spawns.push({ type: g.pick(['rda_rifle', 'rda_rifle', 'rda_scientist', 'rda_officer']), lvl: g.int(lvMin, lvMax), x: spot[0], y: spot[1], state: 'errante', poi: null, faction: 'rda' });
+    }
+  }
+  // Estación «Fénix»: cámaras, torretas y operadores de élite; botín occidental
+  if (sp === 'fenix') {
+    for (let n = 0; n < 6 + fl * 2; n++) {
+      const spot = findSpot({ minDist: 14, poiGap: 4, tries: 300 });
+      if (!spot) continue;
+      const kind = n % 3 === 0 ? 'usa_camera' : n % 3 === 1 ? 'usa_turret' : null;
+      if (kind) { spawns.push({ type: kind, lvl: lvMax, x: spot[0], y: spot[1], state: 'errante', poi: null, faction: 'usa' }); blocked[I(spot[0], spot[1])] = 2; continue; }
+      for (const [x, y] of freeCellsAround(spot[0], spot[1], 3, g.int(2, 3))) spawns.push({ type: g.chance(0.5) ? 'usa_elite' : g.pick(['usa_operator', 'usa_sniper']), lvl: g.int(lvMin, lvMax), x, y, state: 'errante', poi: null, faction: 'usa' });
+    }
+    for (const o of objects) if ((o.kind === 'cache' || o.kind === 'locker') && o.items) { o.items.push(rollLoot(lvMax, g, { west: true, rarityBonus: 0.4, catW: { weapon: 8, ammo: 6 } })); if (g.chance(0.4)) o.items.push(createItem('intel', 0, g)); }
+  }
+  // Metro-2 (y «Presencia extranjera»): las otras expediciones se cruzan aquí
+  if (def.factions && !mods.extranjeros) {
+    const SQUADS = { rda: [['rda_rifle', 2, 3], ['rda_officer', 0, 1]], suecia: [['swe_guard', 1, 2], ['swe_scientist', 1, 1]], usa: [['usa_operator', 2, 3], ['usa_sniper', 0, 1]], contrabandistas: [['smuggler', 2, 3]] };
+    for (const fac of Object.keys(SQUADS)) {
+      const spot = findSpot({ minDist: 20, poiGap: 8, open: 12, openR: 2 });
+      if (!spot) continue;
+      const lvl = levelAt(I(spot[0], spot[1]));
+      for (const [type, a0, a1] of SQUADS[fac]) for (const [x, y] of freeCellsAround(spot[0], spot[1], 4, g.int(a0, a1))) spawns.push({ type, lvl, x, y, state: 'errante', poi: null, faction: fac });
+    }
+  }
+  // Objeto 7: celdas de contención y el archivo del director
+  if (sp === 'objeto7') {
+    let cells = 0;
+    for (let k = 0; k < N && cells < 6; k++) {
+      if (t[k] !== T.DOOR || !g.chance(0.25)) continue;
+      const x = k % W, y = (k / W) | 0;
+      t[k] = T.ROCK;
+      const side = D4.map(([dx, dy]) => I(x + dx, y + dy)).filter((nk) => walkable(t[nk]));
+      let inside = null;
+      for (const st of side) {
+        const seen = new Set([st]), q = [st];
+        for (let qi = 0; qi < q.length && q.length < 90; qi++) { const c = q[qi]; for (const [dx, dy] of D8) { const nk = c + dx + dy * W; if (!seen.has(nk) && walkable(t[nk])) { seen.add(nk); q.push(nk); } } }
+        if (q.length < 90 && !q.some((c) => blocked[c] || t[c] === T.PAD || t[c] === T.LIFT_UP || t[c] === T.LIFT)) { inside = q; break; }
+      }
+      if (!inside) { t[k] = T.DOOR; continue; }
+      t[k] = T.CELL; cells++;
+      const c0 = inside[Math.floor(inside.length / 2)];
+      const tp = g.pick(pickTypes(lvMax));
+      spawns.push({ type: tp, lvl: Math.min(10, lvMax + 1), x: c0 % W, y: (c0 / W) | 0, state: 'dormido', poi: null, caged: 1 });
+      const c1 = inside[0];
+      if (!blocked[c1]) { blocked[c1] = 1; objects.push({ kind: 'crate', x: c1 % W, y: (c1 / W) | 0, items: [rollLoot(lvMax, g, { rarityBonus: 0.6 })], opened: false, lvl: lvMax, vault: 1 }); }
+    }
+    const v = vaults[0];
+    const inner = v ? v.cells.filter((c) => walkable(t[c]) && !blocked[c]) : [];
+    const spot = inner.length ? [inner[0] % W, (inner[0] / W) | 0] : findSpot({ minDist: 25, poiGap: 4, needFree: true });
+    if (spot) { blocked[I(spot[0], spot[1])] = 1; objects.push({ kind: 'archive', x: spot[0], y: spot[1], opened: false, items: [] }); }
+  }
+  // ---------------- Zonas de evento (17.3) ----------------
+  const wreckAt = (items, name, radHot) => {
+    const spot = findSpot({ minDist: Math.min(40, maxDist * 0.55), poiGap: 6, needFree: true, open: 20, openR: 2 }) || findSpot({ minDist: 14, poiGap: 4, needFree: true });
+    if (!spot) return null;
+    const k = I(spot[0], spot[1]);
+    blocked[k] = 1;
+    objects.push({ kind: 'wreck', x: spot[0], y: spot[1], items, opened: false, lvl: lvMax });
+    pois.push({ type: 'cache', x: spot[0], y: spot[1], lvl: lvMax, name, sector: sec[k], best: Math.max(0, ...items.map((it) => it.r)) });
+    if (radHot) for (let yy = spot[1] - 5; yy <= spot[1] + 5; yy++) for (let xx = spot[0] - 5; xx <= spot[0] + 5; xx++) if (inb(xx, yy)) radField[I(xx, yy)] += Math.max(0, 5.5 - Math.hypot(xx - spot[0], yy - spot[1])) * radHot;
+    // restos esparcidos alrededor del aparato
+    for (const [x, y] of freeCellsAround(spot[0], spot[1], 4, 6)) { if (g.chance(0.5) && [T.FLOOR, T.GROUND, T.GRASS, T.ASPHALT, T.CAVE].includes(t[I(x, y)])) t[I(x, y)] = T.RUBBLE; blocked[I(x, y)] = 0; }
+    return spot;
+  };
+  if (sp === 'heli') {
+    const items = [createItem('blackbox', 0, g)];
+    for (let i = 0; i < 3; i++) items.push(rollLoot(lvMax, g, { rarityBonus: 0.5, catW: { weapon: 6, ammo: 6, consumable: 6 } }));
+    const spot = wreckAt(items, 'Mi-8 estrellado', 0.9);
+    // la manada ya ronda el helicóptero
+    if (spot) for (const [x, y] of freeCellsAround(spot[0], spot[1], 7, g.int(4, 6))) spawns.push({ type: g.pick(pickTypes(lvMax)), lvl: lvMax, x, y, state: 'errante', poi: null });
+  }
+  if (sp === 'spyplane') {
+    const items = [createItem('intel', 0, g), createItem('intel', 0, g)];
+    for (let i = 0; i < 4; i++) items.push(rollLoot(Math.min(10, lvMax + 1), g, { west: true, rarityBonus: 0.8, catW: { weapon: 10, ammo: 6, armor: 4, gadget: 4 } }));
+    const spot = wreckAt(items, 'Avión espía', 0.3);
+    // dos equipos de recuperación americanos
+    for (let n = 0; n < 2; n++) {
+      const sp2 = findSpot({ minDist: 25, poiGap: 8, open: 12 });
+      if (sp2) for (const [x, y] of freeCellsAround(sp2[0], sp2[1], 4, g.int(3, 4))) spawns.push({ type: g.pick(['usa_operator', 'usa_elite', 'usa_sniper']), lvl: lvMax, x, y, state: 'errante', poi: null, faction: 'usa' });
+    }
+    if (spot) for (const [x, y] of freeCellsAround(spot[0], spot[1], 5, 2)) spawns.push({ type: 'usa_elite', lvl: lvMax, x, y, state: 'errante', poi: null, faction: 'usa' });
+  }
+  if (sp === 'convoy') {
+    // camiones de evacuación abandonados en fila
+    const spot = findSpot({ minDist: 24, poiGap: 6, open: 30, openR: 3 }) || findSpot({ minDist: 16, poiGap: 4 });
+    if (spot) {
+      pois.push({ type: 'cache', x: spot[0], y: spot[1], lvl: lvMax, name: 'Convoy de evacuación', sector: sec[I(spot[0], spot[1])], best: 1 });
+      for (const [x, y] of freeCellsAround(spot[0], spot[1], 6, g.int(5, 7))) {
+        const items = [rollLoot(lvMax, g, { rarityBonus: 0.35 }), rollLoot(lvMax, g, { rarityBonus: 0.35 }), createItem('parts', 0, g, g.int(2, 5))];
+        if (g.chance(0.3)) items.push(createItem('docs', 0, g));
+        blocked[I(x, y)] = 1;
+        objects.push({ kind: g.chance(0.7) ? 'crate' : 'corpse', x, y, items, opened: false, lvl: lvMax });
+      }
+      // lo que acabó con el convoy sigue cerca
+      const sp2 = findSpot({ minDist: 18, poiGap: 3, open: 10 });
+      if (sp2) for (const [x, y] of freeCellsAround(sp2[0], sp2[1], 5, g.int(4, 6))) spawns.push({ type: g.pick(pickTypes(lvMax)), lvl: lvMax, x, y, state: 'dormido', poi: null });
+    }
+  }
+  if (sp === 'nido') {
+    // vetas por todas partes: la colonia se alimenta de ellas
+    for (let n = 0; n < 6; n++) {
+      const spot = findSpot({ minDist: 14, poiGap: 5, needFree: true, tries: 200 });
+      if (!spot) continue;
+      blocked[I(spot[0], spot[1])] = 1;
+      const amount = g.int(10, 16) * Math.max(1, lvMax - 2);
+      objects.push({ kind: 'shard', x: spot[0], y: spot[1], amount, max: amount, lvl: lvMax });
+    }
+  }
+  if (sp === 'mercado') {
+    const spot = findSpot({ minDist: 10, poiGap: 4, needFree: true, open: 20, openR: 2 }) || findSpot({ minDist: 6, poiGap: 2, needFree: true });
+    if (spot) {
+      blocked[I(spot[0], spot[1])] = 1;
+      objects.push({ kind: 'trader', x: spot[0], y: spot[1], opened: true, items: [], dlg: 'smuggler_trader' });
+      pois.push({ type: 'cache', x: spot[0], y: spot[1], lvl: lvMax, name: 'Mercado negro', sector: sec[I(spot[0], spot[1])], cleared: true, best: 0 });
+      // los contrabandistas rondan el puesto sin taparlo
+      const ring = freeCellsAround(spot[0], spot[1], 7, 30);
+      for (const [x, y] of ring) if (Math.max(Math.abs(x - spot[0]), Math.abs(y - spot[1])) <= 2) blocked[I(x, y)] = 0;
+      const far = ring.filter(([x, y]) => Math.max(Math.abs(x - spot[0]), Math.abs(y - spot[1])) > 2);
+      const nSm = g.int(5, 7);
+      for (const [x, y] of far.slice(nSm)) blocked[I(x, y)] = 0;
+      for (const [x, y] of far.slice(0, nSm)) spawns.push({ type: 'smuggler', lvl: g.int(lvMin, lvMax), x, y, state: 'errante', poi: null, faction: 'contrabandistas' });
+    }
+  }
+  // Útero de corium: lagos de combustible fundido
+  if (sp === 'corium') {
+    for (let n = 0; n < g.int(6, 10); n++) {
+      const spot = findSpot({ minDist: 12, poiGap: 3, tries: 120 });
+      if (!spot) continue;
+      const [x, y] = spot;
+      if (placeBlock([[x, y], [x + 1, y], [x, y + 1], [x + 1, y + 1]], T.CORIUM)) for (let yy = y - 4; yy <= y + 5; yy++) for (let xx = x - 4; xx <= x + 5; xx++) if (inb(xx, yy)) radField[I(xx, yy)] += Math.max(0, 5 - Math.hypot(xx - x, yy - y)) * 0.6;
+    }
+  }
+  // Las Raíces: raíces por todas partes
+  if (sp === 'raices') for (let n = 0; n < 40; n++) { const spot = findSpot({ minDist: 8, poiGap: 1, tries: 40 }); if (spot) placeBlock([spot], T.ROOTS); }
+  // interiores blindados: sin radiación
+  for (const k of refuge) radField[k] = 0;
+  for (const o of extraObjects) objects.push(o);
+
   // Objetos sueltos en el suelo
-  const looseCount = 5 + mapIdx * 2;
+  const looseCount = 5 + tier;
   for (let n = 0; n < looseCount; n++) {
     const spot = findSpot({ minDist: 6, poiGap: 2, tries: 60 });
     if (!spot) continue;
@@ -826,5 +1163,10 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
     floor.push({ x: spot[0], y: spot[1], item: rollLoot(lvl, g, { rarityBonus: lootB, catW: { weapon: 4, armor: 2, helmet: 2, gadget: 2, backpack: 1 } }) });
   }
 
-  return { w: W, h: H, t, sec, sectors, start, exits, pois, spawns, objects, floor, radField, anomaly, vents, lift, chasms, litSectors };
+  // casillas interiores (bajo techo) en superficie
+  const indoor = surface ? room.slice() : null;
+  // vías largas (para el «tren fantasma» de Yanov)
+  const railRows = [];
+  if (sp === 'tren') for (let y = 1; y < H - 1; y++) { let n = 0; for (let x = 0; x < W; x++) if (t[I(x, y)] === T.RAIL) n++; if (n > W * 0.5) railRows.push(y); }
+  return { w: W, h: H, t, sec, sectors, start, exits, pois, spawns, objects, floor, radField, anomaly, vents, lift, chasms, litSectors, indoor, antennaAt, railRows };
 }

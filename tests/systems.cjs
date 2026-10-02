@@ -64,10 +64,12 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
   ok(await ev(() => !window.__topolev.exp.dlg), 'cerrar con Esc vacía la cola');
   await dbg('god');
   await dbg('wait 15');
+  // si huye herido, se le da algo más de tiempo al escuadrón
+  for (let i = 0; i < 3 && (await ev(() => window.__topolev.exp.enemies.some((x) => x.type === 'usa_operator'))); i++) await dbg('wait 10');
   const fac = await ev(() => { const e = window.__topolev.exp; return { usa: e.enemies.filter((x) => x.type === 'usa_operator').length, rda: e.enemies.filter((x) => x.type === 'rda_rifle').length, flags: window.__topolev.S.flags }; });
   ok(fac.usa === 0, 'el operador americano muere (escuadrón + aliados)');
   ok(fac.rda >= 1, 'los aliados de la RDA sobreviven');
-  const swe = await ev(() => { const e = window.__topolev.exp; const s = e.enemies.find((x) => x.type === 'swe_scientist'); if (!s) return 'sin sueco'; e.attack(e.cur, s); return e.attitude('squad', 'suecia') + ' ' + window.__topolev.S.rep.suecia; });
+  const swe = await ev(() => { const e = window.__topolev.exp; const s = e.enemies.find((x) => x.type === 'swe_scientist'); if (!s) return 'sin sueco'; if (e.canShoot(e.cur, s) !== 'ok') { const f = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]].map(([dx, dy]) => [e.cur.x + dx, e.cur.y + dy]).find(([x, y]) => e.passable(x, y) && !e.entityAt(x, y)); if (f) { e.moveEntity(s, ...f); e.computeVisibility(true); } } e.attack(e.cur, s); return e.attitude('squad', 'suecia') + ' ' + window.__topolev.S.rep.suecia; });
   ok(swe === 'hostile -25' || swe === 'sin sueco', `atacar a un neutral lo vuelve hostil (${swe})`);
 
   // superviviente → diálogo
@@ -343,7 +345,15 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     const free = (dx, dy) => e.passable(c.x + dx, c.y + dy) && !e.entityAt(c.x + dx, c.y + dy);
     // cobertura: enemigo a 4 casillas con un saco terrero delante
     let spot = null;
-    for (const [dx, dy] of [[4, 0], [-4, 0], [0, 4], [0, -4], [3, 3], [-3, -3]]) if (free(dx, dy) && e.walkTile(c.x + Math.sign(dx) * 3, c.y + Math.sign(dy) * 3)) { spot = [c.x + dx, c.y + dy, c.x + Math.sign(dx) * 3, c.y + Math.sign(dy) * 3]; break; }
+    const dirs8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]];
+    // despeja una línea recta de 4 casillas (la cobertura en la 3.ª y el enemigo en la 4.ª)
+    for (const [dx, dy] of dirs8) {
+      const cells = [1, 2, 3, 4].map((n) => [c.x + dx * n, c.y + dy * n]);
+      if (!cells.every(([x, y]) => x > 0 && y > 0 && x < e.w - 1 && y < e.h - 1 && !e.entityAt(x, y) && !e.objAt(x, y))) continue;
+      for (const [x, y] of cells) e.t[e.key(x, y)] = 2;
+      e.computeVisibility(true);
+      spot = [...cells[3], ...cells[2]]; break;
+    }
     if (spot) {
       const en = e.spawnEnemy('lobo', 1, spot[0], spot[1], 'dormido');
       const h0 = e.hitChance(c, en);
@@ -393,6 +403,135 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
   const up = await F.evaluate(() => { const e = window.__topolev.exp; window.__topolev.debug.run('god'); e.moveEntity(e.cur, ...e.start); for (const s of e.team) if (s !== e.cur) e.moveEntity(s, e.cur.x + 1, e.cur.y); e.interact(); return { floor: e.floor, exits: e.exits.length }; });
   ok(up.floor === 0 && up.exits >= 2, 'el montacargas de subida vuelve al piso superior');
   await ctx4.close();
+
+  // ================================================================ fase 17
+  console.log('· Fase 17: la región, superficie, subsuelo y zonas de evento');
+  const ctx5 = await b.newContext({ viewport: { width: 1440, height: 860 } });
+  const Z = await ctx5.newPage();
+  Z.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
+  Z.on('console', (m) => { if ((m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) || m.type() === 'warning') errs.push(m.text()); });
+  const zd = (line) => Z.evaluate((l) => window.__topolev.debug.run(l), line);
+  const zClose = async () => { for (let i = 0; i < 6 && (await Z.$('.modal')); i++) { await Z.keyboard.press('Escape'); await Z.waitForTimeout(150); } };
+  await Z.goto(URL); await Z.waitForTimeout(800);
+  await Z.click('text=NUEVA PARTIDA'); await Z.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await Z.click('#screen-intro'); await Z.click('text=COMENZAR');
+  await Z.waitForTimeout(300);
+  await Z.evaluate(() => { for (const a of window.__topolev.S.agents) { a.baseHp = 200; a.hp = 400; a.attr.tec = 8; } });
+  await Z.click('.tab:has-text("EXPEDICIÓN")'); await Z.waitForTimeout(200);
+  const rg = await Z.evaluate(() => ({ marks: document.querySelectorAll('.region-map .rg-mk').length, locked: document.querySelectorAll('.region-map .rg-locked').length }));
+  ok(rg.marks === 17 && rg.locked === 16, `mapa de la región: ${rg.marks} zonas, ${rg.locked} cerradas al empezar`);
+  // Prípiat se abre al extraer de la Administración
+  const op = await Z.evaluate(async () => { const W = await import('./js/data/world.js'); const S = window.__topolev.S; S.cleared.admin = 1; return W.zoneOpen(S, W.mapIndex('pripyat')) && !W.zoneOpen(S, W.mapIndex('bosque')); });
+  ok(op, 'extraer de una zona abre las siguientes');
+  await zd('unlock');
+  const launchZone = async (id, ev = false) => {
+    await Z.click('.tab:has-text("EXPEDICIÓN")'); await Z.waitForTimeout(200);
+    if (ev) await Z.click('.mapcard.event >> nth=0');
+    else { const idx = await Z.evaluate(async (zid) => (await import('./js/data/world.js')).mapIndex(zid), id); await Z.click(`.mapcard:not(.event) >> nth=${idx}`); }
+    await Z.waitForTimeout(150);
+    if (!(await Z.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row.sel')).length) for (let i = 0; i < 2; i++) { const rows = await Z.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+    await Z.click('text=LANZAR EXPEDICIÓN'); await Z.waitForTimeout(300);
+    if (await Z.$('.modal-back')) await Z.click('.modal-back >> text=LANZAR');
+    await Z.waitForTimeout(800);
+    await zClose();
+    await zd('god');
+  };
+  const endExp = async () => {
+    await Z.evaluate(() => { const e = window.__topolev.exp; if (e.dlg) e.closeDialog(); for (const sq of [...e.team]) e.extract(sq); e.checkActive(); });
+    await Z.waitForSelector('#screen-report.active', { timeout: 10000 }).catch(() => {});
+    for (let i = 0; i < 30 && !(await Z.$('#screen-base.active')); i++) {
+      await Z.click('#screen-report >> text=VOLVER A LA BASE', { timeout: 800 }).catch(() => {});
+      await zClose(); await Z.waitForTimeout(300);
+    }
+    if (!(await Z.$('#screen-base.active'))) console.log('    (pantalla activa: ' + (await Z.evaluate(() => [...document.querySelectorAll('.screen.active, [id^=screen-].active')].map((x) => x.id).join(','))) + ' · modal: ' + (await Z.evaluate(() => (document.querySelector('.modal') || {}).innerText || '')).slice(0, 200) + ')');
+    await zClose();
+  };
+  // ---- superficie: Prípiat
+  await launchZone('pripyat');
+  const sf = await Z.evaluate(() => {
+    const e = window.__topolev.exp; const c = e.cur;
+    const out = { id: e.def.id, surface: e.surface, clock: e.clock != null, weather: e.weather };
+    window.__topolev.debug.run('clock 12 despejado'); e.computeVisibility(true);
+    const outdoor = []; for (let k = 0; k < e.t.length; k++) if (!e.indoor[k] && e.passable(k % e.w, (k / e.w) | 0)) outdoor.push(k);
+    out.dayLit = outdoor.slice(0, 50).every((k) => e.isLit(k % e.w, (k / e.w) | 0));
+    window.__topolev.debug.run('clock 23'); e.computeVisibility(true);
+    out.night = e.isNight(); out.nightLit = outdoor.slice(0, 50).filter((k) => e.isLit(k % e.w, (k / e.w) | 0)).length;
+    out.top = document.querySelector('#screen-exp').innerText.includes('☾');
+    // excavar y la antena
+    const adj = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1]].map(([dx, dy]) => [c.x + dx, c.y + dy]).find(([x, y]) => e.passable(x, y) && !e.entityAt(x, y));
+    e.t[e.key(...adj)] = 42; const r0 = c.a.rad; out.dig = [e.useTile(c, ...adj), e.tile(...adj), c.a.rad > r0];
+    e.t[e.key(...adj)] = 47; e.useTile(c, ...adj); out.antenna = [e.revealT, e.tile(...adj), e.explored.reduce((a, b) => a + b, 0) / e.t.filter((t) => t !== 0).length];
+    return out;
+  });
+  ok(sf.id === 'pripyat' && sf.surface && sf.clock && sf.weather, `Prípiat: superficie con reloj y clima (${sf.weather})`);
+  ok(sf.dayLit && sf.night && sf.nightLit === 0 && sf.top, 'de día el exterior está iluminado; de noche no, y la barra muestra ☾');
+  ok(sf.dig[0] && sf.dig[1] === 38 && sf.dig[2], 'excavar la tierra removida (con radiación)');
+  ok(sf.antenna[0] === 30 && sf.antenna[1] === 53 && sf.antenna[2] > 0.99, 'la antena revela todo el mapa 30 turnos');
+  await endExp();
+  // ---- Yanov: el tren fantasma
+  await launchZone('yanov');
+  const tn = await Z.evaluate(() => {
+    const e = window.__topolev.exp;
+    const row = e.railRows[0]; let x = -1;
+    for (let xx = 0; xx < e.w; xx++) if (e.tile(xx, row) === 32 && !e.entityAt(xx, row)) { x = xx; break; }
+    if (x < 0) return { rows: e.railRows.length };
+    e.moveEntity(e.cur, x, row - 1 >= 0 && e.passable(x, row - 1) ? row - 1 : row);
+    const en = e.spawnEnemy('rata', 1, x === 0 ? 1 : x - 1 >= 0 && e.tile(x + 1, row) === 32 && !e.entityAt(x + 1, row) ? x + 1 : x, row, 'dormido');
+    e.trainAt = e.turn; e.zoneTick();
+    return { rows: e.railRows.length, dead: !e.enemies.includes(en) || en.hp < en.hpMax, next: e.trainAt > e.turn };
+  });
+  ok(tn.rows > 0 && tn.dead && tn.next, 'el tren fantasma de Yanov arrolla lo que hay en la vía');
+  await endExp();
+  // ---- Campamento Wismut: comerciante y enfermería
+  await launchZone('wismut');
+  const cp = await Z.evaluate(() => {
+    const e = window.__topolev.exp; const S = window.__topolev.S; const c = e.cur;
+    const kinds = ['trader', 'medic', 'board'].map((k) => !!e.objects.find((o) => o.kind === k));
+    S.rub = 1000; S.rep.rda = 0;
+    const tr = e.objects.find((o) => o.kind === 'trader');
+    e.openDialog('wismut_trader', c, tr);
+    const v0 = e.dialogView();
+    e.dialogChoose(0); // COMPRAR
+    const v1 = e.dialogView();
+    e.dialogChoose(0); // AI-2
+    const bought = c.a.bag.some((it) => it.b === 'ai2') || e.floorAt(c.x, c.y).some((it) => it.b === 'ai2');
+    const rub1 = S.rub;
+    e.closeDialog();
+    c.a.hp = 5;
+    e.openDialog('wismut_medic', c, e.objects.find((o) => o.kind === 'medic'));
+    e.dialogChoose(0);
+    const healed = c.a.hp >= 50;
+    if (e.dlg) e.closeDialog();
+    e.openDialog('wismut_board', c, e.objects.find((o) => o.kind === 'board'));
+    const board = e.dialogView().text.length > 50;
+    e.closeDialog();
+    return { kinds, social: !!e.def.social, start: v0.opts.length, buyOpts: v1.opts.length, bought, rub1, healed, rub2: S.rub, board };
+  });
+  ok(cp.social && cp.kinds.every(Boolean), 'el campamento tiene comerciante, enfermería y tablón');
+  ok(cp.buyOpts >= 8 && cp.bought && cp.rub1 === 940, `comprar un AI-2 por 60 ₽ (${cp.buyOpts - 1} artículos)`);
+  ok(cp.healed && cp.rub2 < cp.rub1, `la enfermería cura al equipo (${cp.rub1 - cp.rub2} ₽)`);
+  ok(cp.board, 'el tablón muestra rumores');
+  await endExp();
+  // ---- zona de evento: helicóptero estrellado + archivo del Objeto 7
+  await Z.evaluate(() => { window.__topolev.S.eventZones = []; });
+  await zd('evzone heli');
+  await Z.click('.tab:has-text("EXPEDICIÓN")'); await Z.waitForTimeout(200);
+  const evUi = await Z.evaluate(() => ({ cards: document.querySelectorAll('.mapcard.event').length, marks: document.querySelectorAll('.region-map .rg-event').length }));
+  ok(evUi.cards === 1 && evUi.marks === 1, 'la zona de evento aparece en la lista y en el mapa de la región');
+  await launchZone(null, true);
+  const ez = await Z.evaluate(() => {
+    const e = window.__topolev.exp; const S = window.__topolev.S; const c = e.cur;
+    const w = e.objects.find((o) => o.kind === 'wreck');
+    e.openDialog('objeto7_archive', c, null);
+    e.dialogChoose(0); e.dialogChoose(0); e.dialogChoose(0); e.dialogChoose(0);
+    return { event: e.def.event, wreck: !!w && w.items.some((it) => it.b === 'blackbox'), left: (S.eventZones || []).length, past: !!S.flags.topolevPast, docs: c.a.bag.some((it) => it.b === 'docs') || e.floorAt(c.x, c.y).some((it) => it.b === 'docs') };
+  });
+  ok(ez.event === 'heli' && ez.wreck && ez.left === 0, 'el helicóptero estrellado tiene la caja negra y la zona se consume al entrar');
+  ok(ez.past && ez.docs, 'el archivo del Objeto 7 revela el pasado de Topolev');
+  await Z.evaluate(async () => { (await import('./js/core/state.js')).save(); });
+  await Z.reload(); await Z.waitForTimeout(800); await Z.click('text=CONTINUAR'); await Z.waitForTimeout(900);
+  const ez2 = await Z.evaluate(() => { const e = window.__topolev.exp; return { event: e.def.event, name: e.def.name, wreck: !!e.objects.find((o) => o.kind === 'wreck') }; });
+  ok(ez2.event === 'heli' && ez2.wreck, 'la zona de evento sobrevive a recargar');
+  await ctx5.close();
 
   console.log(errs.length ? 'ERRORES:\n' + errs.join('\n') : '  ✓ sin errores en consola');
   await b.close();

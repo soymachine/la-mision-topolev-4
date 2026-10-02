@@ -17,6 +17,8 @@ import { D8, FISTS, BLOCKING_OBJ, ESSENCE_COLOR } from './shared.js';
 import { ACTORS } from '../data/actors.js';
 
 import { modEss } from '../data/modifiers.js';
+// objetos que abren un diálogo al usarlos (fase 17); o.dlg permite otro diálogo
+const OBJ_DIALOG = { trader: 'wismut_trader', medic: 'wismut_medic', board: 'wismut_board', archive: 'objeto7_archive' };
 export class UsePart {
   // ---------------------------------------------------------------- objetos e interacción
   interact() {
@@ -29,7 +31,7 @@ export class UsePart {
         const o = this.objAt(sq.x + dx, sq.y + dy);
         if (!o) continue;
         if (o.kind === 'cart') continue;
-        const usable = o.kind === 'vein' || o.kind === 'shard' ? o.amount > 0 : o.kind === 'note' ? dx === 0 && dy === 0 : o.kind === 'survivor' ? true : !o.opened || (o.items && o.items.length);
+        const usable = o.kind === 'vein' || o.kind === 'shard' ? o.amount > 0 : o.kind === 'note' ? dx === 0 && dy === 0 : o.kind === 'survivor' || OBJ_DIALOG[o.kind] ? true : !o.opened || (o.items && o.items.length);
         if (usable) return this.interactObj(sq, o);
       }
       // 3. casillas que se usan (puertas blindadas, terminales, interruptores, montacargas, simas, grafito)
@@ -55,13 +57,17 @@ export class UsePart {
       if (sq === this.cur) this.openDialog('survivor', sq, o);
       return false;
     }
+    if (OBJ_DIALOG[o.kind]) {
+      if (sq === this.cur) this.openDialog(o.dlg || OBJ_DIALOG[o.kind], sq, o);
+      return false;
+    }
     if (!o.opened) {
       o.opened = true;
-      const names = { cache: 'el alijo', locker: 'la taquilla', crate: 'la caja', corpse: 'el cadáver' };
+      const names = { cache: 'el alijo', locker: 'la taquilla', crate: 'la caja', corpse: 'el cadáver', wreck: 'los restos del aparato' };
       this.say(`${this.nm(sq)} registra ${names[o.kind]}${o.items.length ? '.' : ': vacío.'}`);
       this.fx.push({ type: 'open', x: o.x, y: o.y });
       this.noise(sq.x, sq.y, 2);
-      if (o.kind === 'cache') { const p = this.pois.find((pp) => pp.type === 'cache' && pp.x === o.x && pp.y === o.y); if (p) p.cleared = true; this.gainXp(sq, 5, true); }
+      if (o.kind === 'cache' || o.kind === 'wreck') { const p = this.pois.find((pp) => pp.type === 'cache' && pp.x === o.x && pp.y === o.y); if (p) p.cleared = true; this.gainXp(sq, 5, true); }
       if (o.items.length && sq === this.cur) this.emit('loot', { obj: o });
       this.dirty = true;
       return true;

@@ -424,6 +424,15 @@ export class HelpScreen {
 <li>Cada día, cada zona puede tener <b>modificadores</b> (Apagón, Niebla, Nidos inquietos, Presencia extranjera…) con su riesgo y su recompensa. Se ven en EXPEDICIÓN antes de lanzar.</li>
 </ul>
 
+<h2>LA REGIÓN: SUPERFICIE Y SUBSUELO</h2>
+<ul>
+<li>En EXPEDICIÓN, el <b>mapa de la región</b> muestra los destinos: <b>◆</b> superficie, <b>▼</b> subsuelo, <b>☭</b> campamento, <b>?</b> cerrado. Cada zona se abre al <b>extraer con éxito</b> de alguna de las que la preceden (pasa el ratón por encima para verlo). Haz clic en un punto para elegirlo.</li>
+<li>En la <b>superficie</b> hay cielo abierto: <b>reloj</b> (☀ de día / ☾ de noche, arriba), luz natural de día y <b>clima</b>: la lluvia irradia al raso, la niebla acorta la vista, el viento se lleva el gas. Los pinos <b>♣</b> tapan media vista; la tierra removida se <b>excava</b> con F; los coches y los blindados dan cobertura; los columpios chirrían.</li>
+<li>Cada zona tiene lo suyo: el <b>tren fantasma</b> de Yanov (¡apártate de la vía cuando se oiga!), los siluros del Estanque, la antena <b>Ψ</b> de Duga-3 (revela el mapa 30 turnos y atrae a todo), las celdas y el archivo del Objeto 7, las paredes que respiran de Las Raíces…</li>
+<li>El <b>Campamento Wismut</b> es territorio aliado: comerciante <b>₽</b>, enfermería <b>✚</b> y tablón de rumores y trabajos <b>▦</b> (F estando al lado). Es tranquilo… de día.</li>
+<li>Las <b>zonas de evento</b> (<b>!</b> en rosa) aparecen unos días y desaparecen: helicópteros estrellados, convoyes, un avión espía, nidos migratorios o el mercado negro de los contrabandistas. Son de un solo uso.</li>
+</ul>
+
 <h2>PERSONAS Y CONVERSACIONES</h2>
 <p>No estáis solos ahí abajo. Las personas (<b>@</b>) llevan un recuadro según su postura: <span class="good">verde</span> aliados, <span class="warn">amarillo</span> neutrales y <span class="bad">rojo</span> hostiles. Los aliados se apartan si chocas con ellos y combaten a vuestro lado; los neutrales no os molestarán... salvo que abráis fuego contra ellos: entonces toda su facción se vuelve hostil.</p>
 <p>Algunos encuentros abren una <b>conversación</b>: elige respuesta con el ratón o con las teclas <b>1–9</b>. Las opciones en gris necesitan algo que no tienes. Lo que decidas se recuerda.</p>

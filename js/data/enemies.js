@@ -51,6 +51,22 @@ export const ENEMIES = {
     range: 2, xp: 18, ess: [14, 22], minL: 5, maxL: 10, group: [1, 1], abil: ['stationary', 'spawn'],
     lore: 'Un nudo de raíces que palpita en el hormigón. Da a luz Musgo errante sin cesar.',
   },
+  // ---- fase 17: superficie y zonas nuevas ----
+  liana: {
+    name: 'Liana chebylita', glyph: 'ʃ', hue: 96, origin: 'Planta', hp: 22, dmg: [2, 4], acc: 82, armor: 1, ev: 0, speed: 100,
+    range: 2, xp: 8, ess: [5, 8], minL: 3, maxL: 10, group: [2, 4], abil: ['stationary', 'grab'],
+    lore: 'Enredaderas del Bosque Rojo que se enroscan en los tobillos. Quien queda atrapado no puede moverse.',
+  },
+  siluro: {
+    name: 'Siluro gigante', glyph: 'ʂ', hue: 184, origin: 'Animal', hp: 48, dmg: [7, 12], acc: 74, armor: 2, ev: 6, speed: 110,
+    range: 1, xp: 16, ess: [10, 16], minL: 5, maxL: 10, group: [1, 2], abil: ['aquatic'],
+    lore: 'Los siluros del estanque de refrigeración ya medían dos metros antes de 1986. Ahora no caben en ninguna leyenda.',
+  },
+  robot: {
+    name: 'Robot de limpieza STR-1', glyph: 'Ѧ', hue: 40, origin: 'Máquina', hp: 38, dmg: [5, 9], acc: 72, armor: 4, ev: 0, speed: 80,
+    range: 4, xp: 14, ess: [0, 0], minL: 4, maxL: 10, group: [1, 2], abil: ['ranged', 'mech'], drops: ['parts', 'parts'],
+    lore: 'Robots de limpieza de los liquidadores, abandonados cuando la radiación les frió la electrónica. Algo los ha vuelto a encender.',
+  },
   // ---- JEFES ----
   pastor: {
     name: 'El Pastor de Ceniza', glyph: 'Ω', hue: 2, origin: 'Desconocido', hp: 130, dmg: [8, 14], acc: 76, armor: 3, ev: 8, speed: 100,
@@ -68,6 +84,7 @@ export const ABIL_TEXT = {
   erratic: 'Movimiento errático', radbite: 'Mordisco radiactivo', poison: 'Veneno', explode: 'Revienta en gas tóxico',
   flying: 'Vuela', stationary: 'Inmóvil', ranged: 'Ataque a distancia', charge: 'Embestida', spawn: 'Engendra musgo',
   summon: 'Invoca lobos', aura: 'Aura de radiación',
+  grab: 'Atrapa (inmoviliza)', aquatic: 'Solo en el agua', mech: 'Máquina (inmune a gas y veneno; suelta piezas)',
 };
 
 // Color según tono y nivel (1..10): tenue a bajo nivel, intenso a alto

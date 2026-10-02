@@ -9,7 +9,8 @@ import { DIALOGS } from '../data/dialogs.js';
 import { createItem, itemName, mergeInto, rarityColor } from '../core/items.js';
 import { agentStats, bagCapacity, giveXp, chooseSpec, talentDef, ALL_TALENTS } from '../core/agents.js';
 import { SPECS } from '../data/specs.js';
-import { MODIFIERS } from '../data/modifiers.js';
+import { MODIFIERS, WEATHER } from '../data/modifiers.js';
+import { EVENT_ZONES } from '../data/world.js';
 import { runEffects } from '../core/events.js';
 import * as C from '../core/campaign.js';
 
@@ -96,6 +97,18 @@ export function installDebug(app) {
       for (const m of list) if (!MODIFIERS[m]) throw new Error('modificadores: ' + Object.keys(MODIFIERS).join(', '));
       S.forceMods = list; print('forzados: ' + list.join(', '));
       if (app.current() === 'base') app.base.render();
+    } },
+    unlock: { a: '', d: 'abre/cierra todas las zonas de la región', f: () => { S.unlockAll = !S.unlockAll; print('todas las zonas: ' + (S.unlockAll ? 'abiertas' : 'según el progreso')); if (app.current() === 'base') app.base.render(); } },
+    evzone: { a: '<tipo>', d: 'hace aparecer una zona de evento en la región', f: ([k]) => {
+      if (!EVENT_ZONES[k]) throw new Error('tipos: ' + Object.keys(EVENT_ZONES).join(', '));
+      const ev = C.spawnEventZone(k); print(`+ ${esc(EVENT_ZONES[k].name)} (${ev.left - 1} días)`, 'good');
+      if (app.current() === 'base') app.base.render();
+    } },
+    clock: { a: '<hh> [clima]', d: 'cambia la hora (y el clima) de la expedición de superficie', f: ([h, w]) => {
+      const e = needExp(); if (e.clock == null) throw new Error('solo en superficie');
+      e.clock = ((num(h, 12) * 60 - e.turn * 2) % 1440 + 1440) % 1440;
+      if (w) { if (!WEATHER[w]) throw new Error('clima: ' + Object.keys(WEATHER).join(', ')); e.weather = w; }
+      e.computeVisibility(); e.dirty = true; e.emit('update'); print(`${e.timeStr()} · ${WEATHER[e.weather].name}`);
     } },
     floor: { a: '<n>', d: 'lleva al escuadrón al piso n (0 = superior)', f: ([n]) => { const e = needExp(); const to = num(n, e.floor + 1); if (!e.changeFloor(to, to > e.floor ? 'lift' : 'liftup')) throw new Error(`pisos: 0–${e.nFloors - 1}`); print(`piso ${to}`); } },
     reveal: { a: '', d: 'revela todo el mapa', f: () => { const e = needExp(); e.explored.fill(1); for (const x of e.enemies) x.seen = 1; print('mapa revelado'); } },

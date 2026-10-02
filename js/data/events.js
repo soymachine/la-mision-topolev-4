@@ -14,7 +14,7 @@ export const EVENTS = [
   // ------------------------------------------------------------ inicio de expedición
   { id: 'first_descent', on: 'expStart', once: true,
     effects: [{ radio: '«Aquí Topolev. Os oigo alto y claro. Recordad: la esencia brilla en azul, los chebylitas no. Si dudáis, volved.»' }] },
-  { id: 'deep_warning', on: 'expStart', once: true, cond: { map: [3, 9] },
+  { id: 'deep_warning', on: 'expStart', once: true, cond: { tier: ['>=', 6] },
     effects: [{ radio: '«Estáis más abajo que nadie desde la primera noche. Las lecturas de aquí no tienen sentido. Mantened el canal abierto.»' }] },
   { id: 'veteran_lead', on: 'expStart', once: 'agent', cond: { agentLvl: ['>=', 5] }, chance: 0.5,
     effects: [{ log: '{agent} revisa el equipo de los demás antes de bajar. Nadie se lo ha pedido; nadie se queja.', cls: 'o1' }] },

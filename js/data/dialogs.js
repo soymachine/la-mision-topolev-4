@@ -6,6 +6,8 @@
 //  · turn  → elegirla gasta el turno del agente activo (solo en expedición)
 import { SURVIVOR_LINES } from './lore.js';
 import { S } from '../core/state.js';
+import { ITEMS } from './items.js';
+import { agentStats } from '../core/agents.js';
 
 const SURVIVOR_STORY = [
   'Llevaba la cuenta de los días rayando la pared con una hebilla. Dejó de hacerlo cuando las rayas empezaron a moverse. «Las paredes respiran, camaradas. De noche se oye cómo respiran.»',
@@ -115,6 +117,130 @@ export const DIALOGS = {
     },
   },
 
+  // ------------------------------------------------------------ Campamento «Wismut» (fase 17)
+  wismut_trader: {
+    title: 'INTENDENCIA · CAMPAMENTO WISMUT', speaker: 'Feldwebel Kranz, intendente', color: '#e6c86a',
+    nodes: {
+      start: {
+        text: (c) => `Detrás de un mostrador hecho con cajas de munición, un sargento de la RDA con gafas de culo de botella. «Rublos, marcos, esencia… aquí todo vale, camarada. Todo menos las promesas.»${night(c) ? ' Habla bajo y no deja de mirar los pozos de ventilación.' : ''}`,
+        opts: [
+          { label: 'COMPRAR', goto: 'buy' },
+          { label: 'VENDER', goto: 'sell' },
+          { label: '¿QUÉ SE CUENTA POR AQUÍ?', goto: 'talk' },
+          { label: 'MARCHARSE' },
+        ],
+      },
+      buy: {
+        text: (c) => `«Precio de camaradas.»${(S.rep.rda || 0) >= 25 ? ' Os hace un guiño: sois amigos de la RDA y se nota en la cuenta.' : ''} Tenéis ${S.rub} ₽.`,
+        opts: () => [
+          buyOpt('ai2', 60), buyOpt('ipp', 30, 2), buyOpt('antirad', 40, 2), buyOpt('ration', 25, 2),
+          buyOpt('a_9x18', 25, 24), buyOpt('a_545', 55, 30), buyOpt('a_12', 40, 12), buyOpt('filter', 50),
+          { label: 'VOLVER', goto: 'start' },
+        ],
+      },
+      sell: {
+        text: '«Compro chatarra útil y papeles interesantes. Lo demás, a la central de compras de vuestra base.»',
+        opts: () => [
+          sellOpt('parts', 0.9), sellOpt('intel', 0.7), sellOpt('docs', 0.7), sellOpt('blackbox', 0.6),
+          { label: 'VOLVER', goto: 'start' },
+        ],
+      },
+      talk: {
+        text: (c) => pick(WISMUT_TALK, c),
+        opts: [{ label: 'VOLVER', goto: 'start' }],
+      },
+    },
+  },
+
+  wismut_medic: {
+    title: 'ENFERMERÍA · CAMPAMENTO WISMUT', speaker: 'Dra. Ilse Brandt', color: '#ff8a8a',
+    nodes: {
+      start: {
+        text: (c) => `Una camilla, una lámpara de quirófano alimentada con una dinamo y una doctora que no ha dormido en días. «Sentaos. ¿Quién sangra más?»${hurtList(c)}`,
+        opts: (c) => {
+          const cost = medicCost(c);
+          return [
+            { label: cost ? `CURAR A TODO EL EQUIPO (${cost} ₽)` : 'CURAR A TODO EL EQUIPO (GRATIS: SOIS AMIGOS DE LA RDA)', cond: { rub: ['>=', cost] }, hint: `no tenéis ${cost} ₽`, cls: 'good', turn: true, effects: [{ rub: -cost }, { run: (cc) => healTeam(cc, 1, 0) }, { log: 'La doctora Brandt cose, venda y maldice en alemán. El equipo sale como nuevo.', cls: 'good' }] },
+            { label: `TRATAR LA RADIACIÓN (${cost + 30} ₽)`, cond: { rub: ['>=', cost + 30] }, hint: `no tenéis ${cost + 30} ₽`, turn: true, effects: [{ rub: -(cost + 30) }, { run: (cc) => healTeam(cc, 0, 45) }, { log: 'Yoduro, lavado gástrico y una charla muy seria sobre los dosímetros. −45 de radiación a todo el equipo.', cls: 'good' }] },
+            { label: '[SANITARIO] AYUDARLA CON LOS HERIDOS', show: { spec: 'sanitario' }, turn: true, effects: [{ rep: ['rda', 6] }, { xp: 40 }, { give: { item: 'surgkit' } }, { log: '{agent} pasa una hora en la enfermería. La doctora le regala un kit quirúrgico «de los buenos».', cls: 'good' }] },
+            { label: 'MARCHARSE' },
+          ];
+        },
+      },
+    },
+  },
+
+  wismut_board: {
+    title: 'TABLÓN DEL CAMPAMENTO', speaker: 'Tablón de anuncios', color: '#c8b48c',
+    nodes: {
+      start: {
+        text: (c) => `Clavados con chinchetas oxidadas: turnos de guardia, una foto de Dresde, un mapa a lápiz y una nota escrita a máquina.<br><br>«${pick(RUMORS, c, S.day)}»`,
+        opts: [
+          { label: 'TRABAJO: ENTREGAR 5 PIEZAS DE RECAMBIO (180 ₽)', cond: { test: (c) => countItem(c, 'parts') >= 5 }, hint: 'necesitáis 5 piezas de recambio', cls: 'good', turn: true, effects: [{ run: (c) => takeItem(c, 'parts', 5) }, { rub: 180 }, { rep: ['rda', 4] }, { incFlag: 'wismutJobs' }, { log: 'El intendente cuenta las piezas dos veces y os paga 180 ₽. «Con esto arreglamos el generador.»', cls: 'good' }] },
+          { label: 'TRABAJO: ENTREGAR INFORMES OCCIDENTALES (250 ₽ + REPUTACIÓN)', cond: { hasItem: 'intel' }, hint: 'no lleváis informes de inteligencia', cls: 'good', turn: true, effects: [{ run: (c) => takeItem(c, 'intel', 1) }, { rub: 250 }, { rep: ['rda', 10] }, { incFlag: 'wismutJobs' }, { log: 'Un oficial de la Stasi se lleva los papeles sin decir palabra. Al día siguiente os llega el pago.', cls: 'good' }] },
+          { label: 'COPIAR EL MAPA A LÁPIZ', show: { notFlag: 'wismutMap' }, turn: true, effects: [{ setFlag: 'wismutMap' }, { reveal: 40 }, { log: (c) => `Copiáis el plano del campamento y alrededores (${c.revealed || 0} casillas).`, cls: 'o1' }] },
+          { label: 'SEGUIR' },
+        ],
+      },
+    },
+  },
+
+  // ------------------------------------------------------------ Objeto 7 (fase 17)
+  objeto7_archive: {
+    title: 'ARCHIVO DEL OBJETO 7', speaker: 'Expedientes del KGB', color: '#e05050',
+    nodes: {
+      start: {
+        text: 'Un armario ignífugo con el sello del Comité de Seguridad del Estado. La cerradura cede con un chasquido. Dentro: carpetas grises, una cinta magnética y una foto de un hombre joven con bata. Al dorso, a lápiz: «A. T., 1971».',
+        opts: [
+          { label: 'LEER EL EXPEDIENTE «TOPOLEV, A.»', goto: 'file' },
+          { label: 'LLEVARSE LAS CARPETAS SIN LEERLAS', show: { notFlag: 'topolevPast' }, turn: true, effects: [{ give: { item: 'docs' } }, { give: { item: 'intel' } }, { setFlag: 'archiveTaken' }, { run: (c) => { if (c.obj) c.obj.opened = true; } }] },
+          { label: 'CERRAR EL ARMARIO' },
+        ],
+      },
+      file: {
+        text: '«Topolev, Arkadi Semiónovich. Físico nuclear. Reclutado en 1969 para el Programa “Ceniza”: estudio de la radiorresistencia biológica.» Hay fotos de placas de Petri con algo que crece en círculos concéntricos. «Muestra n.º 7, recuperada del accidente de Kyshtym (1957). Responde a la radiación ionizante con crecimiento acelerado.»',
+        opts: [{ label: 'SEGUIR LEYENDO', goto: 'file2' }],
+      },
+      file2: {
+        text: '«1979. El sujeto Topolev solicita la suspensión del programa por razones éticas. Denegado. 1982. La muestra n.º 7 es trasladada a la central V. I. Lenin, nivel −4, para “pruebas de exposición prolongada”. Responsable científico: A. S. Topolev.» Debajo, otra letra, temblorosa: «Yo firmé el traslado. Yo la traje aquí.»',
+        opts: [{ label: 'SEGUIR LEYENDO', goto: 'file3' }],
+      },
+      file3: {
+        text: 'La última hoja es una orden del 27 de abril de 1986: «Ante la pérdida de contención, el Objeto 7 queda sellado. El personal científico se considera prescindible. No se informará a Moscú.» Alguien ha tachado “prescindible” hasta romper el papel. Las chebylitas no salieron del reactor. Salieron de aquí.',
+        opts: [
+          { label: 'GUARDAR EL EXPEDIENTE PARA EL DOCTOR', turn: true, effects: [{ setFlag: 'topolevPast' }, { give: { item: 'docs' } }, { xp: 60 }, { run: (c) => { if (c.obj) c.obj.opened = true; } }, { log: 'Guardáis el expediente. El doctor tendrá que dar muchas explicaciones.', cls: 'warn' }] },
+          { label: 'QUEMARLO', turn: true, effects: [{ setFlag: 'topolevPast' }, { setFlag: 'topolevBurned' }, { xp: 40 }, { run: (c) => { if (c.obj) c.obj.opened = true; } }, { log: 'El papel arde rápido. Lo que sabéis, ya no lo puede saber nadie más.', cls: 'dimt' }] },
+        ],
+      },
+    },
+  },
+
+  // ------------------------------------------------------------ Mercado negro (fase 17)
+  smuggler_trader: {
+    title: 'MERCADO NEGRO', speaker: 'Vasyl «el Tuerto», contrabandista', color: '#d9a066',
+    nodes: {
+      start: {
+        text: `Una lona sobre un Moskvitch sin ruedas y, debajo, de todo: vaqueros, discos de los Beatles, cigarrillos Marlboro… y armas que no deberían estar en la URSS. «Sin preguntas, sin recibos, sin rencores.»`,
+        opts: [
+          { label: 'VER LA MERCANCÍA', goto: 'buy' },
+          { label: 'VENDER', goto: 'sell' },
+          { label: 'MARCHARSE' },
+        ],
+      },
+      buy: {
+        text: () => `«Material americano. Recién caído del cielo, como quien dice.» Tenéis ${S.rub} ₽.`,
+        opts: () => [
+          buyOpt('m1911', 520), buyOpt('rem870', 950), buyOpt('m16', 1200), buyOpt('a_45', 45, 14), buyOpt('a_556', 70, 20), buyOpt('a_12', 45, 12), buyOpt('vodka', 30),
+          { label: 'VOLVER', goto: 'start' },
+        ],
+      },
+      sell: {
+        text: '«Pago en efectivo. Mejor que el Estado, peor que tu madre.»',
+        opts: () => [sellOpt('parts', 1), sellOpt('intel', 1), sellOpt('blackbox', 0.9), sellOpt('firecoat', 0.9), sellOpt('docs', 0.8), { label: 'VOLVER', goto: 'start' }],
+      },
+    },
+  },
+
   // ------------------------------------------------------------ base
   base_komitet: {
     title: 'VISITA DEL COMITÉ', speaker: 'Camarada Zhdánov, enviado del Comité', color: '#e05050',
@@ -161,3 +287,65 @@ export const DIALOGS = {
 
 // el nodo de vuelta del superviviente reutiliza las opciones de «start» salvo la de la historia
 DIALOGS.survivor.nodes.start2.opts = DIALOGS.survivor.nodes.start.opts.slice(1);
+
+// ------------------------------------------------------------ utilidades de comercio (fase 17)
+const night = (c) => !!(c.exp && c.exp.isNight && c.exp.isNight());
+const pick = (list, c, seed) => list[Math.abs(((seed ?? 0) + ((c.obj && c.obj.x) || 0) * 7 + ((c.exp && c.exp.turn) || 0)) | 0) % list.length];
+const discount = (p) => Math.round(p * ((S.rep.rda || 0) >= 25 ? 0.8 : 1));
+function countItem(c, b) { return c.a ? c.a.bag.filter((it) => it.b === b).reduce((n, it) => n + (it.q || 1), 0) : 0; }
+function takeItem(c, b, n) {
+  for (const it of c.a.bag) {
+    if (n <= 0) break;
+    if (it.b !== b) continue;
+    const mv = Math.min(it.q || 1, n);
+    n -= mv;
+    if (it.q !== undefined) it.q -= mv; else it.q = 0;
+  }
+  c.a.bag = c.a.bag.filter((it) => !(it.b === b && it.q !== undefined && it.q <= 0));
+}
+function buyOpt(b, price, q) {
+  const p = discount(price), d = ITEMS[b];
+  return { label: `${d.name.toUpperCase()}${q ? ' ×' + q : ''} — ${p} ₽`, cond: { rub: ['>=', p] }, hint: `no tenéis ${p} ₽`, effects: [{ rub: -p }, { give: { item: b, q } }], goto: 'buy' };
+}
+function sellOpt(b, k) {
+  return {
+    label: (c) => { const n = countItem(c, b); return `${ITEMS[b].name.toUpperCase()}${n ? ' ×' + n : ''} — ${Math.round(ITEMS[b].value * k)} ₽ c/u`; },
+    show: { hasItem: b },
+    effects: [{ run: (c) => { const n = countItem(c, b); takeItem(c, b, n); S.rub += Math.round(ITEMS[b].value * k) * n; c.exp && c.exp.say(`Vendéis ${n} × ${ITEMS[b].name} por ${Math.round(ITEMS[b].value * k) * n} ₽.`, 'good'); } }],
+    goto: 'sell',
+  };
+}
+function medicCost(c) {
+  if ((S.rep.rda || 0) >= 25) return 0;
+  const team = c.exp ? c.exp.team : [];
+  return 15 + team.reduce((n, q) => n + Math.max(0, agentStats(q.a).hpMaxEff - q.a.hp), 0);
+}
+function hurtList(c) {
+  const team = c.exp ? c.exp.team : [];
+  const hurt = team.filter((q) => q.a.hp < agentStats(q.a).hpMaxEff);
+  return hurt.length ? '' : ' Os mira de arriba abajo. «Estáis enteros. Volved cuando no lo estéis.»';
+}
+function healTeam(c, hp, rad) {
+  for (const q of c.exp ? c.exp.team : []) {
+    const a = q.a;
+    if (rad) a.rad = Math.max(0, a.rad - rad);
+    if (hp) { a.hp = agentStats(a).hpMaxEff; q.poison = 0; q.burn = 0; }
+  }
+  if (c.exp) c.exp.emit('update');
+}
+const WISMUT_TALK = [
+  '«De día esto es casi Leipzig: café de achicoria, partidas de skat, alguien toca la armónica. De noche… de noche cerramos las escotillas y rezamos, aunque el Partido diga que no hay a quién.»',
+  '«Los suecos pasan a veces a cambiar filtros por tabaco. Los americanos no pasan. Los americanos disparan.»',
+  '«Bajamos ciento doce. Quedamos cuarenta y tres. No me pidáis que os cuente los otros sesenta y nueve.»',
+  '«El Objeto 7 no sale en ningún plano. Por eso sabemos que existe.»',
+];
+const RUMORS = [
+  'Se busca voluntario para revisar el pozo n.º 3. Ruidos de rascado desde el martes. Recompensa: doble ración de café.',
+  'Dicen que en el estanque de refrigeración hay un siluro del tamaño de un Trabant. El cabo Riedel jura que se llevó su barca entera.',
+  'La antena Duga sigue zumbando. Quien la enciende ve toda la zona… y toda la zona le ve a él.',
+  'Por las vías de Yanov pasa un tren a medianoche. No tiene maquinista. No para en ninguna estación.',
+  'En Rassokha los robots de limpieza se han vuelto a encender. Siguen limpiando. Limpian cualquier cosa.',
+  'En el Bosque Rojo la tierra está blanda donde enterraron los pinos. Hay cosas enterradas que no son pinos.',
+  'El sótano del hospital n.º 126 de Prípiat: no toquéis la ropa. NO TOQUÉIS LA ROPA.',
+  'Un convoy de la Stasi lleva tres días sin dar señales al sur de la central. Recompensa por la carga.',
+];

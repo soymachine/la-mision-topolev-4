@@ -2,7 +2,7 @@
 // Los demás métodos están en combat.js, use.js, extraction.js, ai.js y environment.js
 import { RNG, rng, clamp, cheb, line, uid } from '../util/rng.js';
 import { T, TILES } from '../data/tiles.js';
-import { MAPS } from '../data/world.js';
+import { MAPS, floorDef } from '../data/world.js';
 import { ENEMIES, scaleEnemy, enemyColor } from '../data/enemies.js';
 import { ITEMS } from '../data/items.js';
 import { generateMap } from './mapgen.js';
@@ -26,7 +26,7 @@ import { EnvironmentPart } from './environment.js';
 import { StoryPart } from './story.js';
 import { AbilityPart } from './abilities.js';
 import { TerrainPart } from './terrain.js';
-import { MODIFIERS, modEss, modRad } from '../data/modifiers.js';
+import { MODIFIERS, modEss, modRad, WEATHER } from '../data/modifiers.js';
 export { ORDERS, ESSENCE_COLOR };
 
 function b64(u8) {
@@ -44,13 +44,15 @@ function unb64(str) {
 export class Expedition {
   // ---------------------------------------------------------------- creación
   // mods: modificadores de zona del día (data/modifiers.js)
-  static create(mapIdx, agents, mods = []) {
-    const def = MAPS[mapIdx];
+  // zoneDef: definición propia para las zonas de evento temporales (si no, la de MAPS[mapIdx])
+  static create(mapIdx, agents, mods = [], zoneDef = null) {
+    const def = zoneDef || MAPS[mapIdx];
     const seed = (Math.random() * 2 ** 32) >>> 0;
     const e = new Expedition();
     e.mapIdx = mapIdx; e.seed = seed;
+    e.zoneDef = zoneDef;
     e.mods = mods;
-    e.nFloors = floorsFor(mapIdx);
+    e.nFloors = def.floors || 1;
     e.floor = 0;
     e.floorStore = [];
     e.turn = 1;
@@ -59,11 +61,18 @@ export class Expedition {
     e.sense = 0; e.senseR = 0;
     e.tally = { kills: 0, essence: 0, items: 0, dmgDealt: 0, dmgTaken: 0 };
     const g = new RNG(seed ^ 0x5bd1e995);
-    e.surgeAt = 300 + mapIdx * 40 + g.int(0, 60) - (mods.includes('pulso') ? 150 : 0);
+    e.surgeAt = 300 + (def.tier || 0) * 20 + g.int(0, 60) - (mods.includes('pulso') ? 150 : 0);
     e.nextTemp = 40 + g.int(10, 50) - S.modules.radar * 5;
     e.nextRadio = 25 + g.int(0, 40);
     e.squad = [];
     e.enemies = [];
+    // superficie: reloj (2 minutos por turno) y clima
+    if (def.stratum === 'sup') {
+      const day = (S.day || 1) % 2 === 1;
+      e.clock = (day ? g.int(6, 14) : g.int(17, 22)) * 60 + g.int(0, 59);
+      e.weather = g.weighted(Object.keys(WEATHER), (k) => WEATHER[k].w);
+    }
+    if (def.social) e.raidAt = g.chance(0.5) ? g.int(60, 110) : 0;
     e.buildFloor(0);
     // escuadrón
     const startCells = [[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]];
@@ -80,16 +89,25 @@ export class Expedition {
     e.computeVisibility(true);
     e.say(`Inserción en <b>${def.name}</b>. Nivel medio ${def.lvl[0]}–${def.lvl[1]}${e.nFloors > 1 ? ` · ${e.nFloors} pisos (más abajo, más peligro y mejor botín)` : ''}. Recolectad esencia y salid por un punto de extracción.`, 'o1');
     e.say('Los puntos de extracción (<span class="cyan">⌂</span>) están marcados en el radar. Pulsa <b>?</b> para ver los controles.', 'dimt');
+    if (e.clock != null) e.say(`${e.isNight() ? '☾ Es de noche' : '☀ Es de día'} (${e.timeStr()}). Clima: <b>${WEATHER[e.weather].name}</b> — ${WEATHER[e.weather].desc}`, 'o1');
+    if (def.social) e.say('☭ Campamento «Wismut»: aquí no se dispara. Comerciante, enfermería y tablón de rumores (F junto a ellos).', 'good');
     for (const m of mods) if (MODIFIERS[m]) e.say(`<span style="color:${MODIFIERS[m].color}">${MODIFIERS[m].glyph} ${MODIFIERS[m].name}</span>: ${MODIFIERS[m].risk} <span class="good">${MODIFIERS[m].reward}</span>`, 'dimt');
     e.trigger('expStart');
     e.checkSector(e.cur);
     return e;
   }
 
+  zone() { return this.zoneDef || MAPS[this.mapIdx]; }
+  // hora del día en superficie (2 minutos por turno)
+  minutes() { return this.clock == null ? null : (this.clock + this.turn * 2) % 1440; }
+  isNight() { const m = this.minutes(); return m != null && (m < 360 || m >= 1260); }
+  timeStr() { const m = this.minutes(); return m == null ? '' : `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; }
+  outdoors(x, y) { return !!this.surface && !(this.indoor && this.indoor[this.key(x, y)]); }
+
   // genera el piso f (nivel de amenaza +1 por piso y mapas algo más pequeños)
   buildFloor(f) {
-    const base = MAPS[this.mapIdx];
-    const def = f === 0 ? base : { ...base, lvl: [Math.min(10, base.lvl[0] + f), Math.min(10, base.lvl[1] + f)], w: Math.round(base.w * (1 - 0.1 * f)), h: Math.round(base.h * (1 - 0.1 * f)), nests: base.nests.map((n) => n + f), caches: base.caches.map((n) => n + f) };
+    const base = this.zone();
+    const def = floorDef(base, f);
     const modSet = Object.fromEntries((this.mods || []).map((m) => [m, true]));
     const m = generateMap(def, this.mapIdx, (this.seed + f * 7919) >>> 0, { radar: S.modules.radar, floor: f, floors: this.nFloors, mods: modSet });
     this.floor = f;
@@ -97,6 +115,8 @@ export class Expedition {
     this.exits = m.exits; this.pois = m.pois; this.objects = m.objects; this.vents = m.vents;
     this.rad = m.radField; this.anomaly = m.anomaly;
     this.start = m.start; this.lift = m.lift; this.chasms = m.chasms;
+    this.surface = !!def.surface; this.indoor = m.indoor || null; this.antennaAt = m.antennaAt || null; this.railRows = m.railRows || [];
+    if (this.railRows.length && !this.trainAt) this.trainAt = rng.int(60, 140);
     this.floorItems = new Map();
     for (const fi of m.floor) this.addFloor(fi.x, fi.y, fi.item);
     this.essence = new Map();
@@ -116,6 +136,7 @@ export class Expedition {
     const an = []; for (let k = 0; k < this.anomaly.length; k++) if (this.anomaly[k]) an.push(k);
     return {
       w: this.w, h: this.h, t: b64(this.t), sec: b64(this.sec), explored: b64(this.explored),
+      surface: !!this.surface, indoor: this.indoor ? b64(this.indoor) : null, antennaAt: this.antennaAt || null, railRows: this.railRows || [],
       sectors: this.sectors, exits: this.exits, pois: this.pois, objects: this.objects, vents: this.vents, start: this.start, lift: this.lift || null, chasms: this.chasms || [],
       rad: sparse(this.rad, 100), anomaly: an, gas: sparse(this.gas), fire: sparse(this.fire), smoke: sparse(this.smoke),
       traps: this.traps, pending: this.pending || [], flares: this.flares || [], charges: this.charges || [],
@@ -125,7 +146,8 @@ export class Expedition {
     };
   }
   applyMapState(d) {
-    for (const k of ['w', 'h', 'sectors', 'exits', 'pois', 'objects', 'vents', 'start', 'lift', 'chasms', 'traps', 'pending', 'flares', 'charges', 'steam', 'sampled', 'litOn', 'termFails', 'secSeen', 'enemies']) if (d[k] !== undefined) this[k] = d[k];
+    for (const k of ['w', 'h', 'sectors', 'exits', 'pois', 'objects', 'vents', 'start', 'lift', 'chasms', 'traps', 'pending', 'flares', 'charges', 'steam', 'sampled', 'litOn', 'termFails', 'secSeen', 'enemies', 'antennaAt', 'railRows']) if (d[k] !== undefined) this[k] = d[k];
+    this.surface = !!d.surface; this.indoor = d.indoor ? unb64(d.indoor) : null;
     this.t = unb64(d.t); this.sec = unb64(d.sec); this.explored = unb64(d.explored);
     const N = this.w * this.h;
     this.rad = new Float32Array(N); for (const [k, v] of d.rad) this.rad[k] = v / 100;
@@ -155,10 +177,11 @@ export class Expedition {
   serialize() {
     return {
       ...this.mapState(),
-      mapIdx: this.mapIdx, seed: this.seed, mods: this.mods || [], nFloors: this.nFloors || 1, floor: this.floor || 0, floorStore: this.floorStore || [],
+      mapIdx: this.mapIdx, seed: this.seed, zoneDef: this.zoneDef || null, mods: this.mods || [], nFloors: this.nFloors || 1, floor: this.floor || 0, floorStore: this.floorStore || [],
       sense: this.sense, senseR: this.senseR, relations: this.relations || {},
       eventsDone: this.eventsDone || {}, facSeen: this.facSeen || {}, dlg: this.dlg || null, dlgQueue: this.dlgQueue || [],
       patria: this.patria || 0, truceUsed: this.truceUsed || 0,
+      clock: this.clock ?? null, weather: this.weather || null, trainAt: this.trainAt || 0, raidAt: this.raidAt || 0, revealT: this.revealT || 0, antennaUsed: this.antennaUsed || 0,
       turn: this.turn, log: this.log.slice(-60), evac: this.evac, tally: this.tally,
       surgeAt: this.surgeAt, nextTemp: this.nextTemp, nextRadio: this.nextRadio, active: this.active,
       squad: this.squad.map((sq) => { const { a, ...rest } = sq; return rest; }),
@@ -202,7 +225,7 @@ export class Expedition {
     this.updateTrack();
     this.computeVisibility(true);
     this.checkSector(this.cur);
-    const lvl = MAPS[this.mapIdx].lvl;
+    const lvl = this.zone().lvl;
     this.say(`${to > from ? '⇓' : '⇑'} Piso ${floorName(to)} de ${this.nFloors}. Amenaza: nivel ${Math.min(10, lvl[0] + to)}–${Math.min(10, lvl[1] + to)}.${to > 0 ? ' Las extracciones permanentes quedan arriba.' : ''}`, 'cyan');
     this.dirty = true;
     this.emit('floor');
@@ -243,7 +266,7 @@ export class Expedition {
   }
 
   init() {
-    this.def = MAPS[this.mapIdx];
+    this.def = this.zone();
     this.ambient = this.def.ambientRad * 0.25 + modRad(this.mods);
     this.visible = new Uint8Array(this.w * this.h);
     this.fx = [];
@@ -271,7 +294,8 @@ export class Expedition {
   opaque(x, y) {
     if (!this.inb(x, y)) return true;
     const k = this.key(x, y);
-    return TILES[this.t[k]].opaque === 1 || this.smoke[k] > 0;
+    const td = TILES[this.t[k]];
+    return td.opaque === 1 || this.smoke[k] > 0 || (td.half === 1 && (x + y) % 2 === 0);
   }
   walkTile(x, y) { return this.inb(x, y) && TILES[this.t[this.key(x, y)]].walk === 1; }
   blockedObj(x, y) { const o = this.objMap.get(this.key(x, y)); return o && BLOCKING_OBJ[o.kind] ? o : null; }
@@ -382,8 +406,8 @@ export class Expedition {
     const st = human ? scaleHuman(def, lvl) : scaleEnemy(def, lvl);
     const e = { uid: uid('e'), type, lvl, x, y, hp: st.hp, hpMax: st.hp, energy: rng.int(0, 99), state, mem: state === 'alerta' ? 15 : 0, poi, cd: 0, cd2: 0, poison: 0, burn: 0, seen: 0, kids: 0, faction: faction || def.faction || 'chebylitas' };
     if (human) {
-      e.w = createItem(def.weapon, rng.chance(0.25) ? 1 : 0, rng);
-      e.ld = itemStats(e.w).mag || 0;
+      e.w = def.weapon ? createItem(def.weapon, rng.chance(0.25) ? 1 : 0, rng) : null;
+      e.ld = e.w ? itemStats(e.w).mag || 0 : 0;
       e.home = [x, y];
       if (state === 'dormido') e.state = 'errante';
     }
@@ -441,9 +465,9 @@ export class Expedition {
     const vis = this.visible;
     vis.fill(0);
     // luz: en la oscuridad la visión baja a la mitad (salvo linterna o visor nocturno)
-    if (this.lightDirty || !this.lightMap || this.flares.length || this.fire.some((f) => f)) this.computeLight();
+    if (this.lightDirty || !this.lightMap || this.surface || this.flares.length || this.fire.some((f) => f)) this.computeLight();
     const L = this.lightMap;
-    const fog = (this.mods || []).includes('niebla') ? 3 : 0;
+    const fog = ((this.mods || []).includes('niebla') ? 3 : 0) + (this.surface && this.weather === 'niebla' ? 3 : 0);
     const sources = [];
     for (const sq of this.team) { const R = Math.max(3, this.ast(sq).vision - fog); sources.push([sq.x, sq.y, R, this.darkRadius(sq, R)]); }
     for (const f of this.flares) sources.push([f.x, f.y, 5, 5]);
@@ -511,6 +535,12 @@ export class Expedition {
   tryMove(sq, nx, ny, bump) {
     if (!this.inb(nx, ny)) return false;
     const ent = this.entityAt(nx, ny);
+    // atrapado por una liana: forcejear gasta el turno
+    if (sq.rooted > 0 && !(ent && ent.type && this.hostile(sq, ent))) {
+      sq.rooted--;
+      if (sq === this.cur) this.say(`${this.nm(sq)} forcejea para soltarse${sq.rooted ? '…' : ': ¡libre!'}`, 'warn');
+      return true;
+    }
     if (ent && ent.type) {
       if (this.hostile(sq, ent)) return this.attack(sq, ent);
       if (!bump) return false;
@@ -551,6 +581,7 @@ export class Expedition {
     if (tt === T.DOOR) { this.t[this.key(nx, ny)] = T.DOOR_OPEN; this.fx.push({ type: 'door', x: nx, y: ny }); }
     this.moveEntity(sq, nx, ny);
     if (this.onStep(sq, true)) this.extraTurn = 1;
+    if (this.surface) this.creak(sq);
     this.onAgentEnter(sq);
     return true;
   }
@@ -693,7 +724,7 @@ for (const Part of [CombatPart, UsePart, ExtractionPart, AIPart, EnvironmentPart
   }
 }
 
-export function floorsFor(mapIdx) { return [2, 2, 2, 3, 3][mapIdx] || 1; }
+export function floorsFor(mapIdx) { return (MAPS[mapIdx] && MAPS[mapIdx].floors) || 1; }
 export const floorName = (f) => (f === 0 ? 'superior' : `−${f}`);
 
 export function countItems(a) {

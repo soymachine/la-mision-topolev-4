@@ -398,3 +398,17 @@ body.no-crt #crt { display: none; }
 .zone-mods { letter-spacing: .3ch; margin-top: 1px; }
 .mods-box { margin: .5em 0; padding: .3em 1ch; border: 1px dashed var(--o5); }
 .mods-box .mod-row { margin: .15em 0; line-height: 1.4; }
+
+/* ---------- fase 17: mapa de la región ---------- */
+.region-wrap { margin: 0 0 .5em; }
+.region-map { margin: 0; line-height: 1.05; font-size: .92em; color: var(--o5); white-space: pre; overflow-x: auto; }
+.rg-for { color: #3c4a20; } .rg-red { color: #8a3a10; } .rg-water { color: #2a7a80; } .rg-road { color: #5a4630; } .rg-rail { color: #6a5a48; }
+.rg-plant { color: #a05020; } .rg-city { color: #7a6a5a; } .rg-duga { color: #7fb8ff; } .rg-label { color: var(--o4); } .rg-dim { color: #2a1a0a; }
+.rg-mk { font-weight: 800; cursor: pointer; padding: 0 1px; }
+.rg-sup { color: #e6dc6a; } .rg-sub { color: var(--o1); } .rg-locked { color: #5a4030; cursor: help; }
+.rg-event { color: #ff6ad5; animation: asc-pulse 1.2s ease-in-out infinite; }
+.rg-cleared { text-decoration: underline; }
+.rg-sel { background: var(--o2); color: #000 !important; animation: none; }
+.rg-mk:hover { background: var(--o4); color: #000; }
+.region-legend { font-size: .82em; color: var(--o4); }
+.mapcard.event.sel { border-left-color: #ff6ad5; }

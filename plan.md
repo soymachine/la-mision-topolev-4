@@ -159,7 +159,8 @@ O órdenes del escuadrón · I inventario · M mapa · Espacio esperar · ? ayud
 - Fase 14 completada: contenedores de seguridad (KGB, Kolyma, Matrioska) y ascenso de agentes (atributos + talentos).
 - Fase 15 completada: atributos 1–10, trasfondos, 7 especializaciones con árboles de talentos y habilidades activas, rasgos adquiridos, condecoraciones, heridas y retiro como instructor.
 - Fase 16 completada: casillas con mecánica (cobertura, destructibles, puertas blindadas, terminales…), 2–3 pisos por zona, luz y oscuridad, modificadores de zona diarios.
-- **Siguiente sesión:** seguir [`plan-ampliacion.md`](plan-ampliacion.md) por la fase 17 (nuevas zonas: Prípiat y el Bosque Rojo primero) según el orden recomendado al final de ese archivo. Marcar allí las tareas al completarlas.
+- Fase 17 completada: 12 zonas nuevas (6 de superficie con día/noche y clima, 6 de subsuelo), mapa ASCII de la región con progresión por requisitos, campamento social Wismut, equipo occidental y zonas de evento temporales.
+- **Siguiente sesión:** seguir [`plan-ampliacion.md`](plan-ampliacion.md) por la fase 18 según el orden recomendado al final de ese archivo. Marcar allí las tareas al completarlas.
 
 ## FASE 12 — Ampliación del arsenal (petición del usuario)
 - [x] 12.1 69 armas (×4) en `js/data/weapons.js`, cada una con dibujo ASCII visible en su tooltip; nuevos tipos lanzador (explosión) y 5 municiones nuevas

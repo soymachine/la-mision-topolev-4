@@ -364,9 +364,37 @@ export const WEAPONS = {
   |_____________|=====( )~ϟ~ϟ~
      \(_)/  ||         ϟ  ~ϟ
             |_|`) }),
+
+  // ======================================================== OCCIDENTALES (fase 17: solo como botín de zonas concretas)
+  // west: no aparecen en la intendencia ni en el botín general; los llevan los estadounidenses y los contrabandistas
+  m1911: W({ name: 'Pistola Colt M1911A1', wtype: 'pistol', tier: 2, dmg: [7, 11], acc: 78, range: 6, mag: 7, ammo: 'a_45', noise: 11, crit: 8, value: 420, west: 1, desc: 'Calibre .45 de la Operación «Nightingale». Pesada y contundente.', art: A(String.raw`
+  ________________
+ |_|_|_|_|_|_|_|__|__
+ |___________________|
+     \(_)/ |  |
+           |__|`) }),
+  m16: W({ name: 'Fusil M16A1', wtype: 'rifle', tier: 3, dmg: [6, 10], acc: 80, range: 10, mag: 20, burst: 2, ammo: 'a_556', noise: 13, value: 900, west: 1, desc: 'Fusil estadounidense de 5,56. Preciso y ligero; ráfagas cortas.', art: A(String.raw`
+     _                ____
+  __| |______________|____|_______________
+ |__|_|  _______  ___|____|_______________|=-
+   /____/       \(_)/  ||
+                      |__|`) }),
+  rem870: W({ name: 'Escopeta Remington 870', wtype: 'shotgun', tier: 3, dmg: [10, 17], acc: 70, range: 5, mag: 6, ammo: 'a_12', noise: 15, value: 780, west: 1, desc: 'De corredera. El ruido del cerrojo ya asusta.', art: A(String.raw`
+  ________   ___________________________
+ |________|=|____[=======]______________|
+     \_______\(_)/`) }),
+  m21: W({ name: 'Fusil de tirador M21', wtype: 'sniper', tier: 4, dmg: [14, 22], acc: 86, range: 15, mag: 20, ammo: 'a_762n', noise: 15, crit: 15, pierce: 2, value: 1600, west: 1, desc: 'M14 de precisión con mira ART. El arma de los tiradores de la CIA.', art: A(String.raw`
+               ___________
+  ___         |____ART____|
+ |   \________|__==__==__|____________________
+ |___/        \(_)/  ||                        |=
+                     ||`) }),
 };
 
 export const NEW_AMMO = {
+  a_556: { cat: 'ammo', name: 'Munición 5,56×45 mm', glyph: '"', tier: 3, stack: 120, value: 4, pack: 20, west: 1, desc: 'Munición OTAN para el M16.' },
+  a_45: { cat: 'ammo', name: 'Munición .45 ACP', glyph: '"', tier: 2, stack: 80, value: 4, pack: 14, west: 1, desc: 'Para la Colt M1911.' },
+  a_762n: { cat: 'ammo', name: 'Munición 7,62×51 mm OTAN', glyph: '"', tier: 4, stack: 80, value: 6, pack: 20, west: 1, desc: 'Para el fusil de tirador M21.' },
   a_762x39: { cat: 'ammo', name: 'Munición 7,62×39 mm', glyph: '"', tier: 1, stack: 150, value: 2, pack: 30, desc: 'Para AKM, SKS y RPD.' },
   a_9x39: { cat: 'ammo', name: 'Munición 9×39 mm SP-6', glyph: '"', tier: 3, stack: 100, value: 5, pack: 20, desc: 'Subsónica y perforante. Para VSS, AS Val, Groza y Veresk.' },
   a_127: { cat: 'ammo', name: 'Munición 12,7×108 mm', glyph: '"', tier: 4, stack: 60, value: 10, pack: 10, desc: 'Para el KSVK y la NSV. Cada bala pesa como un pájaro.' },

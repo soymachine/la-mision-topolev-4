@@ -2,7 +2,7 @@
 import { ITEMS, CAT_INFO, AMMO_NAMES, AFFIXES, MYTHIC_NAMES, EPITHETS, UNCOMMON_SUFFIX, RARE_SUFFIX } from './data/items.js';
 import { RARITIES, rarityWeights } from './data/rarity.js';
 import { ENEMIES, ABIL_TEXT, enemyColor, scaleEnemy } from './data/enemies.js';
-import { MAPS, MODULES, MODULE_MAX, moduleCost, squadSize, rosterSize, stashSize, TRAITS, SECTOR_NAMES, FIRST_NAMES_M, FIRST_NAMES_F, LAST_NAMES, NICKNAMES } from './data/world.js';
+import { MAPS, STRATA, EVENT_ZONES, mapIndex, MODULES, MODULE_MAX, moduleCost, squadSize, rosterSize, stashSize, TRAITS, SECTOR_NAMES, FIRST_NAMES_M, FIRST_NAMES_F, LAST_NAMES, NICKNAMES } from './data/world.js';
 import { TILES } from './data/tiles.js';
 import { MOD_SLOTS, weaponSlots } from './data/mods.js';
 import { gadgetExtras, gadgetEffectLines, WTYPE_NAMES } from './core/items.js';
@@ -14,7 +14,7 @@ import { DIALOGS } from './data/dialogs.js';
 import { ATTRS, ATTR_MAX, TALENTS, TALENT_EVERY } from './data/talents.js';
 import { SPECS, SPEC_TALENTS, SPEC_LEVEL, rerollCost } from './data/specs.js';
 import { BACKGROUNDS } from './data/backgrounds.js';
-import { MODIFIERS } from './data/modifiers.js';
+import { MODIFIERS, WEATHER } from './data/modifiers.js';
 import { ACQUIRED, MEDALS, WOUNDS, WOUND_CHANCE, RETIRE_LEVEL, MAX_INSTRUCTORS, INSTRUCTOR_XP, ROOKIE_LEVEL } from './data/honors.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -24,7 +24,16 @@ const R = RARITIES;
 const ESS = '#5ff7ff';
 
 const WTYPE = { melee: 'Cuerpo a cuerpo', pistol: 'Pistola', smg: 'Subfusil', shotgun: 'Escopeta', rifle: 'Fusil', sniper: 'Tirador', mg: 'Ametralladora', flame: 'Lanzallamas', launcher: 'Lanzador', energy: 'Esencia' };
-const ZONE_TYPE = { industrial: 'Industrial', ruinas: 'Ruinas', caverna: 'Caverna', inundado: 'Inundado' };
+const ZONE_TYPE = { industrial: 'Industrial', ruinas: 'Ruinas', caverna: 'Caverna', inundado: 'Inundado', ciudad: 'Ciudad', bosque: 'Bosque', ferroviario: 'Ferroviario', chatarreria: 'Chatarrería', antena: 'Antena', lago: 'Lago', metro: 'Metro', campamento: 'Campamento', base: 'Base militar', laboratorio: 'Laboratorio', organico: 'Orgánico', corium: 'Corium' };
+const SPECIAL_TEXT = {
+  tren: 'Tren fantasma: cada 80–140 turnos cruza la vía más cercana; avisa 4 turnos antes y arrolla lo que haya encima.',
+  lago: 'Siluros gigantes en el agua profunda; barcas como pasarelas; islotes con alijos.',
+  antena: 'La consola del radar (Ψ) revela todo el mapa 30 turnos… y atrae a todo lo que hay en él.',
+  fenix: 'Cámaras (dan la alarma), torretas, operadores de élite; botín occidental e informes de inteligencia.',
+  objeto7: 'Celdas de contención (se abren desde un terminal del sector) con criaturas y cajas dentro; el archivo del KGB cuenta el pasado del Dr. Topolev.',
+  raices: 'Las paredes respiran: cada 8 turnos se abren y cierran pasos lejos del equipo.',
+  corium: 'Lagos de corium fundido. El jefe final llegará en la fase 22.',
+};
 const SHOP_MODULE = { weapon: 'Armería', mod: 'Armería', armor: 'Blindaje', helmet: 'Blindaje', gadget: 'Taller', backpack: 'Taller' };
 const minZone = (tier) => Math.max(1, tier * 2 - 1);
 function shopText(d, id) {
@@ -195,7 +204,7 @@ sec('Sistemas', 'nombres', 'Nombres de objetos', MYTHIC_NAMES.length + EPITHETS.
 // ----- MUNDO -----
 sec('Mundo', 'enemigos', 'Chebylitas', Object.keys(ENEMIES).length, renderEnemies);
 sec('Mundo', 'facciones', 'Facciones', Object.keys(FACTIONS).length, renderFactions, 'Actitud inicial de cada facción hacia las demás. Durante la expedición cambia: atacar a un neutral o a un aliado vuelve hostil a toda su facción (−25 de reputación).');
-sec('Mundo', 'personas', 'Personas', Object.keys(HUMANS).length, renderHumans, 'Miembros de otras expediciones. Usan armas reales del catálogo, recargan, huyen heridos y sueltan su equipo al morir. Todavía no aparecen en los mapas: llegarán con las zonas nuevas (fase 18). Se pueden generar con la consola de depuración (tecla º → spawn).');
+sec('Mundo', 'personas', 'Personas', Object.keys(HUMANS).length, renderHumans, 'Miembros de otras expediciones. Usan armas reales del catálogo, recargan, huyen heridos y sueltan su equipo al morir. Aparecen en Metro-2, Fénix, el campamento Wismut, el mercado negro, el avión espía y con el modificador «Presencia extranjera». También se pueden generar con la consola de depuración (tecla º → spawn).');
 sec('Mundo', 'zonas', 'Zonas', MAPS.length, renderMaps);
 sec('Mundo', 'casillas', 'Casillas del mapa', TILES.length, () => table(TILES.map((t, i) => ({ i, ...t })), [
   { h: 'Glifos', v: (t) => t.glyphs.map((g, k) => `<b style="color:${t.fg[k % t.fg.length]};${t.bg ? `background:${t.bg};` : ''}padding:0 .3ch">${esc(g)}</b>`).join(' ') },
@@ -212,6 +221,13 @@ sec('Mundo', 'modificadores', 'Modificadores de zona', Object.keys(MODIFIERS).le
 ]), 'Cada día, cada zona sale con 0–2 modificadores (los mismos para toda la jornada). Se ven en EXPEDICIÓN al elegir destino. El primer día la primera zona no tiene ninguno.');
 
 // ----- BASE -----
+sec('Mundo', 'clima', 'Clima de superficie', Object.keys(WEATHER).length, () => table(Object.entries(WEATHER).map(([id, w]) => ({ id, ...w })), [
+  { h: 'Clima', v: (w) => `<b>${esc(w.name)}</b>`, s: (w) => w.name }, { h: 'Peso', v: (w) => w.w, s: (w) => w.w, num: 1 }, { h: 'Efecto', v: (w) => `<span class="desc">${esc(w.desc)}</span>` },
+]), 'Uno por expedición a una zona de superficie. La lluvia suma 0,25 de radiación por turno al raso; la niebla quita 3 de visión al raso; el viento disipa el gas.');
+sec('Mundo', 'eventos-zona', 'Zonas de evento', Object.keys(EVENT_ZONES).length, () => table(Object.entries(EVENT_ZONES).map(([id, z]) => ({ id, ...z })), [
+  { h: 'Zona', v: (z) => `<b style="color:#ff6ad5">${esc(z.glyph)} ${esc(z.name)}</b>`, s: (z) => z.name }, { h: 'Base', v: (z) => esc(MAPS[mapIndex(z.base)].name) }, { h: 'Días', v: (z) => z.days.join('–'), num: 1 }, { h: 'Peso', v: (z) => z.w, s: (z) => z.w, num: 1 },
+  { h: 'Descripción', v: (z) => `<span class="desc">${esc(z.desc)}</span>` },
+]), 'A partir del día 3, cada día hay un 40% de probabilidad de que aparezca una (máximo 2 a la vez) si su zona base está abierta. Son de un solo uso, sin modificadores, y no desbloquean nada. Helicóptero: caja negra y una manada. Convoy: 5–7 cajas con piezas y algo dormido cerca. Avión espía: equipo occidental, informes y dos equipos de recuperación americanos. Nido migratorio: muchos nidos y cristales. Mercado negro: el contrabandista vende armas americanas.');
 sec('Base', 'modulos', 'Módulos', MODULES.length, renderModules);
 sec('Base', 'rasgos', 'Rasgos de agentes', TRAITS.length, () => table(TRAITS, [
   { h: 'Rasgo', v: (t) => `<span class="nm">${esc(t.name)}</span>`, s: (t) => t.name },
@@ -315,21 +331,24 @@ function renderEnemies() {
 
 function renderMaps() {
   return MAPS.map((m, i) => {
-    const zones = Object.entries(m.zones).map(([k, v]) => tag(`${ZONE_TYPE[k]} ${Math.round(v * 100)}%`)).join('');
+    const zones = Object.entries(m.zones).map(([k, v]) => tag(`${ZONE_TYPE[k] || k} ${Math.round(v * 100)}%`)).join('');
     const enemies = m.enemies.map((id) => { const d = ENEMIES[id]; return `<span title="${esc(d.name)}" style="color:${enemyColor(d.hue, m.lvl[1])};font-weight:800;margin-right:1ch">${esc(d.glyph)} <span style="font-weight:400">${esc(d.name)}</span></span>`; }).join('<br>');
-    const sectors = Object.keys(m.zones).map((k) => `<div><b>${ZONE_TYPE[k]}:</b> <span class="desc">${SECTOR_NAMES[k].join(' · ')}</span></div>`).join('');
+    const sectors = Object.keys(m.zones).map((k) => `<div><b>${ZONE_TYPE[k] || k}:</b> <span class="desc">${SECTOR_NAMES[k].join(' · ')}</span></div>`).join('');
     return `<div class="block row-f"><h3>${i + 1}. ${esc(m.name)} <span style="color:var(--dim);font-weight:400">· nivel ${m.lvl[0]}–${m.lvl[1]}</span></h3>
       <div class="desc" style="margin-bottom:.6em">${esc(m.desc)}</div>
       <table><tr><td style="width:50%">
-        <div>Tamaño: <b>${m.w}×${m.h}</b> · ${m.sx}×${m.sy} = ${m.sx * m.sy} sectores · <b>${[2, 2, 2, 3, 3][i] || 1} pisos</b> (cada piso inferior: +1 nivel, mejor botín, sin extracciones permanentes)</div>
+        <div>${tag(STRATA[m.stratum], m.stratum === 'sup' ? 'c' : '')}${m.social ? tag('social', 'b') : ''}${m.factions ? tag('facciones') : ''} Dificultad (tier) <b>${m.tier}</b></div>
+        <div>Tamaño: <b>${m.w}×${m.h}</b> · ${m.sx}×${m.sy} = ${m.sx * m.sy} sectores · <b>${m.floors} piso(s)</b>${m.floors > 1 ? ' (cada piso inferior: +1 nivel, mejor botín, sin extracciones permanentes)' : ''}</div>
+        ${m.special ? `<div>Mecánica: <span class="desc">${esc(SPECIAL_TEXT[m.special] || m.special)}</span></div>` : ''}
+        ${m.social ? '<div>Campamento: comerciante (₽), enfermería, tablón de rumores y trabajos. Residentes de la RDA. Pero de noche… a veces llega una incursión desde los pozos.</div>' : ''}
         <div>Terreno: ${zones}</div>
         <div>Radiación ambiente: <b>${m.ambientRad}</b></div>
         <div>Nidos ${m.nests.join('–')} · Vetas ${m.veins.join('–')} · Alijos ${m.caches.join('–')} · Peligros ${m.hazards.join('–')}</div>
-        <div>Errantes: ${3 + i}–${5 + i} grupos · Jefe: ${i >= 4 ? 'siempre (hasta 2)' : i >= 3 ? '75%' : m.enemies.some((e) => ENEMIES[e].boss) ? '50%' : 'no'}</div>
-        <div>Desbloqueo: ${i === 0 ? 'desde el inicio' : `extraer con éxito de ${esc(MAPS[i - 1].name)}`}</div>
+        <div>Errantes: ${3 + Math.round(m.tier / 2)} grupos · Jefe: ${m.tier >= 8 ? 'siempre (hasta 2)' : m.tier >= 6 ? '75%' : m.enemies.some((e) => ENEMIES[e].boss) ? '50%' : 'no'}</div>
+        <div>Desbloqueo: ${!m.req.length ? 'desde el inicio' : `extraer con éxito de ${m.req.map((r) => esc(MAPS[mapIndex(r)].name)).join(' o ')}`}</div>
         <div style="margin-top:.5em">${sectors}</div>
       </td><td>${enemies}</td></tr></table></div>`;
-  }).join('') + '<p class="desc">Todas las zonas tienen 2 extracciones permanentes en los extremos (3 con Radar 5) y extracciones temporales cada 70–120 turnos. Tras 300–420 turnos el reactor emite un pulso que sube la radiación ambiente.</p>';
+  }).join('') + '<p class="desc">Todas las zonas tienen 2 extracciones permanentes en los extremos (3 con Radar 5) y extracciones temporales cada 70–120 turnos. Tras 300–420 turnos (+20 por tier) el reactor emite un pulso que sube la radiación ambiente. En superficie hay reloj (2 min por turno; de 21:00 a 6:00 es de noche), luz natural de día y clima (ver «Clima»).</p>';
 }
 
 function renderModules() {
@@ -405,7 +424,7 @@ function renderDialogs() {
   return Object.entries(DIALOGS).map(([id, D]) => {
     const nodes = Object.entries(D.nodes).map(([nid, N]) => `<div style="margin:.4em 0 .6em 2ch"><div><code>${nid}</code> ${N.title ? `<b>${esc(N.title)}</b>` : ''}</div>
       <div class="desc" style="margin:.2em 0 .3em 2ch">${txt(N.text)}</div>
-      ${(N.opts || []).map((o) => `<div style="margin-left:4ch">▸ <b>${txt(o.label)}</b>${o.turn ? ' ⌛' : ''}${o.cond ? ` <span class="desc">[requiere ${descObj(o.cond)}]</span>` : ''}${o.goto ? ` → <code>${esc(o.goto)}</code>` : ''}${o.effects ? `<div class="desc" style="margin-left:2ch">${o.effects.map(descObj).join(' · ')}</div>` : ''}</div>`).join('')}</div>`).join('');
+      ${typeof N.opts === 'function' ? '<div style="margin-left:4ch" class="desc">▸ <i>(opciones dinámicas: comprar / vender / curar según el contexto)</i></div>' : ''}${(typeof N.opts === 'function' ? [] : N.opts || []).map((o) => `<div style="margin-left:4ch">▸ <b>${txt(o.label)}</b>${o.turn ? ' ⌛' : ''}${o.cond ? ` <span class="desc">[requiere ${descObj(o.cond)}]</span>` : ''}${o.goto ? ` → <code>${esc(o.goto)}</code>` : ''}${o.effects ? `<div class="desc" style="margin-left:2ch">${o.effects.map(descObj).join(' · ')}</div>` : ''}</div>`).join('')}</div>`).join('');
     return `<div class="block row-f"><h3 style="color:${D.color || 'inherit'}">${esc(D.title)} <span class="desc">· <code>${id}</code> · ${esc(D.speaker || '')}</span></h3>${nodes}</div>`;
   }).join('');
 }

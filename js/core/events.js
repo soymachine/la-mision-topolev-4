@@ -28,7 +28,7 @@ export function fmt(text, ctx) {
   return s.replace(/\{(\w+)\}/g, (m, k) => {
     if (k === 'agent') return ctx.a ? `<span style="color:${ctx.a.color}">${esc(ctx.a.nick)}</span>` : 'el equipo';
     if (k === 'first') return ctx.a ? esc(ctx.a.first) : 'camarada';
-    if (k === 'map') return ctx.exp ? esc(MAPS[ctx.exp.mapIdx].name) : '';
+    if (k === 'map') return ctx.exp ? esc(ctx.exp.def.name) : '';
     if (k === 'sector') return ctx.data && ctx.data.sector ? esc(ctx.data.sector.name) : '';
     if (k === 'faction') return ctx.data && ctx.data.faction && FACTIONS[ctx.data.faction] ? `<span style="color:${FACTIONS[ctx.data.faction].color}">${esc(FACTIONS[ctx.data.faction].name)}</span>` : '';
     if (k === 'day') return String(S.day);
@@ -50,6 +50,10 @@ const COND = {
   ess: ([op, n]) => cmp(S.ess, op, n),
   rub: ([op, n]) => cmp(S.rub, op, n),
   map: (v, c) => !!c.exp && (Array.isArray(v) ? c.exp.mapIdx >= v[0] && c.exp.mapIdx <= v[1] : c.exp.mapIdx === v),
+  // dificultad de la zona (0–9) y estrato
+  tier: ([op, n], c) => !!c.exp && cmp(c.exp.def.tier || 0, op, n),
+  zoneId: (v, c) => !!c.exp && (Array.isArray(v) ? v.includes(c.exp.def.id) : c.exp.def.id === v),
+  stratum: (v, c) => !!c.exp && (c.exp.def.stratum || 'sub') === v,
   turn: ([op, n], c) => !!c.exp && cmp(c.exp.turn, op, n),
   zone: (v, c) => !!(c.data && c.data.sector && (Array.isArray(v) ? v.includes(c.data.sector.type) : c.data.sector.type === v)),
   faction: (v, c) => !!c.data && (Array.isArray(v) ? v.includes(c.data.faction) : c.data.faction === v),
@@ -260,7 +264,7 @@ export function dialogView(dlg, ctx) {
   const N = D.nodes[dlg.node];
   if (!N) return null;
   const opts = [];
-  N.opts.forEach((o, i) => {
+  (val(N.opts, ctx) || []).forEach((o, i) => {
     if (o.show && !checkCond(o.show, ctx)) return; // oculta
     const ok = checkCond(o.cond, ctx);
     opts.push({ i, label: fmt(o.label, ctx), ok, hint: !ok && o.hint ? fmt(o.hint, ctx) : '', cls: o.cls || '' });
@@ -278,7 +282,7 @@ export function dialogView(dlg, ctx) {
 // aplica la opción i; devuelve { end, turn } y deja dlg.node actualizado si continúa
 export function dialogChoose(dlg, i, ctx) {
   const D = DIALOGS[dlg.id];
-  const o = D && D.nodes[dlg.node] && D.nodes[dlg.node].opts[i];
+  const o = D && D.nodes[dlg.node] && (val(D.nodes[dlg.node].opts, ctx) || [])[i];
   if (!o || !checkCond(o.cond, ctx) || (o.show && !checkCond(o.show, ctx))) return null;
   ctx.nextDialog = null;
   runEffects(o.effects, ctx);

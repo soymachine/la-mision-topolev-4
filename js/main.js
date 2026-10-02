@@ -49,9 +49,9 @@ async function boot() {
   const base = new BaseUI($('#screen-base'), {
     onHelp: () => openHelp(),
     onQuit: () => { show('title'); title.open(); },
-    onLaunch: (mapIdx, agents) => {
+    onLaunch: (mapIdx, agents, evId) => {
       base.close();
-      exp = launchExpedition(mapIdx, agents);
+      exp = launchExpedition(mapIdx, agents, evId);
       save();
       show('exp');
       expUI.start(exp);

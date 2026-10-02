@@ -3,7 +3,8 @@
 // (métodos mezclados en Expedition: ver expedition.js)
 import { rng, cheb, line } from '../util/rng.js';
 import { T, TILES } from '../data/tiles.js';
-import { createItem, mergeInto } from '../core/items.js';
+import { createItem, mergeInto, rollLoot } from '../core/items.js';
+import { ACTORS } from '../data/actors.js';
 import { agentStats, bagCapacity } from '../core/agents.js';
 import { esc } from '../util/dom.js';
 import { D8 } from './shared.js';
@@ -50,6 +51,8 @@ export class TerrainPart {
     const L = this.lightMap;
     L.fill(0);
     const apagon = (this.mods || []).includes('apagon');
+    // superficie: de día, todo lo que está al raso tiene luz
+    if (this.surface && !this.isNight()) for (let k = 0; k < N; k++) if (!(this.indoor && this.indoor[k])) L[k] = 1;
     for (const s of this.sectors) {
       if (!((s.lit && !apagon) || (this.litOn && this.litOn[s.id]))) continue;
       for (let y = s.y; y < s.y + s.h; y++) for (let x = s.x; x < s.x + s.w; x++) L[y * this.w + x] = 1;
@@ -211,7 +214,9 @@ export class TerrainPart {
       this.t[k] = T.TERMINAL_DONE;
       const s = this.sectorAt(x, y);
       let doors = 0;
+      let cells = 0;
       for (let kk = 0; kk < this.t.length; kk++) {
+        if (this.t[kk] === T.CELL && this.sec[kk] === (s ? s.id : -1)) { this.t[kk] = T.FLOOR; cells++; continue; }
         if (this.t[kk] !== T.ARMORDOOR) continue;
         const ds = this.sec[kk];
         if (s && Math.abs(this.sectors[ds].i - s.i) + Math.abs(this.sectors[ds].j - s.j) > 1) continue;
@@ -223,7 +228,8 @@ export class TerrainPart {
       }
       this.dirty = true; this.lightDirty = true;
       this.fx.push({ type: 'zap', x, y });
-      this.say(`▣ ${this.nm(sq)} piratea el terminal: ${doors ? `${doors} puerta(s) blindada(s) abiertas, ` : ''}luces encendidas y plano del sector descargado.`, 'good');
+      this.say(`▣ ${this.nm(sq)} piratea el terminal: ${doors ? `${doors} puerta(s) blindada(s) abiertas, ` : ''}${cells ? `<span class="bad">${cells} celda(s) de contención abiertas</span>, ` : ''}luces encendidas y plano del sector descargado.`, 'good');
+      if (cells) for (const e of this.enemies) if (e.state === 'dormido' && this.sectorAt(e.x, e.y) === s) { e.state = 'alerta'; e.mem = 15; }
       this.gainXp(sq, 8, true);
       return true;
     }
@@ -247,7 +253,110 @@ export class TerrainPart {
       return true;
     }
     if (u === 'lift' || u === 'liftup' || u === 'chasm') return this.useConnector(sq, x, y, u);
+    if (u === 'dig') return this.digTile(sq, x, y);
+    if (u === 'antenna') return this.useAntenna(sq, x, y);
     return false;
+  }
+
+  // ---------------------------------------------------------------- fase 17: mecánicas de zona
+  // excavar una fosa del Bosque Rojo
+  digTile(sq, x, y) {
+    const k = this.key(x, y);
+    const a = sq.a;
+    const st = this.ast(sq);
+    a.rad = Math.min(150, a.rad + 6 * (1 - st.rad / 100));
+    this.t[k] = T.GROUND;
+    this.dirty = true;
+    this.noise(x, y, 4);
+    if (rng.chance(0.45)) {
+      const it = rollLoot(Math.min(10, this.def.lvl[1] + 1), rng, { rarityBonus: 0.3, catW: { valuable: 30, weapon: 10, gadget: 8 } });
+      this.addFloor(x, y, it);
+      this.say(`${this.nm(sq)} excava en la fosa (+radiación) y desentierra algo.`, 'good');
+      this.emit('loot', { floor: true, x, y });
+    } else this.say(`${this.nm(sq)} excava en la fosa (+radiación). Solo tierra y huesos de pino.`, 'dimt');
+    if (rng.chance(0.12)) {
+      const spot = D8.map(([dx, dy]) => [x + dx, y + dy]).find(([xx, yy]) => this.passable(xx, yy) && !this.entityAt(xx, yy));
+      if (spot) { this.spawnEnemy(rng.pick(['liana', 'musgo']), this.def.lvl[1], spot[0], spot[1], 'alerta'); this.say('¡Algo se retuerce bajo la tierra removida!', 'bad'); this.computeVisibility(); }
+    }
+    return true;
+  }
+  // la antena Duga-3: revela todo… y atrae a todo
+  useAntenna(sq, x, y) {
+    if (this.antennaUsed) { this.say('La antena ya está en marcha.', 'dimt'); return false; }
+    this.antennaUsed = 1;
+    this.t[this.key(x, y)] = T.ANTENNA_ON;
+    for (let k = 0; k < this.t.length; k++) if (this.t[k] !== T.ROCK) this.explored[k] = 1;
+    this.revealT = 30;
+    for (const e of this.enemies) if (this.hostile(sq, e) && !ACTORS[e.type].abil.includes('stationary')) { e.state = 'alerta'; e.mem = 30; e.lx = sq.x; e.ly = sq.y; }
+    this.dirty = true;
+    this.fx.push({ type: 'surge' });
+    this.say('Ψ ¡La antena Duga-3 vuelve a la vida! Un zumbido grave recorre la zona: todo el mapa aparece en vuestras pantallas durante 30 turnos… y todo lo que vive aquí sabe dónde estáis.', 'warn');
+    this.gainXp(sq, 10, true);
+    return true;
+  }
+  // ruido de los columpios de Prípiat
+  creak(sq) {
+    if (!D8.some(([dx, dy]) => this.tile(sq.x + dx, sq.y + dy) === T.SWING)) return;
+    if (!rng.chance(this.weather === 'viento' ? 0.8 : 0.5)) return;
+    this.noise(sq.x, sq.y, 7);
+    if (sq === this.cur) this.say('El columpio chirría… y el eco llega lejos.', 'dimt');
+  }
+  // cada turno: tren fantasma, antena, paredes que respiran, incursiones, clima
+  zoneTick() {
+    if (this.revealT > 0) this.revealT--;
+    // viento: el gas se va enseguida
+    if (this.surface && this.weather === 'viento') for (let k = 0; k < this.gas.length; k++) if (this.gas[k]) this.gas[k] = Math.max(0, this.gas[k] - 2);
+    // tren fantasma de Yanov
+    if (this.trainAt && this.railRows && this.railRows.length && this.floor === 0) {
+      if (this.turn === this.trainAt - 4) this.say('📻 Un silbato de locomotora resuena en el depósito. No hay ninguna locomotora en marcha… que se sepa. <b>Apartaos de las vías.</b>', 'warn');
+      if (this.turn >= this.trainAt) {
+        const c = this.cur;
+        const row = this.railRows.reduce((b, y) => (Math.abs(y - c.y) < Math.abs(b - c.y) ? y : b), this.railRows[0]);
+        let hit = 0;
+        for (let x = 0; x < this.w; x++) {
+          const ent = this.entityAt(x, row);
+          if (!ent || this.tile(x, row) !== T.RAIL) continue;
+          if (ent.type) { this.damageEnemy(ent, rng.int(25, 40), null); hit++; }
+          else if (ent.id) { this.damageAgent(ent, rng.int(18, 30), 'el tren fantasma'); hit++; }
+        }
+        this.fx.push({ type: 'train', y: row });
+        this.noise(c.x, row, 18);
+        this.say(`🚂 ¡El tren fantasma pasa a toda velocidad por la vía ${row}!${hit ? ` Arrolla a ${hit}.` : ''} Nadie va a bordo.`, 'bad');
+        this.trainAt = this.turn + rng.int(80, 140);
+      }
+    }
+    // Las Raíces: las paredes se abren y se cierran
+    if (this.def.special === 'raices' && this.turn % 8 === 0) {
+      let opened = 0, closed = 0;
+      for (let tries = 0; tries < 600 && (opened < 6 || closed < 5); tries++) {
+        const k = rng.int(0, this.t.length - 1);
+        const x = k % this.w, y = (k / this.w) | 0;
+        if (x < 2 || y < 2 || x >= this.w - 2 || y >= this.h - 2) continue;
+        if (this.team.some((q) => cheb(q.x, q.y, x, y) <= 3)) continue;
+        if (this.t[k] === T.ORGWALL && opened < 6 && D8.some(([dx, dy]) => this.tile(x + dx, y + dy) === T.CAVE)) { this.t[k] = T.CAVE; opened++; }
+        else if (this.t[k] === T.CAVE && closed < 5 && !this.entityAt(x, y) && !this.objAt(x, y) && !this.floorAt(x, y).length && !this.essence.has(k) && D8.every(([dx, dy]) => TILES[this.tile(x + dx, y + dy)].walk)) { this.t[k] = T.ORGWALL; closed++; }
+      }
+      if (opened || closed) { this.dirty = true; this.dmap = null; if (rng.chance(0.25)) this.say('Las paredes respiran: el túnel no es el mismo que hace un momento.', 'dimt'); }
+    }
+    // incursión nocturna en el campamento Wismut
+    if (this.raidAt && this.def.social) {
+      if (this.turn === this.raidAt - 6) this.say('📻 Puesto de radio de Wismut: «¡Movimiento en los pozos de ventilación! ¡Todos a sus puestos!»', 'warn');
+      if (this.turn === this.raidAt) {
+        this.raidAt = 0;
+        let n = 0;
+        for (let i = 0; i < 6; i++) {
+          for (let tries = 0; tries < 80; tries++) {
+            const x = rng.int(2, this.w - 3), y = rng.int(2, this.h - 3);
+            if (!this.passable(x, y) || this.entityAt(x, y) || this.team.some((q) => cheb(q.x, q.y, x, y) < 10)) continue;
+            this.spawnEnemy(rng.pick(this.def.enemies), rng.int(this.def.lvl[0], this.def.lvl[1]), x, y, 'alerta');
+            n++;
+            break;
+          }
+        }
+        this.say(`⚠ ¡Incursión! ${n} chebylitas bajan por los pozos del campamento.`, 'bad');
+        this.interrupt = true;
+      }
+    }
   }
 
   // ---------------------------------------------------------------- empujar la vagoneta

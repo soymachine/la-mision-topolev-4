@@ -56,6 +56,8 @@ export class EnvironmentPart {
     // casillas con mecánica: vapor, ventiladores, aceite, raíces
     this.terrainTick();
     if (this.ended) return;
+    this.zoneTick();
+    if (this.ended) return;
     // humo y detector
     for (let k = 0; k < N; k++) if (this.smoke[k]) this.smoke[k]--;
     if (this.sense > 0) this.sense--;
@@ -72,6 +74,7 @@ export class EnvironmentPart {
       const a = sq.a, st = this.ast(sq), k = this.key(sq.x, sq.y);
       // radiación
       let r = this.rad[k] + this.ambient + surge * 0.45;
+      if (this.surface && this.weather === 'lluvia' && this.outdoors(sq.x, sq.y)) r += 0.25;
       const tt = this.t[k];
       if ((tt === T.WATER || tt === T.DEEP) && this.flag(sq, 'waterproof')) r = Math.max(0, r - 0.5 - this.def.ambientRad * 0.5);
       for (const e of this.enemies) if (ACTORS[e.type].abil.includes('aura') && cheb(e.x, e.y, sq.x, sq.y) <= 2) r += 3 + e.lvl * 0.4;
@@ -118,7 +121,7 @@ export class EnvironmentPart {
       const k = this.key(e.x, e.y);
       const def = ACTORS[e.type];
       if (this.fire[k]) e.burn = Math.max(e.burn, 2);
-      if (this.gas[k] && !def.gasImmune && def.origin !== 'Hongo' && def.origin !== 'Planta' && def.origin !== 'Mineral') this.damageEnemy(e, Math.max(1, Math.floor(this.gas[k] / 3)), null);
+      if (this.gas[k] && !def.gasImmune && !def.mech && def.origin !== 'Hongo' && def.origin !== 'Planta' && def.origin !== 'Mineral' && def.origin !== 'Máquina') this.damageEnemy(e, Math.max(1, Math.floor(this.gas[k] / 3)), null);
       if (e.hp > 0 && this.anomaly[k] && rng.chance(0.4)) { this.fx.push({ type: 'zap', x: e.x, y: e.y }); this.damageEnemy(e, rng.int(4, 9), null); }
       if (e.hp > 0 && e.burn > 0) { e.burn--; this.damageEnemy(e, rng.int(2, 4), null); }
     }

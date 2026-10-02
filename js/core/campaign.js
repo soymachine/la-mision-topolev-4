@@ -2,7 +2,7 @@
 import { S, save, addMessage } from './state.js';
 import { fireEvents, dialogView, dialogChoose } from './events.js';
 import { ITEMS } from '../data/items.js';
-import { MAPS, MODULES, MODULE_MAX, moduleCost, rosterSize, stashSize, squadSize } from '../data/world.js';
+import { MAPS, MODULES, MODULE_MAX, moduleCost, rosterSize, stashSize, squadSize, zoneOpen, openCount, EVENT_ZONES, eventDef, mapIndex } from '../data/world.js';
 import { createItem, itemValue, itemName, itemStats, mergeInto, rollRarity } from './items.js';
 import { createAgent, starterKit, agentStats, recruitCost, agentName, bagCapacity, giveXp, agentHooks, talentFlag } from './agents.js';
 import { ACQUIRED, MEDALS, woundCost, RETIRE_LEVEL, MAX_INSTRUCTORS, INSTRUCTOR_XP, ROOKIE_LEVEL } from '../data/honors.js';
@@ -52,7 +52,7 @@ export function sellPrice(it) {
 export function ensureShop() {
   if (S.shop && S.shop.day === S.day) return S.shop;
   const g = new RNG((S.created + S.day * 7919) >>> 0);
-  const pool = Object.keys(ITEMS).filter((b) => ITEMS[b].cat !== 'valuable' && ITEMS[b].cat !== 'ammo' && ITEMS[b].cat !== 'case' && shopAvailable(b) && !['bandage', 'ai2', 'antirad', 'molotov', 'flare'].includes(b));
+  const pool = Object.keys(ITEMS).filter((b) => ITEMS[b].cat !== 'valuable' && ITEMS[b].cat !== 'ammo' && ITEMS[b].cat !== 'case' && !ITEMS[b].west && shopAvailable(b) && !['bandage', 'ai2', 'antirad', 'molotov', 'flare'].includes(b));
   const stock = [];
   const level = 1 + Math.floor(Object.values(S.modules).reduce((a, b) => a + b, 0) / 3);
   const n = 10 + Math.min(6, Math.floor(S.day / 3));
@@ -119,7 +119,7 @@ export function ensureRecruits() {
   if (S.recruits && S.recruits.day === S.day) return S.recruits;
   const g = new RNG((S.created + S.day * 104729) >>> 0);
   const list = [];
-  const maxL = Math.min(6, 1 + Math.floor(S.day / 4) + Math.floor(S.unlocked / 2));
+  const maxL = Math.min(7, 1 + Math.floor(S.day / 4) + Math.floor(openCount(S) / 3));
   const avoid = new Set(S.agents.map((x) => x.nick));
   for (let i = 0; i < 3; i++) {
     const a = createAgent(g, { lvl: g.int(1, maxL), day: S.day, avoid });
@@ -221,7 +221,7 @@ export function upgradeModule(id) {
 }
 
 // ---------------- Expediciones ----------------
-export function launchExpedition(mapIdx, agents) {
+export function launchExpedition(mapIdx, agents, evId = null) {
   // munición gratis del polvorín
   const pv = S.modules.polvorin;
   for (const a of agents) {
@@ -253,12 +253,18 @@ export function launchExpedition(mapIdx, agents) {
     }
   }
   S.stats.expeditions++;
+  // zona de evento: se genera sobre su zona base y se consume al entrar
+  const ev = evId && (S.eventZones || []).find((z) => z.id === evId);
+  if (ev) {
+    S.eventZones = S.eventZones.filter((z) => z !== ev);
+    return Expedition.create(mapIndex(EVENT_ZONES[ev.kind].base), agents, [], eventDef(ev));
+  }
   const exp = Expedition.create(mapIdx, agents, zoneMods(mapIdx));
   return exp;
 }
 
 export function finalizeExpedition(exp) {
-  const def = MAPS[exp.mapIdx];
+  const def = exp.def;
   const labBonus = 1 + S.modules.laboratorio * 0.1;
   const rep = { map: def.name, mapIdx: exp.mapIdx, turns: exp.turn, day: S.day, agents: [], ess: 0, essRaw: 0, kills: exp.tally.kills, unlocked: null, lostItems: 0 };
   let anyOut = false;
@@ -294,12 +300,15 @@ export function finalizeExpedition(exp) {
   S.stats.essTotal += rep.ess;
   if (anyOut) {
     S.stats.extractions++;
+    var wasOpen = MAPS.map((m, i) => zoneOpen(S, i));
     S.cleared[def.id] = (S.cleared[def.id] || 0) + 1;
-    if (exp.mapIdx + 1 >= S.unlocked && exp.mapIdx + 1 < MAPS.length) {
-      S.unlocked = exp.mapIdx + 2;
-      rep.unlocked = MAPS[exp.mapIdx + 1].name;
-      addMessage(`Acceso concedido a ${MAPS[exp.mapIdx + 1].name}. Nivel medio ${MAPS[exp.mapIdx + 1].lvl.join('–')}. Preparad mejor equipo.`);
+    // zonas que se abren por primera vez gracias a esta extracción
+    const opened = MAPS.filter((m, i) => !wasOpen[i] && zoneOpen(S, i));
+    if (opened.length) {
+      rep.unlocked = opened.map((m) => m.name).join(', ');
+      for (const m of opened) addMessage(`Acceso concedido a ${m.name}. Nivel medio ${m.lvl.join('–')}. Preparad mejor equipo.`);
     }
+    S.unlocked = openCount(S);
   }
   rep.result = !anyOut ? 'fail' : rep.agents.every((r) => r.status === 'extraído') ? 'success' : 'partial';
   const msgs = {
@@ -319,6 +328,7 @@ export function finalizeExpedition(exp) {
 export function nextDay() {
   S.day++;
   baseDayEvents();
+  tickEventZones();
   const enf = S.modules.enfermeria;
   for (const a of S.agents) {
     const st = agentStats(a);
@@ -327,6 +337,29 @@ export function nextDay() {
     const st2 = agentStats(a);
     a.hp = Math.min(a.hp, st2.hpMaxEff);
   }
+}
+
+// zonas de evento temporales (fase 17.3): caducan y aparecen nuevas
+export function tickEventZones(g = rng) {
+  S.eventZones = (S.eventZones || []).filter((ev) => --ev.left > 0);
+  if (S.day < 3 || S.eventZones.length >= 2 || !g.chance(0.4)) return null;
+  const pool = Object.keys(EVENT_ZONES).filter((k) => zoneOpen(S, mapIndex(EVENT_ZONES[k].base)) && !S.eventZones.some((ev) => ev.kind === k));
+  if (!pool.length) return null;
+  const kind = g.weighted(pool, (k) => EVENT_ZONES[k].w);
+  return spawnEventZone(kind, g);
+}
+export function spawnEventZone(kind, g = rng) {
+  const Z = EVENT_ZONES[kind];
+  const taken = new Set([...MAPS.map((m) => m.pos.join(',')), ...(S.eventZones || []).map((ev) => ev.pos.join(','))]);
+  const pos = Z.pos.find((p) => !taken.has(p.join(','))) || Z.pos[0];
+  const ev = { id: `ev${S.day}_${kind}`, kind, pos, left: g.int(Z.days[0], Z.days[1]) + 1 };
+  (S.eventZones = S.eventZones || []).push(ev);
+  addMessage(`Radio de la Zona: ${Z.name}. ${Z.desc} Disponible ${ev.left - 1} día(s).`);
+  return ev;
+}
+export function eventZoneView(ev) {
+  const Z = EVENT_ZONES[ev.kind];
+  return { id: ev.id, name: Z.name, glyph: Z.glyph, desc: Z.desc, left: Math.max(1, ev.left - 1), pos: ev.pos };
 }
 
 export function totalCarried(a) { return Object.values(a.equip).filter(Boolean).length + a.bag.length; }

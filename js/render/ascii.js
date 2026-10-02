@@ -10,9 +10,10 @@ import { ESSENCE_COLOR } from '../exp/shared.js';
 
 export const FONT = '"JetBrains Mono", "DejaVu Sans Mono", Consolas, monospace';
 const hash = (x, y) => { let h = (x * 374761393 + y * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177; return (h ^ (h >>> 16)) >>> 0; };
-const OBJ_GLYPH = { vein: '✦', cache: '■', locker: '▤', crate: '□', corpse: '%', note: '?', survivor: '☺', shard: '✧', cart: 'Ш' };
-const OBJ_NAME = { vein: 'Veta de esencia', cache: 'Alijo de suministros', locker: 'Taquilla', crate: 'Caja de material', corpse: 'Cadáver de liquidador', note: 'Nota', survivor: 'Superviviente', shard: 'Cristal de esencia incrustado', cart: 'Vagoneta' };
+const OBJ_GLYPH = { vein: '✦', cache: '■', locker: '▤', crate: '□', corpse: '%', note: '?', survivor: '☺', shard: '✧', cart: 'Ш', trader: '₽', medic: '✚', board: '▦', archive: '▥', wreck: '✈' };
+const OBJ_NAME = { vein: 'Veta de esencia', cache: 'Alijo de suministros', locker: 'Taquilla', crate: 'Caja de material', corpse: 'Cadáver de liquidador', note: 'Nota', survivor: 'Superviviente', shard: 'Cristal de esencia incrustado', cart: 'Vagoneta', trader: 'Comerciante', medic: 'Enfermería', board: 'Tablón de anuncios', archive: 'Archivo del KGB', wreck: 'Restos del aparato' };
 export { OBJ_NAME };
+const SOCIAL_COL = { trader: '#e6c86a', medic: '#ff6a6a', board: '#c8b48c', archive: '#e05050', wreck: '#b0b8c0' };
 
 export class MapRenderer {
   constructor(host) {
@@ -271,6 +272,13 @@ export class MapRenderer {
           P.burst(f.x1 + 0.5, f.y1 + 0.5, 3, { chars: ['/', '\\', '×'], colors: [f.color, '#fff'], speed: 2, life: 0.25, delay: 60 });
           break;
         }
+        case 'train': {
+          // el tren fantasma de Yanov cruza la fila de la vía de punta a punta
+          const w = this.exp.w;
+          for (let i = 0; i < 14; i++) P.add({ x: -2 - i, y: f.y + 0.5, x0: -2 - i, y0: f.y + 0.5, tx: w + 2 - i, ty: f.y + 0.5, arc: 0, life: 0.9, delay: i * 30, ch: i === 0 ? '◄' : i % 4 === 3 ? '═' : '█', color: i === 0 ? '#ffe08a' : '#7a8a9a', noFade: true, bold: true, glow: i === 0 ? 18 : 0 });
+          this.shake = Math.max(this.shake, 9);
+          break;
+        }
         case 'surge': this.flashScreen = { color: 'rgba(184,245,61,', t: performance.now(), dur: 1500 }; this.shake = 10; break;
         case 'alert': this.alertPulse = performance.now(); break;
       }
@@ -375,7 +383,7 @@ export class MapRenderer {
         }
         // casillas animadas de la fase 16
         const an = TILES[tt].anim;
-        if (an === 'blink') { const p = 0.55 + 0.45 * Math.sin(T_ * 4 + x); glyph(x, y, TILES[tt].glyphs[0], tt === T.TERMINAL ? `rgba(95,208,255,${p})` : tt === T.LIFT ? `rgba(95,247,255,${p})` : `rgba(159,232,160,${p})`, TILES[tt].bg, 1.05, true); }
+        if (an === 'blink') { const p = 0.55 + 0.45 * Math.sin(T_ * 4 + x); glyph(x, y, TILES[tt].glyphs[0], tt === T.TERMINAL ? `rgba(95,208,255,${p})` : tt === T.ANTENNA ? `rgba(127,184,255,${p})` : tt === T.LIFT ? `rgba(95,247,255,${p})` : `rgba(159,232,160,${p})`, TILES[tt].bg, 1.05, true); }
         else if (an === 'fan') glyph(x, y, ['✣', '✢', '✤', '✥'][Math.floor(T_ * 8 + x) % 4], '#c8c8c8', '#0e0e0e');
         else if (an === 'lamp') {
           const fl = Math.sin(T_ * 23 + x * 9) > 0.96 ? 0.35 : 1;
@@ -383,7 +391,16 @@ export class MapRenderer {
           ctx.fillStyle = `rgba(255,224,138,${0.07 * fl})`; ctx.fillRect(sx - cw, sy - ch, cw * 3, ch * 3);
           glyph(x, y, '☼', `rgba(255,224,138,${fl})`, '#1a1404', 1.05, true);
         } else if (an === 'graphite' && Math.sin(T_ * 2.5 + x * 1.7 + y) > 0.7) glyph(x, y, '▪', 'rgba(150,255,60,.55)', '#0a0a0a');
-        else if (tt === T.CHASM && Math.sin(T_ * 1.3 + x * 2.1 + y * 0.7) > 0.95) glyph(x, y, '.', 'rgba(120,80,40,.5)', '#000');
+        else if (an === 'breathe') {
+          // las paredes de las Raíces respiran: el glifo se dilata y se contrae
+          const b = Math.sin(T_ * 1.4 + hashf(x, y) * 2 + (x + y) * 0.15);
+          glyph(x, y, b > 0.5 ? '●' : b > -0.3 ? '○' : '◦', `rgb(${130 + b * 30 | 0},${60 + b * 12 | 0},${90 + b * 16 | 0})`, `rgb(${22 + b * 6 | 0},6,${10 + b * 3 | 0})`, 1 + b * 0.08);
+        } else if (an === 'lava') {
+          const w = Math.sin(T_ * 1.1 + x * 0.6 + y * 0.4) + Math.sin(T_ * 2.3 - x * 0.35);
+          const [sx, sy] = S(x, y);
+          ctx.fillStyle = `rgba(255,${90 + w * 25 | 0},20,${0.12 + 0.05 * w})`; ctx.fillRect(sx - cw * 0.5, sy - ch * 0.5, cw * 2, ch * 2);
+          glyph(x, y, w > 0.8 ? '≋' : w > -0.5 ? '≈' : '~', `rgb(255,${130 + w * 40 | 0},${30 + w * 15 | 0})`, `rgb(${50 + w * 10 | 0},10,0)`, 1, w > 1.2);
+        } else if (tt === T.CHASM && Math.sin(T_ * 1.3 + x * 2.1 + y * 0.7) > 0.95) glyph(x, y, '.', 'rgba(120,80,40,.5)', '#000');
         else if (tt === T.PIPE_BROKEN) { const [sx, sy] = S(x, y); ctx.fillStyle = 'rgba(220,220,220,.5)'; ctx.fillText(rng.pick(['°', '˚', '·', '∘']), sx + cw / 2 + rng.float(-cw, cw), sy + ch / 2 + rng.float(-ch, ch * 0.2)); }
         if (e.fire[k]) {
           const f = Math.sin(T_ * 17 + x * 5 + y * 3);
@@ -409,6 +426,8 @@ export class MapRenderer {
         continue;
       }
       if (o.kind === 'note') { glyph(o.x, o.y, '?', o.opened ? (vis ? '#7a6a4a' : '#3a3020') : vis ? `rgba(240,225,170,${0.7 + 0.3 * Math.sin(T_ * 3 + o.x)})` : '#5a5030', null, 1, !o.opened); continue; }
+      if (SOCIAL_COL[o.kind]) { const done = (o.kind === 'archive' || o.kind === 'wreck') && o.opened && !(o.items && o.items.length);
+        glyph(o.x, o.y, OBJ_GLYPH[o.kind], vis ? (done ? '#6a6a5a' : SOCIAL_COL[o.kind]) : '#4a4a3a', vis ? '#140a02' : null, 1.1, vis && !done); continue; }
       if (o.kind === 'survivor') { glyph(o.x, o.y, '☺', vis ? `rgba(160,232,160,${0.75 + 0.25 * Math.sin(T_ * 2)})` : '#3a5a3a', null, 1.05, true); continue; }
       if (o.opened) col = vis ? '#6a4a2a' : '#3a2814';
       else if (o.kind === 'cache') col = vis ? (this.radar >= 2 ? rarityColor(o.best) : '#ffb02e') : '#7a5a20';

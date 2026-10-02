@@ -225,6 +225,10 @@ Se añade el concepto de **estrato**: *Superficie* (cielo abierto, día/noche, c
 | **Radar Duga-3 «El Pájaro Carpintero»** | 6–7 | La gigantesca antena sobre el horizonte | Celosías metálicas, cables con anomalías eléctricas. **Mecánica:** activar la antena revela todo el mapa durante 30 turnos… y atrae a todo lo que hay |
 | **Estanque de refrigeración** | 5–7 | Lago artificial junto a la central | Barcas para cruzar, plataformas, siluros chebylitas gigantes, islotes con alijos |
 
+- [x] Estrato superficie/subsuelo y **mapa ASCII de la región** como selector de destinos; progresión por requisitos (`req`) en vez de en línea.
+- [x] Las 6 zonas de superficie con sus casillas y mecánicas.
+  - *Hecho:* `data/world.js` (campos `tier`, `stratum`, `floors`, `req`, `pos`, `special`; `zoneOpen`, `floorDef`), `ui/region.js` (mapa 64×22 con marcadores ◆ ▼ ☭ ? !). Generadores propios en `exp/mapgen.js` (ciudad, bosque, ferroviario, chatarrería, antena, lago); 16 casillas nuevas (tierra, hierba, asfalto, pinos que tapan media vista, tierra removida que se excava, coches, columpios, blindados, celosías, consola Ψ de la antena, barcas, alambrada…). Reloj (2 min/turno, noche de 21:00 a 6:00), luz natural de día al raso, clima por expedición (despejado, lluvia radiactiva, niebla, viento). Tren fantasma de Yanov, antena de Duga-3, sótano del hospital (2 pisos en Prípiat), siluros, robots de limpieza (sueltan piezas), lianas que atrapan. Botín nuevo: piezas de recambio y chaquetón de bombero.
+
 ### 17.2 Subsuelo nuevo (L)
 | Zona | Nv | Concepto |
 |---|---|---|
@@ -235,8 +239,12 @@ Se añade el concepto de **estrato**: *Superficie* (cielo abierto, día/noche, c
 | **Las Raíces** | 8–10 | Red de cavernas orgánicas de la Raíz-madre: las paredes respiran y el mapa cambia durante la expedición |
 | **El Útero de Corium** | 10+ | Zona final bajo el reactor; jefe final de varias fases (ver fase 22) |
 
+- [x] Las 6 zonas de subsuelo.
+  - *Hecho:* Metro-2 (patrullas de las 4 facciones, incluida la nueva de **contrabandistas**), Wismut (zona social: comerciante, enfermería y tablón con rumores y trabajos — diálogos `wismut_*`; residentes de la RDA; a veces una incursión por los pozos), Fénix (cámaras que dan la alarma, torretas, operadores de élite, botín occidental: M1911, M16, Remington 870, M21 y sus municiones, informes de inteligencia), Objeto 7 (celdas de contención que abre un terminal y archivo del KGB con el pasado del Dr. Topolev → flag `topolevPast`), Las Raíces (paredes que respiran y cambian el mapa) y el Útero de Corium (lagos de corium; el jefe final queda para la fase 22).
+
 ### 17.3 Zonas de evento temporales (M)
-- [ ] Aparecen unos días y desaparecen: «Helicóptero estrellado» (caja negra), «Convoy perdido», «Avión espía derribado» (equipo estadounidense raro), «Nido migratorio», «Mercado negro clandestino».
+- [x] Aparecen unos días y desaparecen: «Helicóptero estrellado» (caja negra), «Convoy perdido», «Avión espía derribado» (equipo estadounidense raro), «Nido migratorio», «Mercado negro clandestino».
+  - *Hecho:* `EVENT_ZONES`/`eventDef` en `data/world.js`; `tickEventZones` en `core/campaign.js` (desde el día 3, 40% diario, máximo 2, solo si su zona base está abierta). Se ven en la lista y en el mapa de la región (`!`), son de un solo uso y se generan sobre su zona base con contenido propio (restos del aparato `✈`, camiones con piezas, equipos americanos, cristales, el puesto del contrabandista con el diálogo `smuggler_trader`). Consola: `evzone`, `unlock`, `clock`. Pruebas: `tests/mapgen.mjs` (463 mapas) y la sección de la fase 17 de `tests/systems.cjs`.
 
 ---
 

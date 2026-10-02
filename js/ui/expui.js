@@ -18,6 +18,8 @@ import { uiFly } from './fx.js';
 import { NOTES } from '../data/lore.js';
 import { showDialog } from './dialog.js';
 
+import { WEATHER } from '../data/modifiers.js';
+const SOCIAL_TIP = { trader: 'Compra y venta.', medic: 'Curas y tratamiento de la radiación.', board: 'Rumores y trabajos.', archive: 'Expedientes del KGB.' };
 export function toggleFullscreen() {
   try {
     if (document.fullscreenElement) document.exitFullscreen();
@@ -241,6 +243,8 @@ export class ExpeditionUI {
       (e.nFloors || 1) > 1 ? el('span', { html: `<span class="dimt">PISO</span> <b class="${e.floor ? 'warn' : ''}">${e.floor ? '−' + e.floor : 'SUP'}</b><span class="dimt">/${e.nFloors}</span>` }) : '',
       el('span', { html: sec ? `<span class="dimt">SECTOR</span> ${sec.code} · ${esc(sec.name)}` : '' }),
       el('span', { html: `<span class="dimt">TURNO</span> <b>${e.turn}</b>` }),
+      e.clock != null ? el('span', { title: WEATHER[e.weather] ? WEATHER[e.weather].desc : '', html: `<span class="${e.isNight() ? 'cyan' : 'warn'}">${e.isNight() ? '☾' : '☀'}</span> <b>${e.timeStr()}</b> <span class="dimt">· ${WEATHER[e.weather] ? WEATHER[e.weather].name.toLowerCase() : ''}</span>` }) : '',
+      e.revealT > 0 ? el('span', { class: 'cyan', html: `Ψ ANTENA ${e.revealT}` }) : '',
       el('span', { html: surge ? `<span class="bad pulse-red">☢ PULSO ×${surge}</span>` : pulseIn <= 60 ? `<span class="warn">☢ pulso en ${pulseIn}</span>` : `<span class="dimt">☢ amb.</span> ${amb.toFixed(2)}` }),
       e.evac ? el('span', { class: 'cyan', html: `⇑ EVACUACIÓN ${e.evac.left}` }) : '',
       el('span', { class: 'ess-count', html: `<span class="cyan">✦ ${essTotal}</span>` }),
@@ -782,6 +786,7 @@ export class ExpeditionUI {
       if (obj.kind === 'vein') parts.push(`<div class="tt-title cyan">✦ Veta de esencia</div><div class="dimt">${obj.amount > 0 ? `Quedan ~${obj.amount} ✦. Ponte al lado y pulsa <b>F</b> para extraer (hace ruido).` : 'Agotada.'}</div>`);
       else if (obj.kind === 'note') parts.push(`<div class="tt-title" style="color:#f0e1aa">? Nota</div><div class="dimt">${obj.opened ? 'Ya leída.' : 'Papel arrugado.'} Ponte encima y pulsa <b>F</b>.</div>`);
       else if (obj.kind === 'survivor') parts.push('<div class="tt-title" style="color:#a0e8a0">☺ Superviviente</div><div class="dimt">Alguien sigue vivo aquí abajo. Ponte al lado y pulsa <b>F</b>.</div>');
+      else if (SOCIAL_TIP[obj.kind]) parts.push(`<div class="tt-title o1">${OBJ_NAME[obj.kind]}</div><div class="dimt">${SOCIAL_TIP[obj.kind]} Adyacente + <b>F</b> o clic.</div>`);
       else parts.push(`<div class="tt-title o1">${OBJ_NAME[obj.kind]}</div><div class="dimt">${!obj.opened ? 'Sin registrar. Adyacente + <b>F</b> o clic.' : obj.items.length ? `${obj.items.length} objeto(s) dentro.` : 'Vacío.'}</div>`);
     }
     if (vis && e.essence.get(k)) parts.push(`<div class="cyan">✦ ${e.essence.get(k)} de esencia</div>`);

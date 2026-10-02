@@ -15,6 +15,14 @@ export const MODIFIERS = {
   helada: { name: 'Helada', glyph: '❄', color: '#d0e8ff', risk: 'El agua se ha congelado: el hielo resbala.', reward: 'Sin agua radiactiva; +10% de esencia.', ess: 1.1 },
 };
 
+// clima de superficie (fase 17): uno por expedición
+export const WEATHER = {
+  despejado: { name: 'Despejado', w: 5, desc: 'Buena visibilidad.' },
+  lluvia: { name: 'Lluvia radiactiva', w: 2, desc: 'Al raso, la radiación sube; el ruido de la lluvia tapa tus pasos.' },
+  niebla: { name: 'Niebla', w: 2, desc: 'Al raso, −3 de visión.' },
+  viento: { name: 'Viento', w: 2, desc: 'El gas se dispersa rápido; los columpios no paran de chirriar.' },
+};
+
 // modificadores del día para una zona (deterministas: misma partida, mismo día, misma zona)
 export function rollZoneMods(created, day, mapIdx) {
   let h = (created ^ (day * 2654435761) ^ (mapIdx * 40503)) >>> 0;

@@ -230,12 +230,14 @@ export class CombatPart {
     this.fx.push({ type: 'kill', x: e.x, y: e.y, glyph: def.glyph, color: actorColor(e), delay, boss: !!def.boss });
     // personas: sueltan su arma, algo de munición y lo que llevaran
     if (human) {
-      if (e.w) { e.w.ld = Math.max(0, Math.min(e.ld || 0, itemStats(e.w).mag || 0)); this.addFloor(e.x, e.y, e.w); }
+      if (e.w && !def.noDrop) { e.w.ld = Math.max(0, Math.min(e.ld || 0, itemStats(e.w).mag || 0)); this.addFloor(e.x, e.y, e.w); }
       const ws = e.w ? itemStats(e.w) : null;
       if (ws && ws.ammo && rng.chance(0.7)) this.addFloor(e.x, e.y, createItem(ws.ammo, 0, rng, Math.max(4, Math.round((ITEMS[ws.ammo].pack || 10) * rng.float(0.3, 0.8)))));
       for (const b of def.loot || []) if (rng.chance(0.35)) this.addFloor(e.x, e.y, createItem(b, 0, rng, ITEMS[b].stack > 1 ? (ITEMS[b].cat === 'ammo' ? Math.round(ITEMS[b].pack * 0.6) : 1) : undefined));
-      if (rng.chance(0.15 + e.lvl * 0.02)) this.addFloor(e.x, e.y, rollLoot(e.lvl, rng, { rarityBonus: 0.3 }));
+      if (rng.chance(0.15 + e.lvl * 0.02)) this.addFloor(e.x, e.y, rollLoot(e.lvl, rng, { rarityBonus: 0.3, west: actorFaction(e) === 'usa' || actorFaction(e) === 'contrabandistas' }));
     }
+    // máquinas y similares: material
+    for (const b of (!human && def.drops) || []) if (rng.chance(0.75)) this.addFloor(e.x, e.y, createItem(b, 0, rng, ITEMS[b].stack > 1 ? rng.int(1, 3) : undefined));
     // esencia
     let ess = human ? 0 : rng.int(es.ess[0], es.ess[1]);
     if (e.spawned) ess = Math.ceil(ess * 0.3);

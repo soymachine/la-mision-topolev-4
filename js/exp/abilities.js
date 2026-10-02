@@ -186,6 +186,7 @@ export class AbilityPart {
     for (const q of this.team) {
       const d = Math.hypot(q.x - en.x, q.y - en.y);
       if (this.sense > 0 && d <= this.senseR) return true;
+      if (this.revealT > 0) return true;
       if (q.trackR && d <= q.trackR) return true;
     }
     return false;

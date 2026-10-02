@@ -12,6 +12,11 @@ export const HUMANS = {
   swe_guard: H({ name: 'Escolta sueco', faction: 'suecia', hp: 30, acc: 4, ev: 4, prot: 2, weapon: 'saigamk', xp: 15, loot: ['a_545', 'ai2'], lore: 'Exmilitar contratado como guía. Educado, pero no dudará en defenderse.' }),
   // ---- EE. UU. (hostiles) ----
   usa_operator: H({ name: 'Operador de la Fuerza Delta', faction: 'usa', hp: 34, acc: 6, ev: 5, prot: 3, weapon: 'ak74', xp: 24, flee: 0.15, loot: ['a_545', 'ai2', 'f1'], lore: 'Armado con material capturado para no dejar rastro. No hace prisioneros.' }),
+  usa_elite: H({ name: 'Operador de élite «Nightingale»', faction: 'usa', hp: 46, acc: 7, ev: 6, prot: 4, weapon: 'm16', xp: 34, flee: 0.1, loot: ['a_556', 'intel', 'ai2', 'f1'], lore: 'Fuerzas especiales con equipo occidental. Hablan poco y nunca fallan dos veces.' }),
+  usa_turret: H({ name: 'Torreta automática', glyph: 'Ŧ', faction: 'usa', hp: 34, acc: 6, ev: 0, prot: 5, weapon: 'rpk', xp: 22, flee: 0, stationary: 1, mech: 1, noDrop: 1, loot: ['parts', 'parts'], lore: 'Ametralladora con sensor de movimiento. No duerme ni negocia.' }),
+  usa_camera: H({ name: 'Cámara de vigilancia', glyph: '◉', faction: 'usa', hp: 8, acc: 0, ev: 0, prot: 1, weapon: null, xp: 6, flee: 0, stationary: 1, mech: 1, alarm: 1, loot: ['parts'], lore: 'Si te ve, toda la base lo sabrá.' }),
+  // ---- Contrabandistas (neutrales) ----
+  smuggler: H({ name: 'Contrabandista', faction: 'contrabandistas', hp: 26, acc: 4, ev: 5, prot: 1, weapon: 'toz', xp: 14, flee: 0.5, loot: ['a_12', 'vodka', 'docs'], lore: 'Compra barato, vende caro y no pregunta de dónde sale nada.' }),
   usa_sniper: H({ name: 'Tirador de la CIA', faction: 'usa', hp: 26, acc: 8, ev: 4, prot: 1, weapon: 'svd', xp: 26, flee: 0.4, loot: ['a_762', 'docs', 'pso'], lore: 'Dispara desde lejos y cambia de posición después de cada tiro.' }),
 };
 

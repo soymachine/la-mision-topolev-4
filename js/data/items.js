@@ -20,6 +20,7 @@ export const CAT_INFO = {
 export const AMMO_NAMES = {
   a_9x18: '9×18 mm', a_545: '5,45×39 mm', a_12: 'cal. 12', a_762: '7,62×54R', a_fuel: 'combustible', a_cell: 'celda de esencia',
   a_762x39: '7,62×39 mm', a_9x39: '9×39 mm', a_127: '12,7×108 mm', a_40: 'VOG-25 40 mm', a_rpg: 'cohete PG-7',
+  a_556: '5,56×45 mm', a_45: '.45 ACP', a_762n: '7,62×51 mm OTAN',
 };
 
 export const ITEMS = {
@@ -177,6 +178,11 @@ export const ITEMS = {
   graphsample: { cat: 'valuable', name: 'Muestra de grafito', glyph: '$', tier: 2, value: 70, desc: 'Bloque del moderador del reactor.' },
   board: { cat: 'valuable', name: 'Placa de circuito RBMK', glyph: '$', tier: 2, value: 85, desc: 'Electrónica de control del reactor.' },
   icon: { cat: 'valuable', name: 'Icono ortodoxo', glyph: '$', tier: 3, value: 110, desc: 'San Jorge contra el dragón. Muy apropiado.' },
+  // fase 17: botín de zonas nuevas
+  parts: { cat: 'valuable', name: 'Piezas de recambio', glyph: '$', tier: 1, stack: 20, value: 35, desc: 'Engranajes, relés y placas de vehículos de los liquidadores. Material de fabricación.' },
+  firecoat: { cat: 'valuable', name: 'Chaquetón de bombero de la primera noche', glyph: '$', tier: 4, value: 480, radioactive: 1, west: 1, desc: 'Del sótano del hospital n.º 126. Valiosísimo para la investigación… y todavía letal.' },
+  blackbox: { cat: 'valuable', name: 'Caja negra', glyph: '$', tier: 4, value: 650, west: 1, desc: 'Registrador de vuelo. Moscú pagará muy bien por lo que oyeron los pilotos.' },
+  intel: { cat: 'valuable', name: 'Informes de inteligencia occidental', glyph: '$', tier: 4, value: 420, west: 1, desc: 'Mapas, fotos de satélite y nombres. Material para el KGB.' },
   docs: { cat: 'valuable', name: 'Documentos clasificados', glyph: '$', tier: 3, value: 150, desc: 'Sello del KGB. «Prueba de turbina, 25-IV-1986».' },
   crystal: { cat: 'valuable', name: 'Cristal de esencia', glyph: '✧', tier: 2, value: 40, essenceValue: 25, desc: 'Esencia cristalizada. Se puede vender o convertir en esencia en la base.' },
   corium: { cat: 'valuable', name: 'Fragmento de corium', glyph: '$', tier: 4, value: 320, radioactive: 1, desc: 'Muy valioso. Muy radiactivo: irradia a quien lo lleve.' },

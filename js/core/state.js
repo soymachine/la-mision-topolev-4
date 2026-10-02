@@ -1,5 +1,5 @@
 // Estado global de la partida + guardado en localStorage
-import { MODULES } from '../data/world.js';
+import { MODULES, openCount } from '../data/world.js';
 import { createAgent, starterKit } from './agents.js';
 import { ATTRS, ATTR_MAX } from '../data/talents.js';
 import { BACKGROUNDS } from '../data/backgrounds.js';
@@ -112,7 +112,7 @@ export function load(n = lastSlot()) {
 // actualiza estructuras de versiones anteriores
 function upgrade(d) {
   if (d.v < 2) { d.flags = d.flags || {}; d.rep = d.rep || {}; d.eventsDone = d.eventsDone || {}; d.v = 2; }
-  d.flags = d.flags || {}; d.rep = d.rep || {}; d.eventsDone = d.eventsDone || {}; d.pendingDialogs = d.pendingDialogs || []; d.instructors = d.instructors || [];
+  d.flags = d.flags || {}; d.rep = d.rep || {}; d.eventsDone = d.eventsDone || {}; d.pendingDialogs = d.pendingDialogs || []; d.instructors = d.instructors || []; d.eventZones = d.eventZones || [];
   for (const a of d.agents || []) upgradeAgent(a);
 }
 // fases 14 y 15: atributos 1–10, trasfondo, talentos (ofertas retroactivas), contenedor y honores
@@ -163,7 +163,7 @@ function migrate(st) {
 function writeSlot(n, data) {
   const json = JSON.stringify(data);
   ls.set(SLOT_KEY(n), compressToUTF16(json));
-  const info = { day: data.day, agents: data.agents.length, ess: data.ess, rub: data.rub, unlocked: data.unlocked, exp: !!data.exp, saved: Date.now(), kb: Math.round(json.length / 1024) };
+  const info = { day: data.day, agents: data.agents.length, ess: data.ess, rub: data.rub, unlocked: openCount(data), exp: !!data.exp, saved: Date.now(), kb: Math.round(json.length / 1024) };
   ls.set(INFO_KEY(n), JSON.stringify(info));
 }
 

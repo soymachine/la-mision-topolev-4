@@ -83,7 +83,8 @@ export class AIPart {
     if (!this.inb(x, y)) return false;
     const tt = this.tile(x, y);
     const def = ACTORS[e.type];
-    if (!TILES[tt].walk && !(tt === T.DEEP && def.abil.includes('flying'))) return false;
+    if (def.abil.includes('aquatic')) { if (tt !== T.WATER && tt !== T.DEEP) return false; }
+    else if (!TILES[tt].walk && !(tt === T.DEEP && def.abil.includes('flying'))) return false;
     if (this.blockedObj(x, y)) return false;
     if (this.entityAt(x, y)) return false;
     return true;
@@ -265,6 +266,7 @@ export class AIPart {
     if (th && e.hp > 0) this.damageEnemy(e, th, sq, false, 120);
     if (def.abil.includes('poison')) this.addPoison(sq, 2 + Math.floor(e.lvl / 3));
     if (def.abil.includes('radbite')) sq.a.rad += (2 + e.lvl) * (1 - ast.rad / 100);
+    if (def.abil.includes('grab')) { sq.rooted = Math.max(sq.rooted || 0, 2); if (sq === this.cur) this.say(`¡${this.enm(e)} se enrosca en las piernas de ${this.nm(sq)}! No puede moverse.`, 'warn'); }
   }
   enemyRanged(e, t) {
     const def = ACTORS[e.type];
@@ -287,8 +289,26 @@ export class AIPart {
   humanAct(e) {
     const def = ACTORS[e.type];
     const ws = e.w ? itemStats(e.w) : FISTS;
-    const [tgt, td] = this.pickTarget(e, 12);
+    const [tgt, td] = this.pickTarget(e, def.alarm ? 9 : 12);
     if (tgt) { e.state = 'alerta'; e.mem = 12; e.lx = tgt.x; e.ly = tgt.y; }
+    // cámaras de vigilancia: dan la alarma a toda su facción
+    if (def.alarm) {
+      if (tgt && !(e.alarmT > 0)) {
+        e.alarmT = 12;
+        let n = 0;
+        for (const o of this.enemies) if (o !== e && actorFaction(o) === actorFaction(e) && Math.hypot(o.x - e.x, o.y - e.y) <= 40) { o.state = 'alerta'; o.mem = 20; o.lx = tgt.x; o.ly = tgt.y; n++; }
+        this.fx.push({ type: 'alert' });
+        if (this.isVisible(e.x, e.y) || this.isSquad(tgt)) this.say(`🚨 ¡La cámara os ha visto! Suena la alarma: ${n} enemigo(s) avisados.`, 'bad');
+        this.noise(e.x, e.y, 14);
+      } else if (e.alarmT > 0) e.alarmT--;
+      return;
+    }
+    if (def.stationary) {
+      if (!tgt) return;
+      if (ws.mag && e.ld <= 0) { e.ld = ws.mag; return; }
+      if (td <= ws.range * 1.6) this.humanShoot(e, tgt, ws);
+      return;
+    }
     if (tgt) {
       // retirada con poca salud
       if (e.hp < e.hpMax * 0.3 && rng.chance(def.flee)) { if (this.stepAway(e, tgt)) return; }

@@ -2,7 +2,7 @@
 import { el, $, panel, framify, esc, UI_SCALES, cycleUiScale, toast, tip, draggable, dropzone, hpBar, bar, levelPips, confirmBox, modal, modalOpen, closeTopModal } from '../util/dom.js';
 import { S, save, settings, saveSettings, slot, exportSlot } from '../core/state.js';
 import { ITEMS, CAT_INFO } from '../data/items.js';
-import { MAPS, MODULES, MODULE_MAX, moduleCost, TRAITS } from '../data/world.js';
+import { MAPS, MODULES, MODULE_MAX, moduleCost, TRAITS, zoneOpen, openCount, STRATA, EVENT_ZONES, eventDef, mapIndex } from '../data/world.js';
 import { ENEMIES, enemyColor, ABIL_TEXT } from '../data/enemies.js';
 import { RARITIES, rarityWeights } from '../data/rarity.js';
 import { itemHTML, itemTooltip, itemName, itemStats, sortItems, mergeInto, rarityColor, itemValue, forgeCost, infuse, FORGE_CATS, slotsOf, modFits, installMod, removeMod, WTYPE_NAMES, caseRefusal, caseUsed } from '../core/items.js';
@@ -18,6 +18,7 @@ import { uiBurst, uiSparkEl, uiFly, uiText } from './fx.js';
 import { fmt } from '../util/rng.js';
 import { toggleFullscreen } from './expui.js';
 import { showDialog } from './dialog.js';
+import { regionMap } from './region.js';
 import { MODIFIERS } from '../data/modifiers.js';
 import { floorsFor } from '../exp/expedition.js';
 
@@ -66,7 +67,7 @@ export class BaseUI {
     this.active = true;
     if (tab) this.tab = tab;
     if (!this.selAgent || !S.agents.includes(this.selAgent)) this.selAgent = S.agents[0] || null;
-    this.selMap = Math.min(this.selMap, S.unlocked - 1);
+    if (!zoneOpen(S, this.selMap)) this.selMap = 0;
     for (const id of [...this.squad]) if (!S.agents.find((a) => a.id === id)) this.squad.delete(id);
     C.ensureShop(); C.ensureRecruits();
     this.render();
@@ -146,7 +147,7 @@ export class BaseUI {
         <span>Almacén</span><span>${stash} / ${C.stashCap()}</span>
         <span>Esencia</span><span class="cyan">${fmt(S.ess)} ✦</span>
         <span>Rublos</span><span>${fmt(S.rub)} ₽</span>
-        <span>Zonas</span><span>${S.unlocked} / ${MAPS.length} accesibles</span>
+        <span>Zonas</span><span>${openCount(S)} / ${MAPS.length} accesibles</span>
         <span>Expediciones</span><span>${S.stats.expeditions} (${S.stats.extractions} con éxito)</span>
         <span>Caídos</span><span class="bad">${S.fallen.length}</span>` }),
       el('div', { class: 'sep', text: '─'.repeat(80) }),
@@ -768,25 +769,43 @@ export class BaseUI {
   tab_expedicion() {
     const g = el('div', { class: 'grid3' });
     const L = panel({ title: 'DESTINOS', bodyCls: 'scroll' });
+    // zonas de evento temporales (17.3)
+    const evs = (S.eventZones || []).map((ev) => C.eventZoneView(ev));
+    if (this.selEvent && !evs.some((v) => v.id === this.selEvent)) this.selEvent = null;
+    if (evs.length) {
+      L.body.append(el('div', { class: 'h', style: { color: '#ff6ad5' }, text: '! ZONAS DE EVENTO' }));
+      for (const v of evs) {
+        const card = el('div', { class: `mapcard event ${this.selEvent === v.id ? 'sel' : ''}` });
+        card.innerHTML = `<div class="o2" style="color:#ff6ad5">${esc(v.glyph)}</div><div><b>${esc(v.name)}</b><div class="dimt">Un solo uso · desaparece en ${v.left} día(s)</div></div><div class="dif" style="color:#ff6ad5">EVENTO</div>`;
+        card.addEventListener('click', () => { this.selEvent = v.id; sfx.click(); this.render(); });
+        L.body.append(card);
+      }
+      L.body.append(el('div', { class: 'h', text: 'ZONAS' }));
+    }
     MAPS.forEach((m, i) => {
-      const locked = i >= S.unlocked;
+      const locked = !zoneOpen(S, i);
       const avg = (m.lvl[0] + m.lvl[1]) / 2;
-      const card = el('div', { class: `mapcard ${i === this.selMap ? 'sel' : ''} ${locked ? 'locked' : ''}` });
+      const card = el('div', { class: `mapcard ${i === this.selMap && !this.selEvent ? 'sel' : ''} ${locked ? 'locked' : ''}` });
       const zm = locked ? [] : C.zoneMods(i);
       const zmHtml = zm.map((id) => `<span style="color:${MODIFIERS[id].color}" title="${esc(MODIFIERS[id].name)}">${MODIFIERS[id].glyph}</span>`).join(' ');
-      card.innerHTML = `<div class="o2">${locked ? '▒' : i + 1}</div><div><b>${locked ? '???' : m.name}</b><div class="dimt">${locked ? 'Extrae con éxito de la zona anterior' : m.short + ' · ' + floorsFor(i) + ' pisos · ' + (S.cleared[m.id] || 0) + ' extracciones'}</div>${zmHtml ? `<div class="zone-mods">${zmHtml}</div>` : ''}</div><div class="dif" style="color:${diffColor(avg)}">Nv ${m.lvl[0]}–${m.lvl[1]}<br>${skulls(avg)}</div>`;
-      if (!locked) card.addEventListener('click', () => { this.selMap = i; sfx.click(); this.render(); });
+      card.innerHTML = `<div class="o2">${locked ? '▒' : m.stratum === 'sup' ? '◆' : m.social ? '☭' : '▼'}</div><div><b>${locked ? '???' : m.name}</b><div class="dimt">${locked ? `Extrae con éxito de ${m.req.map((r) => MAPS.find((z) => z.id === r).short).join(' o ')}` : STRATA[m.stratum] + ' · ' + floorsFor(i) + ' piso(s) · ' + (S.cleared[m.id] || 0) + ' extracciones'}</div>${zmHtml ? `<div class="zone-mods">${zmHtml}</div>` : ''}</div><div class="dif" style="color:${diffColor(avg)}">Nv ${m.lvl[0]}–${m.lvl[1]}<br>${skulls(avg)}</div>`;
+      if (!locked) card.addEventListener('click', () => { this.selMap = i; this.selEvent = null; sfx.click(); this.render(); });
       L.body.append(card);
     });
-    const m = MAPS[this.selMap];
-    const M = panel({ title: m.name.toUpperCase(), bodyCls: 'scroll' });
+    const evSel = this.selEvent ? S.eventZones.find((z) => z.id === this.selEvent) : null;
+    const m = evSel ? eventDef(evSel) : MAPS[this.selMap];
+    const M = panel({ title: (evSel ? '! ' : '') + m.name.toUpperCase(), bodyCls: 'scroll' });
+    M.body.append(regionMap(S, this.selEvent || this.selMap, (i) => {
+      if (typeof i === 'number') { this.selMap = i; this.selEvent = null; } else this.selEvent = i.id;
+      sfx.click(); this.render();
+    }, evs));
     const avg = (m.lvl[0] + m.lvl[1]) / 2;
     const rw = rarityWeights(avg);
     const tot = rw.reduce((a, b) => a + b, 0);
     M.body.append(
-      el('pre', { class: 'ascii-art', text: mapSchematic(this.selMap) }),
+      el('pre', { class: 'ascii-art', text: mapSchematic(evSel ? mapIndex(EVENT_ZONES[evSel.kind].base) : this.selMap) }),
       el('div', { class: 'msg-topolev', text: m.desc }),
-      this.modsBox(this.selMap),
+      evSel ? el('div', { class: 'warn', html: `Zona de evento: <b>un solo uso</b> y sin modificadores. Desaparece en ${Math.max(1, evSel.left - 1)} día(s). Terreno parecido a ${esc(MAPS[mapIndex(EVENT_ZONES[evSel.kind].base)].name)}.` }) : this.modsBox(this.selMap),
       el('div', { class: 'sep', text: '─'.repeat(80) }),
       el('div', { class: 'kv', html: `<span>Nivel medio</span><span style="color:${diffColor(avg)}"><b>${avg}</b> (rango ${m.lvl[0]}–${m.lvl[1]}, nidos ±1)</span><span>Tamaño</span><span>${m.w}×${m.h} · ${m.sx * m.sy} sectores</span><span>Radiación amb.</span><span>${m.ambientRad ? m.ambientRad.toFixed(2) + '/turno base' : 'baja'}</span><span>Nidos</span><span>${m.nests[0]}–${m.nests[1]}</span><span>Vetas · Alijos</span><span>${m.veins.join('–')} · ${m.caches.join('–')}</span>` }),
       el('div', { class: 'sep', text: '─'.repeat(80) }),
@@ -847,7 +866,9 @@ export class BaseUI {
     const warns = agents.flatMap((a) => this.agentWarnings(a).map((w) => `${a.nick}: ${w}`));
     if (warns.length && !(await confirmBox('¿SEGURO?', `<div class="warn">${warns.map(esc).join('<br>')}</div><div class="dimt" style="margin-top:1em">¿Lanzar la expedición igualmente?</div>`, 'LANZAR', 'REVISAR'))) return;
     sfx.click();
-    this.hooks.onLaunch(this.selMap, agents);
+    const evId = this.selEvent;
+    this.selEvent = null;
+    this.hooks.onLaunch(this.selMap, agents, evId);
   }
 
   // =========================================================== ARCHIVO
@@ -938,6 +959,67 @@ function mapSchematic(i) {
    ██▀  ░▒▓██▓▒░  ▀██    CORIUM
    ██   ▒▓█▀▀█▓▒   ██
    ▀█▄▄▄▄▄▄▄▄▄▄▄▄▄▄█▀`,
+    // ---- fase 17 ----
+    String.raw`   ▐█▌ ▐█▌   ,-○-.   ▐█▌
+   ▐█▌ ▐█▌  ○  |  ○  ▐█▌   PRÍPIAT
+   ▐█▌ ▐█▌   '-○-'   ▐█▌   LA NORIA
+  ══════════════════════   HOSPITAL 126
+   ▪ ▪ ▪   Ħ Ħ    ▪ ▪ ▪`,
+    String.raw`  ♠ ♠♣ ♠  ♠ ♣♠ ♠  ♠ ♣
+   ♣ ♠ ÷÷÷÷ ♠ ♠  ♣♠  ♠    BOSQUE ROJO
+  ♠  ♣ ÷÷÷÷  ♠ ♣ ♠  ♠     FOSAS
+   ♠ ♠  ♣ ♠  ♠♠  ♣ ♠ ♣
+  ♣ ♠ ♠  ♠ ♣  ♠ ♠  ♠ ♠`,
+    String.raw`  ╪═╪═╪═╪═╪═╪═╪═╪═╪═╪═
+  [▒▒▒▒][▒▒▒▒][▒▒▒▒]▄▄█    YANOV
+  ╪═╪═╪═╪═╪═╪═╪═╪═╪═╪═    VAGONES
+  [▒▒▒▒]  [▒▒▒▒][▒▒▒▒]    DEPÓSITO
+  ╪═╪═╪═╪═╪═╪═╪═╪═╪═╪═`,
+    String.raw`   _/‾‾\_   _/‾‾\_   ▄▄▄
+  [ Mi-8 ] [ Mi-8 ] [BTR]  RASSOKHA
+   ‾‾‾‾‾‾   ‾‾‾‾‾‾   ▀▀▀   HELICÓPTEROS
+  [ZIL][ZIL][ZIL][ZIL]     CAMIONES
+   ☢    ☢     ☢     ☢`,
+    String.raw`  ≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈
+  ≈≈≈≈ ▪▪ ≈≈≈≈≈≈≈ ◡ ≈≈≈≈   ESTANQUE
+  ≈≈≈≈≈≈≈≈≈ ▪▪▪ ≈≈≈≈≈≈≈   ISLOTES
+  ≈≈ ʂ ≈≈≈≈≈≈≈≈≈≈≈ ʂ ≈≈   BARCAS
+  ════════════ ≈≈≈≈≈≈≈`,
+    String.raw`  ╳╳╳╳╳╳╳╳╳╳╳╳╳╳╳╳╳╳╳╳
+  ╳║║╳║║╳║║╳║║╳║║╳║║╳╳   DUGA-3
+  ╳║║╳║║╳║║╳║║╳║║╳║║╳╳   ANTENA
+  ╳╳╳╳╳╳╳╳╳╳╳╳╳╳╳╳╳╳╳╳   ϟ CABLES ϟ
+   ϟ    Ψ CONTROL Ψ   ϟ`,
+    String.raw`  ┌────────────────────┐
+  │ ☭  CAMPAMENTO  ☭   │   WISMUT
+  │ [+] [$] [?] [≡]    │   RDA
+  │  @   @    @   @    │   COMERCIO
+  └────────────────────┘`,
+    String.raw`  ════════════════════════
+  ▒[▓▓▓▓▓▓]▒▒[▓▓▓▓▓▓]▒▒▒   METRO-2
+  ════════════════════════   ANDÉN
+  ▪▪▪▪▪▪ ▓ ESCLUSA ▓ ▪▪▪▪   OBJETO 4
+  ════════════════════════`,
+    String.raw`   ◉        ★        ◉
+  ┌──Ŧ──────────────Ŧ──┐   FÉNIX
+  │  ▬▬  [HQ]  ▬▬      │   EE. UU.
+  │ ▄▄▄  ▄▄▄  ▄▄▄  ▄▄▄ │   ALARMAS
+  └──Ŧ──────────────Ŧ──┘`,
+    String.raw`  ┌──┬──┬──┬──┬──┐┌───┐
+  │▓▓│▓▓│▓▓│▓▓│▓▓││ ? │   OBJETO 7
+  ├──┴──┴──┴──┴──┤│KGB│   CELDAS
+  │  ▣   ▣   ▣   │└───┘   ARCHIVO
+  └──────────────┘`,
+    String.raw`   ψ ~ ψ ~~ ψ ~ ψ ~~ ψ
+  ~ ψ   ◦◦◦   ψ   ◦◦ ψ ~   LAS RAÍCES
+   ψ  ◦◦ Ѱ ◦◦  ψ ◦◦  ψ     LAS PAREDES
+  ~ ψ   ◦◦◦   ψ   ◦◦ ψ ~   RESPIRAN
+   ψ ~ ψ ~~ ψ ~ ψ ~~ ψ`,
+    String.raw`     ▄▄▓▓▓████▓▓▓▄▄
+   ▄▓▓▒░  ▓▓▓▓  ░▒▓▓▄      EL ÚTERO
+  ▓▓░ ░▒▓████▓▒░ ░░▓▓     DE CORIUM
+   ▀▓▓▒░  ▓▓▓▓  ░▒▓▓▀      ☢ ☢ ☢
+     ▀▀▓▓▓████▓▓▓▀▀`,
   ];
   return arts[i] || '';
 }

@@ -18,13 +18,13 @@ const mapIdx = +(process.argv[2] || 0);
   await p.click('.modal >> text=EMPEZAR AQUÍ >> nth=0');
   await p.click('#screen-intro');
   await p.click('text=COMENZAR');
-  await p.evaluate(() => { window.__topolev.S.unlocked = 5; });
+  await p.evaluate(() => { window.__topolev.S.unlockAll = true; });
   await p.click('.tab:has-text("EXPEDICIÓN")');
-  await p.click(`.mapcard >> nth=${mapIdx}`);
+  await p.click(`.mapcard:not(.event) >> nth=${mapIdx}`);
   for (let i = 0; i < 2; i++) { const rows = await p.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
   await p.click('text=LANZAR EXPEDICIÓN');
   await p.waitForTimeout(300);
-  if (await p.$('.modal-back')) await p.click('.modal-back >> text=LANZAR');
+  if (await p.$('.modal-back >> text=LANZAR')) await p.click('.modal-back >> text=LANZAR');
   await p.waitForTimeout(500);
   const out = await p.evaluate(async () => {
     const e = window.__topolev.exp;

@@ -5,6 +5,9 @@ export const T = {
   SANDBAG: 12, LOWWALL: 13, BARREL: 14, OIL: 15, CATWALK: 16, GLASS: 17, SAND: 18, PIPE: 19, PIPE_BROKEN: 20,
   ARMORDOOR: 21, TERMINAL: 22, SWITCH: 23, FAN: 24, LIFT: 25, CHASM: 26, UNSTABLE: 27, DEBRIS: 28, GRAPHITE: 29,
   ROOTS: 30, ICE: 31, RAIL: 32, LAMP: 33, LAMP_BROKEN: 34, LIFT_UP: 35, SWITCH_ON: 36, TERMINAL_DONE: 37,
+  // fase 17: superficie y zonas nuevas
+  GROUND: 38, GRASS: 39, ASPHALT: 40, PINE: 41, DUG: 42, CAR: 43, SWING: 44, HULL: 45, LATTICE: 46, ANTENNA: 47,
+  BOAT: 48, ORGWALL: 49, CORIUM: 50, CELL: 51, FENCE: 52, ANTENNA_ON: 53,
 };
 
 // glyphs: variantes elegidas por hash de posición. fg: variaciones de naranja.
@@ -50,6 +53,23 @@ export const TILES = [
   { name: 'Montacargas (subir)', walk: 1, opaque: 0, use: 'liftup', glyphs: ['↕'], fg: ['#9fe8a0'], bg: '#04140a', anim: 'blink', desc: 'Sube al piso superior. Reúne al escuadrón a su lado.' },
   { name: 'Interruptor encendido', walk: 0, opaque: 0, glyphs: ['¥'], fg: ['#fff07a'], bg: '#2a2006', desc: 'El sector está iluminado.' },
   { name: 'Terminal pirateado', walk: 0, opaque: 0, glyphs: ['▣'], fg: ['#2a6a80'], bg: '#020a0e', desc: 'Ya no responde.' },
+  // ---- fase 17 ---- (out: casilla de exterior, a cielo abierto)
+  { name: 'Tierra', walk: 1, opaque: 0, out: 1, glyphs: ['.', '.', ',', '\'', '`'], fg: ['#5e4a26', '#544222', '#66502a'] },
+  { name: 'Hierba seca', walk: 1, opaque: 0, out: 1, glyphs: ['"', ',', '\'', '"'], fg: ['#6a6a2a', '#5e5e24', '#747430'] },
+  { name: 'Asfalto agrietado', walk: 1, opaque: 0, out: 1, glyphs: ['·', '.', '·', ':'], fg: ['#5a5650', '#4e4a46'] },
+  { name: 'Pino rojo', walk: 0, opaque: 0, half: 1, out: 1, glyphs: ['♠', '♣', '♠'], fg: ['#a8441a', '#943c16', '#b44c1e'], desc: 'Pinos muertos color óxido. Tapan la visión a medias.' },
+  { name: 'Tierra removida', walk: 1, opaque: 0, out: 1, use: 'dig', glyphs: ['÷', '≈', '∴'], fg: ['#8a5a2a', '#7a4e24'], bg: '#100a04', desc: 'Una fosa de enterramiento. Muy radiactiva. Se puede excavar (F): a veces hay algo.' },
+  { name: 'Coche oxidado', walk: 0, opaque: 0, cover: 25, out: 1, glyphs: ['▬', '◘', '▀'], fg: ['#8a5a3a', '#7a6a5a', '#946040'], bg: '#100804', desc: 'Un «Moskvich» abandonado. Buena cobertura.' },
+  { name: 'Columpio', walk: 0, opaque: 0, out: 1, glyphs: ['Ħ'], fg: ['#c8a050'], desc: 'Chirría cuando pasas al lado. Todo lo que hay cerca lo oye.' },
+  { name: 'Chapa metálica', walk: 0, opaque: 1, glyphs: ['▒', '▓', '▒'], fg: ['#7a7468', '#6a645a', '#847c70'], bg: '#141210', desc: 'Vagones, cabinas y carrocerías.' },
+  { name: 'Celosía metálica', walk: 0, opaque: 0, cover: 10, out: 1, glyphs: ['╳', '╫', '╳'], fg: ['#8aa0b8', '#7a90a8'], desc: 'La estructura de la antena. Algo de cobertura.' },
+  { name: 'Consola del radar', walk: 0, opaque: 0, use: 'antenna', glyphs: ['Ψ'], fg: ['#7fb8ff'], bg: '#04101c', anim: 'blink', desc: 'Activar la antena revela todo el mapa durante 30 turnos… y atrae a todo lo que hay.' },
+  { name: 'Barca', walk: 1, opaque: 0, out: 1, glyphs: ['◡', '∪'], fg: ['#a07040', '#8a6038'], bg: '#03110f', desc: 'Barcas varadas que hacen de puente sobre el agua profunda.' },
+  { name: 'Pared orgánica', walk: 0, opaque: 1, glyphs: ['◦', '○', '●', '◦'], fg: ['#9a4a6a', '#8a3a5a', '#7a5a3a'], bg: '#140608', anim: 'breathe', desc: 'Respira. A veces se abre… y a veces se cierra.' },
+  { name: 'Corium', walk: 0, opaque: 0, glyphs: ['≈', '~', '≋'], fg: ['#ff7a20', '#ff9a30', '#e05a10'], bg: '#2a0800', anim: 'lava', desc: 'Combustible nuclear fundido. No se cruza. Radiación letal a su alrededor.' },
+  { name: 'Reja de celda', walk: 0, opaque: 0, glyphs: ['╫', '#'], fg: ['#6a8aa0'], bg: '#050a0e', desc: 'Celda de contención. Un terminal la abre… si de verdad quieres abrirla.' },
+  { name: 'Alambrada de la zona', walk: 0, opaque: 0, out: 1, glyphs: ['#', '╪', '#'], fg: ['#6a6a60', '#5a5a52'], desc: 'La valla de la zona de exclusión.' },
+  { name: 'Antena activa', walk: 0, opaque: 0, glyphs: ['Ψ'], fg: ['#d0e8ff'], bg: '#0a2038', desc: 'La antena zumba. Todo lo que hay en la zona sabe que estáis aquí.' },
 ];
 
 export const isWalk = (t) => TILES[t].walk === 1;
