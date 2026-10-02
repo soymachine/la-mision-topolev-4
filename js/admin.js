@@ -12,6 +12,9 @@ import { HUMANS, scaleHuman } from './data/humans.js';
 import { EVENTS } from './data/events.js';
 import { DIALOGS } from './data/dialogs.js';
 import { ATTRS, ATTR_MAX, TALENTS, TALENT_EVERY } from './data/talents.js';
+import { SPECS, SPEC_TALENTS, SPEC_LEVEL, rerollCost } from './data/specs.js';
+import { BACKGROUNDS } from './data/backgrounds.js';
+import { ACQUIRED, MEDALS, WOUNDS, WOUND_CHANCE, RETIRE_LEVEL, MAX_INSTRUCTORS, INSTRUCTOR_XP, ROOKIE_LEVEL } from './data/honors.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const byCat = (c) => Object.entries(ITEMS).filter(([, d]) => d.cat === c).map(([id, d]) => ({ id, ...d })).sort((a, b) => a.tier - b.tier || a.value - b.value);
@@ -213,12 +216,15 @@ sec('Base', 'atributos', 'Atributos', ATTRS.length, () => table(ATTRS, [
   { h: 'Atributo', v: (t) => `<span class="nm">${esc(t.name)}</span>`, s: (t) => t.name },
   { h: 'Por punto', v: (t) => esc(t.desc) },
 ]), `Cada nivel da 1 punto que se reparte en la base (ASCENSO). Máximo ${ATTR_MAX} puntos por atributo. Los reclutas veteranos llegan con los suyos ya repartidos.`);
-sec('Base', 'talentos', 'Talentos', Object.keys(TALENTS).length, () => table(Object.entries(TALENTS).map(([id, t]) => ({ id, ...t })), [
+sec('Base', 'talentos', 'Talentos generales', Object.keys(TALENTS).length, () => table(Object.entries(TALENTS).map(([id, t]) => ({ id, ...t })), [
   { h: '', g: true, v: (t) => esc(t.glyph) },
   { h: 'Talento', v: (t) => `<span class="nm">${esc(t.name)}</span> <span class="desc">${t.id}</span>`, s: (t) => t.name },
   { h: 'Efecto', v: (t) => esc(t.desc) },
   { h: 'Tipo', v: (t) => (t.flags ? tag('especial', 'c') : tag('estadística', 'g')), s: (t) => (t.flags ? 1 : 0) },
-]), `Cada ${TALENT_EVERY} niveles el agente elige 1 de 3 talentos al azar (sin repetir). Los efectos especiales son los mismos que los de los gadgets y no se acumulan con ellos: cuenta el mejor.`);
+]), `Antes de especializarse (nivel ${SPEC_LEVEL}) se ofrecen estos; después, los de su árbol (y estos si el árbol se agota). Los efectos especiales son los mismos que los de los gadgets y no se acumulan con ellos: cuenta el mejor.`);
+sec('Base', 'especializaciones', 'Especializaciones', Object.keys(SPECS).length, renderSpecs, `Al nivel ${SPEC_LEVEL} cada agente elige una. Cada ${TALENT_EVERY} niveles: 1 talento entre 3 (intentando uno por rama); volver a tirar cuesta 60 + 40 × nivel ₽. Los talentos avanzados (II) exigen tener uno de su rama. ◈ = sinergia con un gadget o mod.`);
+sec('Base', 'trasfondos', 'Trasfondos', Object.keys(BACKGROUNDS).length, renderBackgrounds, 'Todos los atributos empiezan en 2; el trasfondo suma sus bonificaciones y luego se reparten 4 puntos al azar (máximo 7 al empezar). El rasgo sale de su lista el 80% de las veces.');
+sec('Base', 'honores', 'Rasgos, medallas y heridas', Object.keys(ACQUIRED).length + Object.keys(MEDALS).length + WOUNDS.length, renderHonors, `Lo que viven los agentes deja huella. Retiro: nivel ${RETIRE_LEVEL}+, máximo ${MAX_INSTRUCTORS} instructores, +${INSTRUCTOR_XP}% de XP por instructor a los agentes de nivel ${ROOKIE_LEVEL} o menos.`);
 sec('Base', 'agentes', 'Nombres de agentes', FIRST_NAMES_M.length + FIRST_NAMES_F.length + LAST_NAMES.length + NICKNAMES.length, renderAgentNames);
 
 // ----- NARRATIVA -----
@@ -395,6 +401,46 @@ function renderDialogs() {
       ${(N.opts || []).map((o) => `<div style="margin-left:4ch">▸ <b>${txt(o.label)}</b>${o.turn ? ' ⌛' : ''}${o.cond ? ` <span class="desc">[requiere ${descObj(o.cond)}]</span>` : ''}${o.goto ? ` → <code>${esc(o.goto)}</code>` : ''}${o.effects ? `<div class="desc" style="margin-left:2ch">${o.effects.map(descObj).join(' · ')}</div>` : ''}</div>`).join('')}</div>`).join('');
     return `<div class="block row-f"><h3 style="color:${D.color || 'inherit'}">${esc(D.title)} <span class="desc">· <code>${id}</code> · ${esc(D.speaker || '')}</span></h3>${nodes}</div>`;
   }).join('');
+}
+
+function effText(d) {
+  const parts = [];
+  if (d.mods) parts.push(Object.entries(d.mods).map(([k, v]) => `${k} ${v > 0 ? '+' : ''}${v}`).join(', '));
+  if (d.attr) parts.push(Object.entries(d.attr).map(([k, v]) => `${k} +${v}`).join(', '));
+  if (d.flags) parts.push(Object.entries(d.flags).map(([k, v]) => `${k}: ${v}`).join(', '));
+  if (d.cond) parts.push(`si ${d.cond.when}: ${Object.entries(d.cond.mods).map(([k, v]) => `${k} ${v > 0 ? '+' : ''}${v}`).join(', ')}`);
+  if (d.aura) parts.push(`aura r${d.aura.r}: ${Object.entries(d.aura.mods).map(([k, v]) => `${k} +${v}`).join(', ')}`);
+  if (d.syn) parts.push('◈ ' + d.syn.map((sy) => (sy.gadget ? ITEMS[sy.gadget].name : ITEMS[sy.mod].name)).join(' / '));
+  return `<span class="desc">${esc(parts.join(' · '))}</span>`;
+}
+function renderSpecs() {
+  return Object.entries(SPECS).map(([id, sp]) => `<div class="block row-f"><h3 style="color:${sp.color}">${esc(sp.glyph)} ${esc(sp.name)} <span class="desc">· ${id} · ${esc(sp.fantasy)}</span></h3>
+    <div><b>${esc(sp.ability.glyph)} ${esc(sp.ability.name)}</b> ${tag(`recarga ${sp.ability.cd}`)}${sp.ability.target ? tag('con objetivo', 'c') : ''} <span class="desc">${esc(sp.ability.desc)}</span></div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2ch;margin-top:.5em">${sp.branches.map((b) => `<div><div class="nm">${esc(b.name)}</div>${b.talents.map((t) => { const d = SPEC_TALENTS[t]; return `<div style="margin:.3em 0"><b>${esc(d.glyph)} ${esc(d.name)}</b>${d.tier > 1 ? ' ' + tag('II', 'b') : ''}${d.syn ? ' ' + tag('◈', 'c') : ''}<div>${esc(d.desc)}</div>${effText(d)}</div>`; }).join('')}</div>`).join('')}</div></div>`).join('');
+}
+function renderBackgrounds() {
+  return table(Object.entries(BACKGROUNDS).map(([id, b]) => ({ id, ...b })), [
+    { h: 'Trasfondo', v: (b) => `<span class="nm">${esc(b.name)}</span><div class="desc">${esc(b.nameF)} · ${b.id}</div>`, s: (b) => b.name },
+    { h: 'Atributos', v: (b) => Object.entries(b.attrs).map(([k, v]) => tag(`${ATTRS.find((x) => x.id === k).name} +${v}`, 'g')).join('') },
+    { h: 'Rasgos posibles', v: (b) => b.traits.map((t) => esc(TRAITS.find((x) => x.id === t).name)).join(', ') },
+    { h: 'Frases', v: (b) => `<div class="desc">${Object.entries(b.lines).map(([k, l]) => `<b>${k}</b>: ${l.map(esc).join(' / ')}`).join('<br>')}</div>` },
+  ]);
+}
+function renderHonors() {
+  const acq = table(Object.entries(ACQUIRED).map(([id, d]) => ({ id, ...d })), [
+    { h: '', g: true, v: (d) => esc(d.glyph) },
+    { h: 'Rasgo adquirido', v: (d) => `<span class="nm">${esc(d.name)}</span>`, s: (d) => d.name },
+    { h: 'Cómo se gana', v: (d) => esc(d.how) },
+    { h: 'Efecto', v: (d) => `${esc(d.desc)}<div>${effText(d)}</div>` },
+  ]);
+  const med = table(Object.entries(MEDALS).map(([id, d]) => ({ id, ...d })), [
+    { h: '', g: true, v: (d) => `<span style="color:${d.color}">${esc(d.glyph)}</span>` },
+    { h: 'Condecoración', v: (d) => `<span class="nm" style="color:${d.color}">${esc(d.name)}</span>`, s: (d) => d.name },
+    { h: 'Requisito', v: (d) => esc(d.how) },
+    { h: 'Efecto', v: (d) => esc(d.desc) },
+  ]);
+  const wnd = `<div class="block"><h3>Heridas persistentes</h3><div class="desc">Al bajar del 15% de salud (una vez por expedición) hay un ${Math.round(WOUND_CHANCE * 100)}% de sufrir una. Restan 1 al atributo hasta operarla en la ficha del agente (220 ₽ − 30 por nivel de Enfermería, mínimo 60).</div>${WOUNDS.map((w) => `<div>✖ ${esc(w.name)} <span class="desc">(−1 ${esc(ATTRS.find((x) => x.id === w.attr).name)})</span></div>`).join('')}</div>`;
+  return `<h3>Rasgos adquiridos</h3>${acq}<h3>Condecoraciones</h3>${med}${wnd}`;
 }
 
 let current = null;

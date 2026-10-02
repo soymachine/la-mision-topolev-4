@@ -373,3 +373,23 @@ body.no-crt #crt { display: none; }
 .ascend-btn { animation: asc-pulse 1.8s ease-in-out infinite; }
 @keyframes asc-pulse { 50% { opacity: .55; } }
 @media (max-width: 700px) { .talent-cards { grid-template-columns: 1fr; } .attr-row { grid-template-columns: 12ch auto auto auto; } .attr-row .dimt { grid-column: 1 / -1; } }
+
+/* ---------- fase 15: ficha, especializaciones y árbol ---------- */
+.attr-sheet { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 1ch; margin-top: 4px; }
+.attr-cell { cursor: help; white-space: nowrap; }
+.attr-mini { display: flex; gap: 1.2ch; color: var(--o1); margin: 2px 0; }
+.talent-chip.spec { color: var(--o0); border-style: solid; }
+.talent-chip.acq { color: #c8a0ff; }
+.talent-chip.medal { color: var(--o0); }
+.wound-row { display: flex; justify-content: space-between; align-items: center; gap: 1ch; }
+.spec-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(22ch, 1fr)); gap: 1ch; margin-top: 4px; }
+.spec-tree { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1ch; margin-top: 4px; }
+.spec-tree .branch { border: 1px dotted var(--o5); padding: .3em 1ch; }
+.spec-tree .bn { color: var(--o2); font-weight: 700; text-align: center; margin-bottom: .2em; }
+.spec-tree .node { cursor: help; padding: 1px 0; }
+.spec-tree .node.own { color: var(--o0); }
+.spec-tree .node.open { color: var(--o3); }
+.spec-tree .node.locked { color: var(--o5); }
+.ab-btn { width: 100%; text-align: left; margin-top: 2px; }
+.ab-btn.cooling { opacity: .55; }
+@media (max-width: 700px) { .spec-tree { grid-template-columns: 1fr; } .attr-sheet { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

@@ -125,13 +125,20 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
   await q.waitForTimeout(200);
   ok(await q.$('.ascend-btn'), 'botón de ASCENSO en la ficha');
   const acc0 = await q.evaluate(async () => { const { agentStats } = await import('./js/core/agents.js'); return agentStats(window.__topolev.S.agents[0]).acc; });
+  const pun0 = await q.evaluate(() => window.__topolev.S.agents[0].attr.pun);
   await q.click('.ascend-btn'); await q.waitForTimeout(200);
   await q.click('.attr-row >> nth=0 >> button:has-text("+")'); await q.click('.attr-row >> nth=0 >> button:has-text("+")');
   await q.click('button:has-text("CONFIRMAR ATRIBUTOS")'); await q.waitForTimeout(150);
-  await q.click('.talent-card >> nth=0'); await q.waitForTimeout(150);
+  ok(await q.$('.spec-card'), 'a partir del nivel 5 se ofrece elegir especialización');
+  await q.click('.spec-card:has-text("Tirador")'); await q.waitForTimeout(150);
+  await q.click('.modal >> button:has-text("ESPECIALIZAR")'); await q.waitForTimeout(250);
+  const offer = await q.$$eval('.talent-cards .talent-card', (cs) => cs.map((c) => c.innerText));
+  ok(offer.length === 3 && offer.every((t) => /Paciencia|Balística|Observador/.test(t)), `la oferta pasa a ser del árbol de Tirador (${offer.map((t) => t.split('\n')[1]).join(', ')})`);
+  await q.click('.talent-cards .talent-card >> nth=0'); await q.waitForTimeout(150);
   await q.click('.modal >> button:has-text("APRENDER")'); await q.waitForTimeout(250);
-  const asc2 = await q.evaluate(async () => { const { agentStats } = await import('./js/core/agents.js'); const a = window.__topolev.S.agents[0]; return { pun: a.attr.pun, pts: a.pts, tal: a.talents.length, acc: agentStats(a).acc }; });
-  ok(asc2.pun === 2 && asc2.pts === asc.pts - 2 && asc2.tal === 1, 'repartir puntos y aprender un talento');
+  ok(await q.$('.spec-tree .node.own'), 'el árbol marca el talento aprendido');
+  const asc2 = await q.evaluate(async () => { const { agentStats } = await import('./js/core/agents.js'); const a = window.__topolev.S.agents[0]; return { pun: a.attr.pun, pts: a.pts, tal: a.talents.length, acc: agentStats(a).acc, spec: a.spec }; });
+  ok(asc2.pun === pun0 + 2 && asc2.pts === asc.pts - 2 && asc2.tal === 1 && asc2.spec === 'tirador', 'repartir puntos, especializarse y aprender un talento');
   ok(asc2.acc >= acc0 + 2, `la Puntería suma precisión (${acc0} → ${asc2.acc})`);
   await qclose();
   // intendencia
@@ -195,14 +202,110 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
   const mig = await q.evaluate(async () => {
     const st = await import('./js/core/state.js');
     const S = window.__topolev.S;
-    const a = S.agents[0]; delete a.attr; delete a.offers; delete a.talents; delete a.pts; delete a.equip.case; a.lvl = 7;
+    const a = S.agents[0]; delete a.attr; delete a.offers; delete a.talents; delete a.pts; delete a.equip.case; delete a.av; delete a.bg; delete a.spec; a.lvl = 7; a.acc = 4; a.ev = 2;
     st.save();
     st.load(st.slot);
     const b2 = window.__topolev.S.agents[0];
-    return { offers: b2.offers.length, attr: !!b2.attr, hasCase: 'case' in b2.equip };
+    return { offers: b2.offers.length, pun: b2.attr.pun, agi: b2.attr.agi, hasCase: 'case' in b2.equip, bg: b2.bg, acc: 'acc' in b2 };
   });
-  ok(mig.offers === 2 && mig.attr && mig.hasCase, 'migración: un veterano Nv 7 recibe 2 talentos pendientes');
+  ok(mig.offers === 2 && mig.pun === 5 && mig.agi === 3 && mig.hasCase && mig.bg && !mig.acc, `migración: precisión/agilidad → atributos, trasfondo y 2 talentos pendientes (${JSON.stringify(mig)})`);
   await ctx2.close();
+
+  // ================================================================ fase 15
+  console.log('· Fase 15: sistema RPG');
+  const ctx3 = await b.newContext({ viewport: { width: 1440, height: 860 } });
+  const R = await ctx3.newPage();
+  R.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
+  R.on('console', (m) => { if ((m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) || m.type() === 'warning') errs.push(m.text()); });
+  const rd = (line) => R.evaluate((l) => window.__topolev.debug.run(l), line);
+  await R.goto(URL); await R.waitForTimeout(800);
+  await R.click('text=NUEVA PARTIDA'); await R.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await R.click('#screen-intro'); await R.click('text=COMENZAR');
+  await R.waitForTimeout(300);
+  const fresh = await R.evaluate(() => window.__topolev.S.agents.map((a) => ({ bg: a.bg, ok: Object.values(a.attr).every((v) => v >= 1 && v <= 10), acc: 'acc' in a })));
+  ok(fresh.every((x) => x.bg && x.ok && !x.acc), `agentes con trasfondo y atributos 1–10 (${fresh.map((x) => x.bg).join(', ')})`);
+  const rec = await R.evaluate(async () => { const A = await import('./js/core/agents.js'); const a = A.createAgent(undefined, { lvl: 9 }); return { spec: a.spec, tal: a.talents.length, pts: a.pts, off: a.offers.length }; });
+  ok(rec.spec && rec.tal === 3 && rec.pts === 0 && rec.off === 0, 'un recluta de nivel 9 llega especializado y con 3 talentos');
+  // escuadrón: tirador + zapador con sanitario de reserva
+  await R.evaluate(() => { const S = window.__topolev.S; for (const a of S.agents) { a.baseHp = 120; a.hp = 300; } window.__topolev.S.modules.barracones = 2; });
+  await R.evaluate(async () => {
+    const A = await import('./js/core/agents.js');
+    const S = window.__topolev.S;
+    ['tirador', 'zapador', 'sanitario'].forEach((sp, i) => { const a = S.agents[i]; A.giveXp(a, 800); A.chooseSpec(a, sp); a.hp = A.agentStats(a).hpMaxEff; });
+    S.agents[2].talents.push('s_rescate');
+  });
+  await R.click('.tab:has-text("EXPEDICIÓN")');
+  for (let i = 0; i < 3; i++) { const rows = await R.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); if (rows[i]) await rows[i].click(); }
+  await R.click('text=LANZAR EXPEDICIÓN'); await R.waitForTimeout(300);
+  if (await R.$('.modal-back')) await R.click('.modal-back >> text=LANZAR');
+  await R.waitForTimeout(600);
+  const squad = await R.evaluate(() => window.__topolev.exp.squad.map((s) => s.a.spec));
+  ok(squad.length === 3, `escuadrón especializado: ${squad.join(', ')}`);
+  await rd('god');
+  await rd('spawn lobo 2 2');
+  await R.evaluate(() => { const e = window.__topolev.exp; e.active = e.squad.findIndex((s) => s.a.spec === 'tirador'); e.emit('switch'); });
+  await R.waitForTimeout(200);
+  ok(await R.$('.ab-btn:has-text("MARCAR OBJETIVO")'), 'botón de habilidad en el panel del agente');
+  await R.keyboard.press('v'); await R.waitForTimeout(150);
+  await R.keyboard.press('Enter'); await R.waitForTimeout(200);
+  const mk = await R.evaluate(() => { const e = window.__topolev.exp; const t = e.enemies.find((x) => x.marked > 0); return { marked: !!t, cd: e.cur.abcd, hit: t ? e.hitChance(e.cur, t) : 0 }; });
+  ok(mk.marked && mk.cd > 0, `V + Enter marca a un enemigo (cd ${mk.cd}, impacto ${mk.hit}%)`);
+  const ch = await R.evaluate(() => {
+    const e = window.__topolev.exp;
+    const z = e.squad.find((s) => s.a.spec === 'zapador'); e.active = e.squad.indexOf(z);
+    e.act((s) => e.useAbility(s));
+    const placed = e.charges.length;
+    for (let i = 0; i < 4; i++) e.wait();
+    return { placed, left: e.charges.length, boom: e.log.some((l) => l.s.includes('La carga estalla')) };
+  });
+  ok(ch.placed === 1 && ch.left === 0 && ch.boom, 'Colocar carga estalla a los 3 turnos');
+  await rd('god');
+  const resc = await R.evaluate(() => {
+    const e = window.__topolev.exp;
+    const med = e.squad.find((s) => s.a.spec === 'sanitario');
+    const vic = e.squad.find((s) => s !== med && e.inMap(s));
+    // juntar a la víctima con el sanitario
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) { const x = med.x + dx, y = med.y + dy; if (e.passable(x, y) && !e.entityAt(x, y)) { e.moveEntity(vic, x, y); break; } }
+    e.damageAgent(vic, vic.a.hp + 50, 'prueba');
+    return { alive: e.inMap(vic), hp: vic.a.hp, saves: med.a.saves || 0 };
+  });
+  ok(resc.alive && resc.hp === 1 && resc.saves === 1, 'Rescate: el sanitario salva a un compañero adyacente');
+  const wound = await R.evaluate(() => {
+    const e = window.__topolev.exp; const sq = e.cur;
+    for (let i = 0; i < 60 && !(sq.a.wounds || []).length; i++) { sq.woundRoll = false; sq.a.hp = 1; e.markHurt(sq, null); }
+    sq.a.hp = 50;
+    return (sq.a.wounds || []).map((w) => w.name + ' ' + w.attr);
+  });
+  ok(wound.length === 1, `heridas persistentes (${wound.join(', ')})`);
+  // honores al volver
+  await R.evaluate(() => {
+    const e = window.__topolev.exp;
+    for (const sq of e.team) { sq.kills = 9; sq.bossKills = 1; sq.minPct = 0.03; }
+    for (const sq of [...e.team]) e.extract(sq);
+    e.checkActive();
+  });
+  await R.waitForSelector('#screen-report.active', { timeout: 10000 }).catch(() => {});
+  await R.waitForTimeout(600);
+  const rep = await R.$eval('#screen-report', (x) => x.innerText).catch(() => '');
+  ok(/Estrella Roja/.test(rep) && /Medalla al Valor/.test(rep) && /Superviviente/.test(rep), 'el informe muestra condecoraciones y rasgos adquiridos');
+  await R.click('#screen-report >> text=VOLVER A LA BASE').catch(() => {});
+  await R.waitForTimeout(400);
+  // operar la herida y retirar a un veterano
+  const wid = await R.evaluate(() => window.__topolev.S.agents.findIndex((a) => (a.wounds || []).length));
+  if (wid >= 0) {
+    await R.evaluate(() => { window.__topolev.S.rub = 5000; });
+    await R.click('.tab:has-text("EQUIPO")'); await R.waitForTimeout(150);
+    await R.evaluate((i) => { const a = window.__topolev.S.agents[i]; const row = [...document.querySelectorAll('#screen-base .agent-row')].find((x) => x.textContent.includes(a.nick)); row && row.click(); }, wid);
+    await R.waitForTimeout(150);
+    await R.click('button:has-text("OPERAR")'); await R.waitForTimeout(200);
+    ok(await R.evaluate((i) => window.__topolev.S.agents[i].wounds.length === 0, wid), 'operar una herida en la ficha');
+  } else ok(false, 'había una herida que operar');
+  await R.evaluate(async () => { const A = await import('./js/core/agents.js'); const a = window.__topolev.S.agents[0]; A.giveXp(a, 4000); });
+  await R.click('.tab:has-text("BARRACONES")'); await R.waitForTimeout(200);
+  await R.click('#screen-base button:has-text("RETIRAR") >> nth=0'); await R.waitForTimeout(150);
+  await R.click('.modal >> button:has-text("RETIRAR")'); await R.waitForTimeout(250);
+  const ins = await R.evaluate(async () => { const A = await import('./js/core/agents.js'); const S = window.__topolev.S; const rookie = A.createAgent(undefined, { lvl: 1 }); return { n: S.instructors.length, mult: A.agentHooks.xpMult(rookie) }; });
+  ok(ins.n === 1 && Math.abs(ins.mult - 1.15) < 1e-9, `retiro como instructor (+${Math.round((ins.mult - 1) * 100)}% XP a novatos)`);
+  await ctx3.close();
 
   console.log(errs.length ? 'ERRORES:\n' + errs.join('\n') : '  ✓ sin errores en consola');
   await b.close();

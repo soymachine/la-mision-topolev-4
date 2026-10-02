@@ -260,6 +260,7 @@ export class ReportScreen {
     for (const ag of rep.agents) {
       const box = el('div', { style: { margin: '6px 0' } });
       box.append(el('div', { html: `<span style="color:${ag.color};font-weight:700">@</span> <b>${esc(ag.name)}</b> <span class="dimt">Nv ${ag.lvl}</span> — ${ag.status === 'extraído' ? '<span class="cyan">⇑ EXTRAÍDO</span>' : '<span class="bad">✝ MUERTO EN COMBATE</span>'}${ag.lvlUp > 0 ? ` <span class="warn">★ +${ag.lvlUp} nivel</span>` : ''} <span class="dimt">· ${ag.kills} bajas · ${ag.ess} ✦</span>` }));
+      if (ag.news && ag.news.length) box.append(el('div', { style: { paddingLeft: '3ch' }, html: ag.news.map((n) => `<span class="${n.startsWith('✖') ? 'bad' : n.startsWith('🎖') ? 'warn' : 'o1'}">${esc(n)}</span>`).join('<span class="o5"> · </span>') }));
       if (ag.status === 'extraído' && ag.items.length) {
         box.append(el('div', { style: { paddingLeft: '3ch' }, html: ag.items.map((it) => `<span style="color:${RARITIES[it.r].color}">${esc(it.name)}${it.q > 1 ? ' ×' + it.q : ''}</span>`).join('<span class="o5"> · </span>') }));
       } else if (ag.status !== 'extraído') {
@@ -319,8 +320,17 @@ export class HelpScreen {
 </ul>
 <p class="dimt">Cada expedición cuenta como un día: los agentes se recuperan un poco, llegan nuevos candidatos y cambia el catálogo.</p>
 
-<h2>ASCENSO DE LOS AGENTES</h2>
-<p>Al subir de nivel, cada agente gana salud y <b>1 punto de atributo</b> (Puntería, Agilidad, Fortaleza, Aguante, Percepción o Técnica). Cada <b>3 niveles</b> elige además <b>1 talento entre 3</b> al azar. Los agentes con un ascenso pendiente llevan un <span class="warn">▲</span>: abre su ficha en EQUIPO y pulsa <b>ASCENSO</b>.</p>
+<h2>AGENTES: ATRIBUTOS, ESPECIALIZACIÓN Y HONORES</h2>
+<p>Cada agente tiene un <b>trasfondo</b> (minero del Donbás, veterana de Afganistán, operador de la central…) que marca sus <b>atributos</b> de 1 a 10: <b>Puntería</b> (precisión), <b>Agilidad</b> (esquiva), <b>Fortaleza</b> (salud, cuerpo a cuerpo, carga), <b>Aguante</b> (radiación, veneno), <b>Percepción</b> (crítico, visión, rastreo) y <b>Técnica</b> (esencia, curación, vetas). Pasa el ratón por encima para ver qué da cada uno.</p>
+<ul>
+<li>Al subir de nivel (hasta el 20) gana salud y <b>1 punto de atributo</b>. Cada <b>3 niveles</b> elige <b>1 talento entre 3</b> (puedes pagar para volver a tirar).</li>
+<li>Al <b>nivel 5</b> elige una <b>especialización</b>: Tirador, Asalto, Sanitario, Zapador, Liquidador, Explorador o Comisario. Cada una tiene su árbol de talentos (3 ramas; los avanzados exigen uno de su rama) y una <b>habilidad activa</b> (tecla <b>V</b>) con recarga.</li>
+<li>Algunos talentos tienen <b>sinergias</b> <span class="cyan">◈</span> con gadgets o mods concretos.</li>
+<li>Lo que viven los marca: <b>rasgos adquiridos</b> (Superviviente, Traumatizado por lobos…), <b>condecoraciones</b> (Medalla al Valor, Orden de la Estrella Roja…) y <b>heridas persistentes</b> (−1 a un atributo hasta operarlas en la ficha).</li>
+<li>La experiencia también llega por explorar sectores, abrir alijos, extraer esencia de vetas y curar, no solo por matar.</li>
+<li>Los veteranos de nivel 8 o más pueden <b>retirarse como instructores</b> (BARRACONES): los novatos aprenderán más rápido.</li>
+</ul>
+<p>Un <span class="warn">▲</span> junto al agente indica un ascenso pendiente: abre su ficha en EQUIPO y pulsa <b>ASCENSO</b>.</p>
 
 <h2>CONTENEDOR DE SEGURIDAD</h2>
 <p>Los contenedores (<b>▣</b>, en la Intendencia a partir de Almacén 2) van en la ranura <b>CONTENEDOR</b>. Durante la expedición, arrastra un objeto sobre él para guardarlo (<b>1 turno</b>): queda <b>sellado</b> hasta volver a la base. Si el agente muere, su radiobaliza devuelve el contenedor y su contenido al almacén. Las armas ocupan 2 huecos; las pesadas no caben. En la base puedes llenarlo y vaciarlo libremente.</p>
@@ -349,6 +359,7 @@ export class HelpScreen {
 <span>R</span><span>Recargar</span>
 <span>X</span><span>Cambiar de arma</span>
 <span>H</span><span>Curarse con el mejor botiquín</span>
+<span>V</span><span>Habilidad de la especialización (con objetivo: apunta y confirma)</span>
 <span>B</span><span>Lanzar granada / objeto arrojadizo (o colocar trampas desde el inventario)</span>
 <span>I</span><span>Inventario (arrastrar y soltar para equipar, soltar o dar a compañeros)</span>
 <span>Tab · 1-4</span><span>Cambiar de agente controlado</span>

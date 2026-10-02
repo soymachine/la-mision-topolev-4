@@ -101,7 +101,12 @@ export const DIALOGS = {
         opts: [
           { label: 'LES DEJAREMOS EN PAZ', effects: [{ setFlag: 'metSuecia' }] },
           { label: '¿PODRÍAMOS NEGOCIAR CON ELLOS?', goto: 'trade' },
+          { label: '[NEGOCIADOR] PROPONEDLES COMPARTIR LECTURAS', show: { squadFlag: 'negotiator' }, cls: 'good', effects: [{ setFlag: 'metSuecia' }, { setFlag: 'sueciaDataDeal' }, { rep: ['suecia', 15] }], goto: 'deal' },
         ],
+      },
+      deal: {
+        text: '«¿Intercambiar lecturas dosimétricas con Forsmark? Arriesgado… pero brillante. Hacedlo con discreción: lo que Moscú no sabe, no lo prohíbe.»',
+        opts: [{ label: 'ENTENDIDO' }],
       },
       trade: {
         text: '«Quizá. Los neutrales comercian con quien les trata bien. Si os ganáis su confianza, puede que algún día compartan lo que saben. Pero eso es política, y la política se hace arriba.»',

@@ -157,7 +157,8 @@ O órdenes del escuadrón · I inventario · M mapa · Espacio esperar · ? ayud
 - Juego completo y jugable (fases 1–12). Probado con Playwright (bot automático en las 5 zonas, guardado/carga a mitad de expedición, drag & drop, compras).
 - Fase 13 (cimientos técnicos) completada: partes de la expedición, facciones y personas, motor de eventos/diálogos, guardado v2 con 3 ranuras y consola de depuración.
 - Fase 14 completada: contenedores de seguridad (KGB, Kolyma, Matrioska) y ascenso de agentes (atributos + talentos).
-- **Siguiente sesión:** seguir [`plan-ampliacion.md`](plan-ampliacion.md) por la fase 15 (sistema RPG de agentes) según el orden recomendado al final de ese archivo. Marcar allí las tareas al completarlas.
+- Fase 15 completada: atributos 1–10, trasfondos, 7 especializaciones con árboles de talentos y habilidades activas, rasgos adquiridos, condecoraciones, heridas y retiro como instructor.
+- **Siguiente sesión:** seguir [`plan-ampliacion.md`](plan-ampliacion.md) por la fase 16 (casillas con sentido + modificadores de zona) según el orden recomendado al final de ese archivo. Marcar allí las tareas al completarlas.
 
 ## FASE 12 — Ampliación del arsenal (petición del usuario)
 - [x] 12.1 69 armas (×4) en `js/data/weapons.js`, cada una con dibujo ASCII visible en su tooltip; nuevos tipos lanzador (explosión) y 5 municiones nuevas

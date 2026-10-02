@@ -54,7 +54,7 @@ export class UsePart {
       this.say(`${this.nm(sq)} registra ${names[o.kind]}${o.items.length ? '.' : ': vacío.'}`);
       this.fx.push({ type: 'open', x: o.x, y: o.y });
       this.noise(sq.x, sq.y, 2);
-      if (o.kind === 'cache') { const p = this.pois.find((pp) => pp.type === 'cache' && pp.x === o.x && pp.y === o.y); if (p) p.cleared = true; }
+      if (o.kind === 'cache') { const p = this.pois.find((pp) => pp.type === 'cache' && pp.x === o.x && pp.y === o.y); if (p) p.cleared = true; this.gainXp(sq, 5, true); }
       if (o.items.length && sq === this.cur) this.emit('loot', { obj: o });
       this.dirty = true;
       return true;
@@ -73,6 +73,7 @@ export class UsePart {
     sq.ess += gain; this.tally.essence += gain;
     this.fx.push({ type: 'mine', x: o.x, y: o.y, tx: sq.x, ty: sq.y, n: gain });
     this.noise(o.x, o.y, 7);
+    this.gainXp(sq, 2, true);
     this.say(`${this.nm(sq)} extrae <span class="cyan">${gain} ✦</span> de la veta${o.amount <= 0 ? ' (agotada)' : ` (quedan ~${o.amount})`}. El ruido resuena por los túneles...`);
     if (o.amount <= 0) { const p = this.pois.find((pp) => pp.type === 'vein' && pp.x === o.x && pp.y === o.y); if (p) p.cleared = true; }
     this.dirty = true;
@@ -165,6 +166,7 @@ export class UsePart {
           const before = a.hp;
           a.hp = Math.min(st.hpMaxEff, a.hp + heal);
           parts.push(`+${a.hp - before} salud`);
+          if (a.hp - before >= 4) this.gainXp(sq, 1, true);
         }
         if (d.cure && sq.poison) { sq.poison = 0; parts.push('sin veneno'); }
         if (d.cureBurn && sq.burn) { sq.burn = 0; parts.push('sin quemaduras'); }
@@ -218,6 +220,8 @@ export class UsePart {
       default: return false;
     }
     this.consume(sq, it);
+    // Manos firmes (Sanitario): la primera curación de la expedición no gasta turno
+    if (d.use === 'heal' && !sq.healFreeUsed && this.flag(sq, 'healFree')) { sq.healFreeUsed = true; this.say('(Manos firmes: sin gastar turno.)', 'dimt'); return false; }
     return true;
   }
   consume(sq, it) {
@@ -231,14 +235,17 @@ export class UsePart {
     if (d.use === 'trap') {
       if (cheb(sq.x, sq.y, tx, ty) !== 1 || !this.passable(tx, ty) || this.entityAt(tx, ty) || this.trapAt(tx, ty)) { this.say('Coloca la trampa en una casilla libre adyacente.', 'bad'); return false; }
       this.consume(sq, it);
-      this.traps.push({ x: tx, y: ty, b: it.b, dmg: d.trap.dmg, blast: d.trap.blast || 0, stun: d.trap.stun || 0 });
+      this.traps.push({ x: tx, y: ty, b: it.b, dmg: d.trap.dmg, blast: d.trap.blast || 0, stun: d.trap.stun || 0, bonus: this.flag(sq, 'trapDmg'), stunPlus: this.flag(sq, 'trapStun') });
       this.say(`${this.nm(sq)} coloca ${d.name}.`, 'o1');
       this.fx.push({ type: 'open', x: tx, y: ty });
       return true;
     }
-    if (Math.hypot(tx - sq.x, ty - sq.y) > d.range + 0.5) { this.say('Demasiado lejos.', 'bad'); return false; }
+    if (Math.hypot(tx - sq.x, ty - sq.y) > d.range + this.flag(sq, 'throwRange') + 0.5) { this.say('Demasiado lejos.', 'bad'); return false; }
     if (!this.los(sq.x, sq.y, tx, ty)) { this.say('No hay línea de lanzamiento.', 'bad'); return false; }
-    this.consume(sq, it);
+    // Bolsillos hondos (Zapador): a veces no se gasta
+    const thr = this.flag(sq, 'thrifty');
+    if (thr && rng.chance(thr / 100)) this.say(`${this.nm(sq)} todavía lleva otro${ITEMS[it.b].name.endsWith('a') ? 'a' : ''} de reserva.`, 'dimt');
+    else this.consume(sq, it);
     this.fx.push({ type: 'throw', x0: sq.x, y0: sq.y, x1: tx, y1: ty, glyph: d.glyph });
     const cells = (r) => {
       const out = [];
@@ -277,7 +284,8 @@ export class UsePart {
       return true;
     }
     this.say(`${this.nm(sq)} lanza ${d.name}.`, 'o1');
-    this.explode(tx, ty, d.blast, d.dmg, sq, d.fire || 0, 260, { pierce: d.pierce || 0, essBoost: d.essBoost || 0, noise: d.noise || 14 });
+    const bp = 1 + this.flag(sq, 'blastPct') / 100;
+    this.explode(tx, ty, d.blast, [Math.round(d.dmg[0] * bp), Math.round(d.dmg[1] * bp)], sq, d.fire || 0, 260, { pierce: d.pierce || 0, essBoost: d.essBoost || 0, noise: d.noise || 14 });
     return true;
   }
 

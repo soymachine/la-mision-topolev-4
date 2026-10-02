@@ -7,8 +7,11 @@ import { ENEMIES, enemyColor, ABIL_TEXT } from '../data/enemies.js';
 import { RARITIES, rarityWeights } from '../data/rarity.js';
 import { itemHTML, itemTooltip, itemName, itemStats, sortItems, mergeInto, rarityColor, itemValue, forgeCost, infuse, FORGE_CATS, slotsOf, modFits, installMod, removeMod, WTYPE_NAMES, caseRefusal, caseUsed } from '../core/items.js';
 import { MOD_SLOTS } from '../data/mods.js';
-import { agentStats, agentName, EQUIP_SLOTS, canEquip, bagCapacity, traitOf, xpForLevel, pendingAscent, pickTalent } from '../core/agents.js';
+import { agentStats, agentName, EQUIP_SLOTS, canEquip, bagCapacity, traitOf, xpForLevel, pendingAscent, pickTalent, talentDef, effAttrs, specOf, needsSpec, chooseSpec, currentOffer, rerollOffer, MAX_LEVEL, synOk } from '../core/agents.js';
 import { ATTRS, ATTR_MAX, TALENTS, TALENT_EVERY } from '../data/talents.js';
+import { SPECS, SPEC_TALENTS, SPEC_LEVEL, rerollCost } from '../data/specs.js';
+import { bgName, BACKGROUNDS } from '../data/backgrounds.js';
+import { ACQUIRED, MEDALS, RETIRE_LEVEL, MAX_INSTRUCTORS, INSTRUCTOR_XP, ROOKIE_LEVEL } from '../data/honors.js';
 import * as C from '../core/campaign.js';
 import { sfx } from '../audio.js';
 import { uiBurst, uiSparkEl, uiFly, uiText } from './fx.js';
@@ -194,12 +197,20 @@ export class BaseUI {
   agentTip(a) {
     const st = agentStats(a);
     const t = traitOf(a);
-    return `<div class="tt-title" style="color:${a.color}">${esc(agentName(a))}</div><div class="tt-sub">Nivel ${a.lvl} · ${esc(t.name)} (${esc(t.desc)})</div><div class="tt-sep">${'─'.repeat(40)}</div>
+    const sp = specOf(a);
+    const E = st.attrs;
+    const tal = (a.talents || []).map((id) => talentDef(id)).filter(Boolean);
+    return `<div class="tt-title" style="color:${a.color}">${esc(agentName(a))}</div><div class="tt-sub">Nivel ${a.lvl} · ${esc(bgName(a))}${sp ? ` · <span style="color:${sp.color}">${sp.glyph} ${esc(sp.name)}</span>` : ''}</div>
+      <div class="dimt">${esc(t.name)} (${esc(t.desc)})</div><div class="tt-sep">${'─'.repeat(40)}</div>
       <div class="tt-row"><span class="dimt">Salud</span><span>${a.hp}/${st.hpMaxEff}${st.hpMaxEff < st.hpMax ? ` <span class="bad">(máx ${st.hpMax})</span>` : ''}</span></div>
       <div class="tt-row"><span class="dimt">Radiación</span><span>${Math.round(a.rad)}</span></div>
-      <div class="tt-row"><span class="dimt">Puntería</span><span>${st.acc}</span></div><div class="tt-row"><span class="dimt">Agilidad</span><span>${st.ev}</span></div>
+      <div class="attr-mini">${ATTRS.map((x) => `<span title="${esc(x.name)}">${x.glyph}<b>${E[x.id]}</b></span>`).join('')}</div>
+      <div class="tt-row"><span class="dimt">Precisión · Agilidad</span><span>${st.acc} · ${st.ev}</span></div>
       <div class="tt-row"><span class="dimt">Misiones</span><span>${a.missions || 0} (${a.extractions || 0} extracciones)</span></div><div class="tt-row"><span class="dimt">Bajas</span><span>${a.kills || 0}</span></div>
-      ${(a.talents || []).length ? `<div class="tt-sep">${'─'.repeat(40)}</div>${a.talents.map((id) => `<div class="tt-aff">${esc(TALENTS[id].glyph)} ${esc(TALENTS[id].name)} <span class="dimt">— ${esc(TALENTS[id].desc)}</span></div>`).join('')}` : ''}
+      ${tal.length ? `<div class="tt-sep">${'─'.repeat(40)}</div>${tal.map((d) => `<div class="tt-aff">${esc(d.glyph)} ${esc(d.name)} <span class="dimt">— ${esc(d.desc)}</span></div>`).join('')}` : ''}
+      ${(a.medals || []).length ? `<div>${a.medals.map((m) => `<span style="color:${MEDALS[m].color}" title="${esc(MEDALS[m].name)}">${MEDALS[m].glyph}</span>`).join(' ')} <span class="dimt">${a.medals.length} condecoración(es)</span></div>` : ''}
+      ${(a.acquired || []).length ? `<div class="dimt">Rasgos: ${a.acquired.map((x) => esc(ACQUIRED[x].name)).join(', ')}</div>` : ''}
+      ${(a.wounds || []).length ? `<div class="bad">✖ ${a.wounds.map((w) => esc(w.name)).join(', ')}</div>` : ''}
       ${pendingAscent(a) ? '<div class="warn">▲ Ascenso pendiente: abre su ficha.</div>' : ''}`;
   }
 
@@ -207,25 +218,44 @@ export class BaseUI {
     const st = agentStats(a);
     const t = traitOf(a);
     const xpPrev = a.lvl > 1 ? xpForLevel(a.lvl - 1) : 0;
+    const sp = specOf(a);
+    const E = st.attrs;
+    const xpTxt = a.lvl >= MAX_LEVEL ? 'nivel máximo' : `${a.xp}/${xpForLevel(a.lvl)}`;
     B.append(
       el('div', { class: 'spread' }, el('span', { class: 'h', html: `<span style="color:${a.color}">@</span> ${esc(agentName(a))}` }), el('span', { class: 'dimt', text: `Nv ${a.lvl}` })),
-      el('div', { class: 'dimt', html: `${esc(t.name)} — ${esc(t.desc)}` }),
-      el('div', { html: `XP ${bar(a.xp - xpPrev, xpForLevel(a.lvl) - xpPrev, 16)} <span class="dimt">${a.xp}/${xpForLevel(a.lvl)}</span>` }),
+      el('div', { class: 'dimt', html: `${esc(bgName(a))} · ${esc(t.name)} — ${esc(t.desc)}` }),
+      el('div', { html: sp ? `<span style="color:${sp.color}">${sp.glyph} ${esc(sp.name.toUpperCase())}</span> <span class="dimt">· habilidad: ${esc(sp.ability.name)}</span>` : `<span class="dimt">Sin especialización${a.lvl >= SPEC_LEVEL ? ' — <span class="warn">elígela en ASCENSO</span>' : ` (al nivel ${SPEC_LEVEL})`}</span>` }),
+      el('div', { html: `XP ${a.lvl >= MAX_LEVEL ? bar(1, 1, 16) : bar(a.xp - xpPrev, xpForLevel(a.lvl) - xpPrev, 16)} <span class="dimt">${xpTxt}</span>` }),
       el('div', { html: `SAL ${hpBar(a.hp, st.hpMaxEff, 16)} ${a.hp}/${st.hpMaxEff}${st.hpMaxEff < st.hpMax ? ` <span class="bad">(rad: máx ${st.hpMax})</span>` : ''}` }),
       el('div', { html: `RAD ${bar(Math.min(100, a.rad), 100, 16, 'rad')} ${Math.round(a.rad)}` }),
-      el('div', { class: 'kv', style: { marginTop: '4px' }, html: `<span>Puntería</span><span>${st.acc}</span><span>Agilidad</span><span>${st.ev}</span><span>Protección</span><span>${st.prot}</span><span>Resist. rad.</span><span>${st.rad}%</span><span>Visión</span><span>${st.vision}</span><span>Mochila</span><span>${a.bag.length}/${bagCapacity(a)}</span>` }),
     );
-    // atributos y talentos
-    const attrLine = ATTRS.filter((x) => a.attr && a.attr[x.id]).map((x) => `${x.glyph} ${x.name} <b>+${a.attr[x.id]}</b>`).join(' · ');
-    if (attrLine) B.append(el('div', { class: 'dimt', html: attrLine }));
-    if ((a.talents || []).length) {
-      const tl = el('div', { class: 'talent-line' });
-      for (const id of a.talents) { const t = TALENTS[id]; const c = el('span', { class: 'talent-chip', text: `${t.glyph} ${t.name}` }); tip(c, () => `<div class="tt-title">${esc(t.name)}</div><div>${esc(t.desc)}</div>`); tl.append(c); }
-      B.append(tl);
+    // atributos (efectivos: base + talentos − heridas)
+    const at = el('div', { class: 'attr-sheet' });
+    for (const x of ATTRS) {
+      const base = (a.attr && a.attr[x.id]) || 1, v = E[x.id];
+      const hurt = (a.wounds || []).filter((w) => w.attr === x.id).length;
+      const c = el('div', { class: 'attr-cell', html: `<span class="o1">${x.glyph} ${esc(x.name)}</span> <b class="${hurt ? 'bad' : v > base ? 'good' : ''}">${v}</b>` });
+      tip(c, () => `<div class="tt-title">${esc(x.name)} ${v}</div><div>${esc(x.desc)}</div><div class="dimt">Base ${base}${v - base + hurt ? ` · talentos +${v - base + hurt}` : ''}${hurt ? ` · <span class="bad">heridas −${hurt}</span>` : ''}</div>`);
+      at.append(c);
+    }
+    B.append(at, el('div', { class: 'kv', style: { marginTop: '2px' }, html: `<span>Precisión</span><span>${st.acc}</span><span>Agilidad</span><span>${st.ev}</span><span>Protección</span><span>${st.prot}</span><span>Resist. rad.</span><span>${st.rad}%</span><span>Visión</span><span>${st.vision}</span><span>Crítico</span><span>${st.crit}%</span><span>Mochila</span><span>${a.bag.length}/${bagCapacity(a)}</span>` }));
+    // talentos, rasgos adquiridos, condecoraciones y heridas
+    const chips = el('div', { class: 'talent-line' });
+    const chip = (txt, cls, tt) => { const c = el('span', { class: 'talent-chip ' + cls, html: txt }); tip(c, tt); chips.append(c); };
+    for (const id of a.talents || []) { const d = talentDef(id); if (!d) continue; const synOn = (d.syn || []).some((sy) => synOk(a, sy)); chip(`${esc(d.glyph)} ${esc(d.name)}${synOn ? ' <span class="cyan">◈</span>' : ''}`, d.spec ? 'spec' : '', () => `<div class="tt-title">${esc(d.name)}</div><div>${esc(d.desc)}</div>${d.spec ? `<div class="dimt">${esc(SPECS[d.spec].name)} · rama ${esc(SPECS[d.spec].branches[d.branch].name)}</div>` : '<div class="dimt">Talento general</div>'}${synOn ? '<div class="cyan">◈ Sinergia activa con tu equipo</div>' : ''}`); }
+    for (const id of a.acquired || []) { const d = ACQUIRED[id]; chip(`${esc(d.glyph)} ${esc(d.name)}`, 'acq', () => `<div class="tt-title">${esc(d.name)}</div><div>${esc(d.desc)}</div><div class="dimt">Rasgo adquirido: ${esc(d.how)}</div>`); }
+    for (const id of a.medals || []) { const d = MEDALS[id]; chip(`<span style="color:${d.color}">${esc(d.glyph)}</span> ${esc(d.name)}`, 'medal', () => `<div class="tt-title" style="color:${d.color}">${esc(d.name)}</div><div>${esc(d.desc)}</div><div class="dimt">${esc(d.how)}</div>`); }
+    if (chips.children.length) B.append(chips);
+    for (const [i, w] of (a.wounds || []).entries()) {
+      const wc = C.treatWoundCost();
+      B.append(el('div', { class: 'wound-row' }, el('span', { class: 'bad', html: `✖ ${esc(w.name)} <span class="dimt">(−1 ${esc(ATTRS.find((x) => x.id === w.attr).name)})</span>` }),
+        el('button', { class: 'btn small ' + (S.rub >= wc ? 'good' : 'disabled'), onclick: (ev) => { const r = C.treatWound(a, i); if (r.ok) { sfx.upgrade(); uiSparkEl(ev.target, { colors: ['#3ddc6b', '#fff'], chars: ['+'] }); toast(`${esc(r.name)} tratada (−${r.cost} ₽).`, 'good'); this.render(); } else { sfx.error(); toast(r.msg, 'bad'); } } }, `OPERAR (${wc} ₽)`)));
     }
     const cost = C.treatCost(a);
     const acts = el('div', { class: 'row', style: { flexWrap: 'wrap', margin: '4px 0' } });
-    if (pendingAscent(a)) acts.append(el('button', { class: 'btn primary ascend-btn', onclick: () => this.openAscent(a) }, `▲ ASCENSO${a.pts ? ` · ${a.pts} punto${a.pts > 1 ? 's' : ''}` : ''}${a.offers.length ? ` · ${a.offers.length} talento${a.offers.length > 1 ? 's' : ''}` : ''}`));
+    const nOff = (a.offers || []).length;
+    if (pendingAscent(a)) acts.append(el('button', { class: 'btn primary ascend-btn', onclick: () => this.openAscent(a) }, `▲ ASCENSO${needsSpec(a) ? ' · especialización' : ''}${a.pts ? ` · ${a.pts} punto${a.pts > 1 ? 's' : ''}` : ''}${nOff ? ` · ${nOff} talento${nOff > 1 ? 's' : ''}` : ''}`));
+    else if (a.spec) acts.append(el('button', { class: 'btn', onclick: () => this.openAscent(a) }, 'ÁRBOL DE TALENTOS'));
     if (cost > 0) acts.append(el('button', { class: 'btn good', onclick: (ev) => { const r = C.treat(a); if (r.ok) { sfx.upgrade(); uiSparkEl(ev.target, { colors: ['#3ddc6b', '#fff'], chars: ['+'] }); toast(`Tratamiento completado (−${r.cost} ₽).`, 'good'); this.render(); } else { sfx.error(); toast(r.msg, 'bad'); } } }, `TRATAR (${cost} ₽)`));
     acts.append(el('button', { class: 'btn', onclick: () => this.unloadBag(a) }, 'DESCARGAR MOCHILA'));
     B.append(acts);
@@ -333,36 +363,58 @@ export class BaseUI {
     B.append(list);
   }
 
-  // ventana de ascenso: repartir puntos de atributo y elegir talentos
+  // ventana de ascenso: repartir puntos, elegir especialización y talentos, ver el árbol
   openAscent(a) {
     const body = el('div', { class: 'ascent' });
-    const tmp = { ...a.attr };
+    let tmp = { ...a.attr };
     let left = a.pts || 0;
-    let close;
+    const sep = () => el('div', { class: 'sep', text: '─'.repeat(80) });
     const render = () => {
       body.innerHTML = '';
-      body.append(el('div', { class: 'spread' }, el('span', { class: 'h', html: `<span style="color:${a.color}">@</span> ${esc(agentName(a))} · Nv ${a.lvl}` }), el('span', { class: left ? 'warn' : 'dimt', text: `${left} punto${left === 1 ? '' : 's'} por repartir` })));
-      body.append(el('div', { class: 'dimt', text: `Cada nivel da 1 punto de atributo; cada ${TALENT_EVERY} niveles, un talento a elegir entre tres. Lo que asignes es permanente.` }));
-      body.append(el('div', { class: 'sep', text: '─'.repeat(80) }), el('div', { class: 'h', text: 'ATRIBUTOS' }));
+      const sp = specOf(a);
+      body.append(el('div', { class: 'spread' }, el('span', { class: 'h', html: `<span style="color:${a.color}">@</span> ${esc(agentName(a))} · Nv ${a.lvl} · <span class="dimt">${esc(bgName(a))}</span>` }), el('span', { class: left ? 'warn' : 'dimt', text: `${left} punto${left === 1 ? '' : 's'} por repartir` })));
+      body.append(el('div', { class: 'dimt', text: `Cada nivel da 1 punto de atributo (máximo ${ATTR_MAX}); cada ${TALENT_EVERY} niveles, un talento. Al nivel ${SPEC_LEVEL}, una especialización. Todo es permanente.` }));
+      // ---- atributos
+      body.append(sep(), el('div', { class: 'h', text: 'ATRIBUTOS' }));
       for (const at of ATTRS) {
-        const v = tmp[at.id] || 0, base = a.attr[at.id] || 0;
-        const pips = '■'.repeat(base) + `<span class="warn">${'■'.repeat(v - base)}</span>` + `<span class="o5">${'□'.repeat(ATTR_MAX - v)}</span>`;
+        const v = tmp[at.id] || 1, base = a.attr[at.id] || 1;
+        const pips = `<span class="o2">${'■'.repeat(base)}</span><span class="warn">${'■'.repeat(v - base)}</span><span class="o5">${'□'.repeat(Math.max(0, ATTR_MAX - v))}</span>`;
         const minus = el('button', { class: 'btn small' + (v > base ? '' : ' disabled'), onclick: () => { if (v > base) { tmp[at.id]--; left++; sfx.click(); render(); } } }, '−');
         const plus = el('button', { class: 'btn small' + (left > 0 && v < ATTR_MAX ? '' : ' disabled'), onclick: () => { if (left > 0 && v < ATTR_MAX) { tmp[at.id]++; left--; sfx.click(); render(); } } }, '+');
-        body.append(el('div', { class: 'attr-row' }, el('span', { class: 'o1', text: `${at.glyph} ${at.name}` }), el('span', { class: 'pips', html: pips }), minus, plus, el('span', { class: 'dimt', text: at.desc })));
+        body.append(el('div', { class: 'attr-row' }, el('span', { class: 'o1', text: `${at.glyph} ${at.name}` }), el('span', { class: 'pips', html: `${pips} <b>${v}</b>` }), minus, plus, el('span', { class: 'dimt', text: at.desc })));
       }
       const changed = ATTRS.some((x) => (tmp[x.id] || 0) !== (a.attr[x.id] || 0));
       body.append(el('div', { class: 'row', style: { justifyContent: 'flex-end', marginTop: '4px' } }, el('button', { class: 'btn primary' + (changed ? '' : ' disabled'), onclick: (ev) => {
         if (!changed) return;
         a.attr = { ...tmp }; a.pts = left; save(); sfx.upgrade(); uiSparkEl(ev.target, { chars: ['▲', '+', '·'], colors: ['#ffd23f', '#ff8a1f'] }); render(); this.render();
       } }, 'CONFIRMAR ATRIBUTOS')));
-      const offer = a.offers && a.offers[0];
-      if (offer) {
-        body.append(el('div', { class: 'sep', text: '─'.repeat(80) }), el('div', { class: 'h', text: `TALENTO${a.offers.length > 1 ? ` (${a.offers.length} pendientes)` : ''} · elige uno` }));
+      // ---- especialización
+      if (needsSpec(a)) {
+        body.append(sep(), el('div', { class: 'h warn', text: 'ESPECIALIZACIÓN · elige una (definitiva)' }));
+        const cards = el('div', { class: 'spec-cards' });
+        for (const [id, S2] of Object.entries(SPECS)) {
+          const card = el('div', { class: 'talent-card spec-card', html: `<div class="tg" style="color:${S2.color}">${esc(S2.glyph)}</div><div class="tn" style="color:${S2.color}">${esc(S2.name)}</div><div class="td">${esc(S2.fantasy)}</div><div class="td o1" style="margin-top:.3em">${esc(S2.ability.glyph)} ${esc(S2.ability.name)}</div>` });
+          tip(card, () => `<div class="tt-title" style="color:${S2.color}">${esc(S2.name)}</div><div>${esc(S2.fantasy)}</div><div class="tt-sep">${'─'.repeat(40)}</div><div class="o1">${esc(S2.ability.glyph)} ${esc(S2.ability.name)} <span class="dimt">(recarga ${S2.ability.cd} turnos)</span></div><div>${esc(S2.ability.desc)}</div><div class="tt-sep">${'─'.repeat(40)}</div>${S2.branches.map((b) => `<div><b>${esc(b.name)}</b>: <span class="dimt">${b.talents.map((t) => esc(SPEC_TALENTS[t].name)).join(' · ')}</span></div>`).join('')}`);
+          card.addEventListener('click', async () => {
+            if (!(await confirmBox('ESPECIALIZACIÓN', `¿${esc(a.nick)} se especializa como <b style="color:${S2.color}">${esc(S2.name)}</b>?<div class="dimt">No se puede cambiar. Sus talentos pendientes pasarán a ser de este árbol.</div>`, 'ESPECIALIZAR'))) return;
+            chooseSpec(a, id); save(); sfx.upgrade(); render(); this.render();
+          });
+          cards.append(card);
+        }
+        body.append(cards);
+      }
+      // ---- talento pendiente
+      const offer = !needsSpec(a) && currentOffer(a);
+      if (offer && offer.length) {
+        save();
+        const cost = rerollCost(a.lvl);
+        body.append(sep(), el('div', { class: 'spread' }, el('span', { class: 'h', text: `TALENTO${a.offers.length > 1 ? ` (${a.offers.length} pendientes)` : ''} · elige uno` }),
+          el('button', { class: 'btn small' + (S.rub >= cost ? '' : ' disabled'), onclick: () => { if (S.rub < cost) { sfx.error(); toast('Rublos insuficientes.', 'bad'); return; } S.rub -= cost; rerollOffer(a); save(); sfx.click(); render(); this.render(); } }, `VOLVER A TIRAR (${cost} ₽)`)));
         const cards = el('div', { class: 'talent-cards' });
         for (const id of offer) {
-          const t = TALENTS[id];
-          const card = el('div', { class: 'talent-card', html: `<div class="tg">${esc(t.glyph)}</div><div class="tn">${esc(t.name)}</div><div class="td">${esc(t.desc)}</div>` });
+          const t = talentDef(id);
+          const where = t.spec ? `${SPECS[t.spec].branches[t.branch].name}${t.tier > 1 ? ' · avanzado' : ''}` : 'general';
+          const card = el('div', { class: 'talent-card', html: `<div class="tg">${esc(t.glyph)}</div><div class="tn">${esc(t.name)}</div><div class="td">${esc(t.desc)}</div><div class="td dimt" style="margin-top:.3em">${esc(where)}</div>` });
           card.addEventListener('click', async () => {
             if (!(await confirmBox('TALENTO', `¿${esc(a.nick)} aprende <b>${esc(t.name)}</b>?<div class="dimt">${esc(t.desc)}</div>`, 'APRENDER'))) return;
             pickTalent(a, id); save(); sfx.upgrade(); uiSparkEl(card, { chars: ['★', '+', '·'], colors: ['#ffd23f', '#ff8a1f'] });
@@ -372,13 +424,34 @@ export class BaseUI {
         }
         body.append(cards);
       }
-      if ((a.talents || []).length) {
-        body.append(el('div', { class: 'sep', text: '─'.repeat(80) }), el('div', { class: 'h', text: 'TALENTOS APRENDIDOS' }));
-        for (const id of a.talents) body.append(el('div', { html: `<span class="o1">${esc(TALENTS[id].glyph)} ${esc(TALENTS[id].name)}</span> <span class="dimt">— ${esc(TALENTS[id].desc)}</span>` }));
+      // ---- árbol de la especialización
+      if (sp) {
+        body.append(sep(), el('div', { class: 'h', html: `ÁRBOL · <span style="color:${sp.color}">${esc(sp.glyph)} ${esc(sp.name)}</span> <span class="dimt">· ${esc(sp.ability.name)}: ${esc(sp.ability.desc)}</span>` }));
+        const tree = el('div', { class: 'spec-tree' });
+        for (const br of sp.branches) {
+          const col = el('div', { class: 'branch' }, el('div', { class: 'bn', text: br.name }));
+          const has = br.talents.some((t) => a.talents.includes(t));
+          for (const id of br.talents) {
+            const d = SPEC_TALENTS[id];
+            const own = a.talents.includes(id);
+            const open = d.tier === 1 || has;
+            const n = el('div', { class: `node ${own ? 'own' : open ? 'open' : 'locked'}`, html: `${own ? '■' : open ? '□' : '▒'} ${esc(d.name)}${d.tier > 1 ? ' <span class="dimt">II</span>' : ''}` });
+            tip(n, () => `<div class="tt-title">${esc(d.name)}</div><div>${esc(d.desc)}</div><div class="dimt">${own ? 'Aprendido' : open ? 'Puede salir en las próximas ofertas' : 'Avanzado: necesita un talento de esta rama'}</div>`);
+            col.append(n);
+          }
+          tree.append(col);
+        }
+        body.append(tree);
+      }
+      // ---- generales aprendidos
+      const gen = (a.talents || []).filter((id) => TALENTS[id]);
+      if (gen.length) {
+        body.append(sep(), el('div', { class: 'h', text: 'TALENTOS GENERALES' }));
+        for (const id of gen) body.append(el('div', { html: `<span class="o1">${esc(TALENTS[id].glyph)} ${esc(TALENTS[id].name)}</span> <span class="dimt">— ${esc(TALENTS[id].desc)}</span>` }));
       }
     };
     render();
-    close = modal({ title: 'ASCENSO', body, width: 'min(96ch, 94vw)', actions: [{ label: 'CERRAR' }] });
+    modal({ title: 'ASCENSO', body, width: 'min(104ch, 95vw)', actions: [{ label: 'CERRAR' }] });
   }
 
   // contenido del contenedor de seguridad (en la base se puede llenar y vaciar libremente)
@@ -487,11 +560,26 @@ export class BaseUI {
       const st = agentStats(a);
       const t = traitOf(a);
       const card = el('div', { class: 'module', style: { gridTemplateColumns: '3ch 1fr auto' } });
-      card.innerHTML = `<div class="mg" style="color:${a.color}">@</div><div><b>${esc(agentName(a))}</b> <span class="dimt">Nv ${a.lvl}</span><div class="eff">${esc(t.name)} · SAL ${a.hp}/${st.hpMaxEff} · RAD ${Math.round(a.rad)} · ${a.missions || 0} misiones · ${a.kills || 0} bajas</div></div>`;
-      const b = el('button', { class: 'btn danger small', onclick: async () => { if (await confirmBox('DESPEDIR', `¿Despedir a <b>${esc(agentName(a))}</b>? Su equipo vuelve al almacén si cabe.`, 'DESPEDIR', 'CANCELAR', true)) { C.dismiss(a); this.render(); } } }, 'DESPEDIR');
-      card.append(b);
+      const sp = specOf(a);
+      card.innerHTML = `<div class="mg" style="color:${a.color}">@</div><div><b>${esc(agentName(a))}</b> <span class="dimt">Nv ${a.lvl}</span>${sp ? ` <span style="color:${sp.color}">${sp.glyph} ${esc(sp.name)}</span>` : ''}<div class="eff">${esc(bgName(a))} · ${esc(t.name)} · SAL ${a.hp}/${st.hpMaxEff} · RAD ${Math.round(a.rad)} · ${a.missions || 0} misiones · ${a.kills || 0} bajas</div></div>`;
+      const btns = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '2px' } });
+      const why = C.canRetire(a);
+      if (a.lvl >= RETIRE_LEVEL) btns.append(el('button', { class: 'btn small ' + (why ? 'disabled' : 'good'), title: why, onclick: async () => {
+        if (why) { toast(why, 'bad'); return; }
+        if (!(await confirmBox('RETIRO', `¿<b>${esc(agentName(a))}</b> se retira como <b>instructor</b>?<div class="dimt">Deja de ir a expediciones. Mientras haya instructores, los agentes de nivel ${ROOKIE_LEVEL} o menos ganan un ${INSTRUCTOR_XP}% más de experiencia por cada uno (máximo ${MAX_INSTRUCTORS}). Su equipo vuelve al almacén.</div>`, 'RETIRAR'))) return;
+        const r = C.retire(a); if (r.ok) { sfx.upgrade(); toast(`${esc(a.nick)} es ahora instructor.`, 'good'); this.render(); } else { sfx.error(); toast(r.msg, 'bad'); }
+      } }, 'RETIRAR'));
+      btns.append(el('button', { class: 'btn danger small', onclick: async () => { if (await confirmBox('DESPEDIR', `¿Despedir a <b>${esc(agentName(a))}</b>? Su equipo vuelve al almacén si cabe.`, 'DESPEDIR', 'CANCELAR', true)) { C.dismiss(a); this.render(); } } }, 'DESPEDIR'));
+      card.append(btns);
       tip(card, () => this.agentTip(a));
       L.body.append(card);
+    }
+    // instructores retirados
+    L.body.append(el('div', { class: 'sep', text: '─'.repeat(80) }), el('div', { class: 'h', text: `INSTRUCTORES ${(S.instructors || []).length}/${MAX_INSTRUCTORS}` }));
+    if (!(S.instructors || []).length) L.body.append(el('div', { class: 'dimt', text: `Los agentes de nivel ${RETIRE_LEVEL} o más pueden retirarse como instructores: los novatos (nivel ${ROOKIE_LEVEL} o menos) ganan +${INSTRUCTOR_XP}% de experiencia por cada uno.` }));
+    for (const ins of S.instructors || []) {
+      const sp = ins.spec && SPECS[ins.spec];
+      L.body.append(el('div', { html: `<span style="color:${ins.color || '#fff'}">@</span> ${esc(ins.name)} <span class="dimt">Nv ${ins.lvl} · ${esc(ins.bg || '')}${sp ? ` · <span style="color:${sp.color}">${esc(sp.name)}</span>` : ''} · desde el día ${ins.day}</span> ${(ins.medals || []).map((m) => `<span style="color:${MEDALS[m].color}">${MEDALS[m].glyph}</span>`).join('')}` }));
     }
     const R = panel({ title: 'CANDIDATOS DEL DÍA', bodyCls: 'scroll' });
     const rec = C.ensureRecruits();
@@ -501,7 +589,9 @@ export class BaseUI {
       const st = agentStats(a);
       const t = traitOf(a);
       const card = el('div', { class: 'module', style: { gridTemplateColumns: '3ch 1fr auto' } });
-      card.innerHTML = `<div class="mg" style="color:${a.color}">@</div><div><b>${esc(agentName(a))}</b> <span class="dimt">Nv ${a.lvl}</span><div class="eff">${esc(t.name)}: ${esc(t.desc)}</div><div class="eff">Salud ${st.hpMax} · Puntería ${st.acc} · Agilidad ${st.ev}</div></div>`;
+      const sp = specOf(a);
+      card.innerHTML = `<div class="mg" style="color:${a.color}">@</div><div><b>${esc(agentName(a))}</b> <span class="dimt">Nv ${a.lvl}</span>${sp ? ` <span style="color:${sp.color}">${sp.glyph} ${esc(sp.name)}</span>` : ''}<div class="eff">${esc(bgName(a))} · ${esc(t.name)}: ${esc(t.desc)}</div><div class="eff">Salud ${st.hpMax} · ${ATTRS.map((x) => `${x.glyph}${st.attrs[x.id]}`).join(' ')}</div></div>`;
+      tip(card, () => this.agentTip(a));
       const can = S.rub >= entry.cost && S.agents.length < C.rosterCap();
       const b = el('button', { class: 'btn ' + (can ? 'primary' : 'disabled'), onclick: (ev) => {
         const r = C.hire(entry);

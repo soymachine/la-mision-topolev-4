@@ -11,7 +11,8 @@ import { DIALOGS } from '../data/dialogs.js';
 import { FACTIONS } from '../data/factions.js';
 import { MAPS } from '../data/world.js';
 import { createItem, rollLoot, mergeInto, itemName, rarityColor } from './items.js';
-import { giveXp, bagCapacity, agentStats } from './agents.js';
+import { giveXp, bagCapacity, agentStats, talentFlag } from './agents.js';
+import { BACKGROUNDS } from '../data/backgrounds.js';
 import { rng } from '../util/rng.js';
 import { esc } from '../util/dom.js';
 import { T, TILES } from '../data/tiles.js';
@@ -61,6 +62,10 @@ const COND = {
   hpPct: ([op, n], c) => !!c.a && cmp(c.a.hp / Math.max(1, agentStats(c.a).hpMax), op, n),
   squadSize: ([op, n], c) => !!c.exp && cmp(c.exp.team.length, op, n),
   alone: (v, c) => !!c.exp && (c.exp.team.length === 1) === !!v,
+  // fase 15: especialización, trasfondo y talentos (flags) del agente o de cualquiera del escuadrón
+  spec: (v, c) => !!c.a && (Array.isArray(v) ? v.includes(c.a.spec) : c.a.spec === v),
+  bg: (v, c) => !!c.a && (Array.isArray(v) ? v.includes(c.a.bg) : c.a.bg === v),
+  squadFlag: (v, c) => (c.exp ? c.exp.team.map((q) => q.a) : S.agents).some((a) => talentFlag(a, v)),
   any: (list, c) => list.some((x) => checkCond(x, c)),
   not: (x, c) => !checkCond(x, c),
   test: (fn, c) => !!fn(c),
@@ -99,6 +104,9 @@ const EFF = {
   incFlag: (v) => { S.flags[v] = (S.flags[v] || 0) + 1; },
   agentFlag: (v, c) => { if (c.a) { c.a.flags = c.a.flags || {}; c.a.flags[v] = true; } },
   rep: ([f, n], c) => {
+    // Políglota (Comisario): las mejoras de reputación son mayores
+    const poly = n > 0 ? Math.max(0, ...(c.exp ? c.exp.team.map((q) => q.a) : S.agents).map((a) => talentFlag(a, 'polyglot'))) : 0;
+    n = Math.round(n * (1 + poly / 100));
     S.rep[f] = (S.rep[f] || 0) + n;
     const F = FACTIONS[f];
     if (F) say(c, `Reputación con <span style="color:${F.color}">${esc(F.short || F.name)}</span>: ${n > 0 ? '+' : ''}${n} (${S.rep[f]}).`, n > 0 ? 'good' : 'warn');
@@ -195,6 +203,15 @@ const EFF = {
     exp.dirty = true;
   },
   baseMsg: (v, c) => addMessage(fmt(v, c).replace(/<[^>]+>/g, '')),
+  // frase propia del trasfondo del agente (o de uno al azar del escuadrón con 'random:<tipo>')
+  bgLine: (v, c) => {
+    let a = c.a, kind = v;
+    if (String(v).startsWith('random:') && c.exp) { kind = v.slice(7); const q = rng.pick(c.exp.team); a = q && q.a; }
+    const B = a && BACKGROUNDS[a.bg];
+    const list = B && B.lines[kind];
+    if (!list || !list.length) return;
+    say(c, `<span style="color:${a.color}">${esc(a.nick)}</span>: <i>${esc(rng.pick(list))}</i>`, 'o1');
+  },
   dialog: (v, c) => { c.nextDialog = val(v, c); },
   interrupt: (v, c) => { if (c.exp) c.exp.interrupt = true; },
   fx: (v, c) => { if (c.exp && c.sq) c.exp.fx.push({ ...v, x: c.sq.x, y: c.sq.y }); },

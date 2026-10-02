@@ -114,7 +114,7 @@ Reglas pensadas para evitar abusos:
 
 ---
 
-## FASE 15 — Sistema RPG de agentes
+## FASE 15 — Sistema RPG de agentes ✔
 
 ### 15.1 Atributos (M)
 Seis atributos de 1 a 10 (el rasgo y el trasfondo dan los valores iniciales):
@@ -128,8 +128,10 @@ Seis atributos de 1 a 10 (el rasgo y el trasfondo dan los valores iniciales):
 | **Percepción** | visión, crítico, detectar trampas y enemigos dormidos antes |
 | **Técnica** | uso de gadgets, compañeros mecánicos, desactivar minas, abrir cerraduras, minado |
 
-- [ ] Migrar `acc`/`ev` actuales a este modelo.
-- [ ] Nivel máximo 20; curva de XP revisada; XP también por descubrir, curar, extraer y cumplir misiones (no solo matar).
+- [x] Migrar `acc`/`ev` actuales a este modelo.
+  - *Hecho:* `a.attr` con 6 atributos de 1 a 10 (`a.av = 2`); las estadísticas se derivan en `agentStats` (Puntería→precisión, Agilidad→esquiva, Fortaleza→salud/cuerpo a cuerpo/huecos, Aguante→radiación/veneno/salud, Percepción→crítico/visión/rastreo, Técnica→esencia/curación/vetas). Las partidas antiguas convierten precisión/agilidad y los puntos de la fase 14.
+- [x] Nivel máximo 20; curva de XP revisada; XP también por descubrir, curar, extraer y cumplir misiones (no solo matar).
+  - *Hecho:* misma curva hasta el 10 y más empinada después. XP por sector nuevo (+4), alijo (+5), veta (+2), curación (+1), habilidad (+3), extracción y efectos de eventos (`xp`). Todo pasa por `exp.gainXp` (bonus de Veteranía).
 
 ### 15.2 Especializaciones y talentos (L)
 Al llegar a nivel 5 el agente elige una **especialización**. Cada una tiene un árbol de ~12 talentos pasivos en 3 ramas (se elige 1 de 3 opciones cada 3 niveles, estilo roguelite, con posibilidad de pagar para volver a tirar).
@@ -144,14 +146,16 @@ Al llegar a nivel 5 el agente elige una **especialización**. Cada una tiene un 
 | **Explorador** | Sigilo y información | «Paso de lince» (no despierta nidos) · «Cartógrafo» (revela sectores al entrar) · «Rastreador» |
 | **Comisario** | Liderazgo | Auras de moral, reduce estrés del grupo, mejora relaciones, negociador con facciones |
 
-- [ ] **Habilidades activas** (1 por especialización, con recarga en turnos): *Fuego de supresión* (enemigos en un cono pierden su turno), *Primeros auxilios de campaña*, *Colocar carga*, *Marcar objetivo* (+25% de impacto para todo el grupo), *Desaparecer* (sigilo 3 turnos), *¡Por la Patria!* (el grupo gana un turno extra de movimiento).
-- [ ] Sinergias explícitas talento ↔ gadget ↔ mod (por ejemplo, «Paciencia» + bípode + prismáticos).
+- [x] **Habilidades activas** (1 por especialización, con recarga en turnos): *Fuego de supresión* (enemigos en un cono pierden su turno), *Primeros auxilios de campaña*, *Colocar carga*, *Marcar objetivo* (+25% de impacto para todo el grupo), *Desaparecer* (sigilo 3 turnos), *¡Por la Patria!* (el grupo gana un turno extra de movimiento).
+- [x] Sinergias explícitas talento ↔ gadget ↔ mod (por ejemplo, «Paciencia» + bípode + prismáticos).
+  - *Hecho:* `data/specs.js`: 7 especializaciones al nivel 5, 84 talentos en 3 ramas (avanzados con requisito de rama), ofertas de 1 entre 3 (una por rama) con re-tirada de pago, habilidad por especialización (tecla V; Liquidador: «Lavado de campo»), sinergias `syn` con gadgets y mods (◈ en la ficha), auras y condiciones nuevas (moved, irradiated, light, inWater, alliesNear). Lógica en `exp/abilities.js`.
 
 ### 15.3 Trasfondos y rasgos (M)
-- [ ] Trasfondo generado (minero del Donbás, bombero de Prípiat, veterano de Afganistán, profesora de física, ingeniera de turbinas, preso político conmutado, deportista olímpica…): da atributos iniciales, un rasgo y frases de diálogo propias.
-- [ ] **Rasgos adquiridos** por experiencias: «Superviviente» (sobrevivir con <5% de salud), «Traumatizado por lobos», «Amigo de la RDA», «Fobia al agua», «Cazador de jefes»…
-- [ ] **Heridas persistentes** (cicatriz: −1 en un atributo hasta tratarla en la Enfermería) y **condecoraciones** (Orden de la Estrella Roja, Medalla al Valor) con pequeños bonus.
-- [ ] **Retiro de veteranos:** un agente de nivel alto puede retirarse como **instructor** (los novatos ganan +X% de XP) — alternativa a perderlo.
+- [x] Trasfondo generado (minero del Donbás, bombero de Prípiat, veterano de Afganistán, profesora de física, ingeniera de turbinas, preso político conmutado, deportista olímpica…): da atributos iniciales, un rasgo y frases de diálogo propias.
+- [x] **Rasgos adquiridos** por experiencias: «Superviviente» (sobrevivir con <5% de salud), «Traumatizado por lobos», «Amigo de la RDA», «Fobia al agua», «Cazador de jefes»…
+- [x] **Heridas persistentes** (cicatriz: −1 en un atributo hasta tratarla en la Enfermería) y **condecoraciones** (Orden de la Estrella Roja, Medalla al Valor) con pequeños bonus.
+- [x] **Retiro de veteranos:** un agente de nivel alto puede retirarse como **instructor** (los novatos ganan +X% de XP) — alternativa a perderlo.
+  - *Hecho:* `data/backgrounds.js` (12 trasfondos con atributos, rasgos y frases que dicen en expedición), `data/honors.js` (9 rasgos adquiridos, 6 condecoraciones, 6 heridas que se operan en la ficha, retiro desde nivel 8 con hasta 3 instructores: +15% de XP cada uno para los agentes de nivel ≤ 6). Se conceden al volver (`awardHonors`) o durante la expedición (`markHurt`, `acquire`) y salen en el informe.
 
 ---
 

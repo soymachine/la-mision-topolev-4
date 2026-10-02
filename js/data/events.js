@@ -21,6 +21,12 @@ export const EVENTS = [
   { id: 'alone_descent', on: 'expStart', once: 'exp', cond: { alone: true }, chance: 0.6,
     effects: [{ log: '{agent} baja solo. El eco de sus pasos suena como si fueran dos.', cls: 'dimt' }] },
 
+  // frases de los trasfondos (fase 15)
+  { id: 'bg_start', on: 'expStart', once: 'exp', chance: 0.6, effects: [{ bgLine: 'random:start' }] },
+  { id: 'bg_kill', on: 'kill', chance: 0.06, cond: { not: { faction: 'rda' } }, effects: [{ bgLine: 'kill' }] },
+  { id: 'bg_hurt', on: 'agentHurt', once: 'exp', cond: { hpPct: ['<', 0.35] }, chance: 0.5, effects: [{ bgLine: 'hurt' }] },
+  { id: 'bg_rad', on: 'turn', once: 'exp', cond: { test: (c) => c.a && c.a.rad >= 70 }, effects: [{ bgLine: 'rad' }] },
+
   // ------------------------------------------------------------ sectores
   { id: 'sector_flooded', on: 'enterSector', once: 'exp', cond: { zone: 'inundado' }, chance: 0.6,
     effects: [{ log: 'El agua os llega a las rodillas en {sector}. Está tibia. No debería estar tibia.', cls: 'dimt' }] },

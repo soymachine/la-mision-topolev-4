@@ -25,6 +25,12 @@ export class CombatPart {
     const d = Math.hypot(e.x - sq.x, e.y - sq.y);
     let h = ws.acc + st.acc * 2 - es.ev;
     if (e.stun > 0) h += 15;
+    if (e.marked > 0 && this.isSquad(sq)) h += e.markPct || 25;
+    if (sq.a) {
+      if (isHuman(e)) h += this.flag(sq, 'vsHuman');
+      if (e.type === 'lobo') h += this.flag(sq, 'vsLobo');
+      if (this.condTrue(sq, 'still', st)) h += this.flag(sq, 'stillAcc');
+    }
     if (ws.wtype !== 'melee') {
       const rg = ws.range + (st.range || 0);
       if (d > rg) h -= (d - rg) * 7;
@@ -109,9 +115,16 @@ export class CombatPart {
     dmg *= 1 + (st.dmgPct || 0) / 100;
     if (ws.wtype === 'shotgun' && d > ws.range) dmg *= Math.max(0.35, 1 - 0.18 * (d - ws.range));
     const crit = rng.chance((ws.crit + (st.crit || 0)) / 100);
-    if (crit) dmg *= 1.8;
+    if (crit) dmg *= 1.8 * (1 + (sq.a ? this.flag(sq, 'critDmg') : 0) / 100);
     const es = this.est(e);
-    dmg = Math.max(1, Math.round(dmg - Math.max(0, es.armor - ws.pierce)));
+    if (sq.a) {
+      // talentos y rasgos: Tiro de gracia, Emboscada, Cazador de jefes
+      if (e.hp < e.hpMax * 0.3) dmg *= 1 + this.flag(sq, 'execute') / 100;
+      if ((e.state === 'dormido' || e.state === 'errante') && !e.mem) dmg *= 1 + this.flag(sq, 'ambush') / 100;
+      if (ACTORS[e.type].boss) dmg *= 1 + this.flag(sq, 'vsBoss') / 100;
+    }
+    const pierce = ws.pierce + (sq.a ? this.flag(sq, 'pierceAdd') : 0);
+    dmg = Math.max(1, Math.round(dmg - Math.max(0, es.armor - pierce)));
     return { dmg, crit };
   }
 
@@ -238,6 +251,7 @@ export class CombatPart {
     const bySquad = !src || this.isSquad(src);
     if (bySquad) { this.tally.kills++; S.stats.kills++; }
     if (src && src.id) this.trigger('kill', { type: e.type, faction: actorFaction(e), lvl: e.lvl }, src);
+    if (src && src.id && def.boss) { src.bossKills = (src.bossKills || 0) + 1; this.acquire(src, 'jefes'); }
     if (!human && bySquad) bestiaryKill(e.type);
     if (src && src.id && this.inMap(src)) {
       const kh = this.flag(src, 'killHeal');
@@ -248,9 +262,7 @@ export class CombatPart {
     if (src && src.id) {
       src.kills++;
       src.a.kills = (src.a.kills || 0) + 1;
-      src.xp += es.xp;
-      const ups = giveXp(src.a, es.xp);
-      if (ups) { this.say(`★ ${this.nm(src)} sube a nivel ${src.a.lvl}. <span class="dimt">(▲ ascenso pendiente en la base)</span>`, 'good'); this.fx.push({ type: 'levelup', x: src.x, y: src.y }); }
+      this.gainXp(src, es.xp);
     }
     if (src && src.type) { if (this.isVisible(e.x, e.y)) this.say(`${this.enm(src)} abate a ${this.enm(e)} (Nv ${e.lvl}).`, 'dimt'); }
     else this.say(`${src && src.id ? this.nm(src) + ' elimina' : 'Muere'} ${this.enm(e)} (Nv ${e.lvl}).`, def.boss ? 'warn' : '');
@@ -296,15 +308,26 @@ export class CombatPart {
         this.fx.push({ type: 'heal', x: sq.x, y: sq.y });
       }
     }
+    // Rescate (Sanitario): un compañero adyacente (o él mismo) evita la muerte una vez por expedición
+    if (sq.a.hp <= 0) {
+      const medic = this.team.find((o) => !o.rescueUsed && this.flag(o, 'rescue') && cheb(o.x, o.y, sq.x, sq.y) <= 1);
+      if (medic) {
+        medic.rescueUsed = true;
+        sq.a.hp = 1;
+        if (medic !== sq) medic.a.saves = (medic.a.saves || 0) + 1;
+        this.fx.push({ type: 'heal', x: sq.x, y: sq.y });
+        this.say(`✚ ¡${this.nm(medic)} ${medic === sq ? 'se aferra a la vida' : 'salva in extremis a ' + this.nm(sq)}! (1 de salud)`, 'good');
+      }
+    }
     if (sq.a.hp <= 0) this.agentDies(sq, cause);
-    else this.trigger('agentHurt', { dmg }, sq);
+    else { this.markHurt(sq, srcE); this.trigger('agentHurt', { dmg }, sq); }
   }
 
   agentDies(sq, cause) {
     const a = sq.a;
     a.hp = 0;
     sq.alive = false;
-    sq.snap = { id: a.id, first: a.first, last: a.last, nick: a.nick, lvl: a.lvl, color: a.color, hp: 0, rad: a.rad, equip: {}, bag: [], baseHp: a.baseHp, acc: a.acc, ev: a.ev, trait: a.trait };
+    sq.snap = { id: a.id, first: a.first, last: a.last, nick: a.nick, lvl: a.lvl, color: a.color, hp: 0, rad: a.rad, equip: {}, bag: [], baseHp: a.baseHp, attr: { ...a.attr }, av: 2, bg: a.bg, female: a.female, trait: a.trait, spec: a.spec, talents: [...(a.talents || [])], wounds: [], medals: [...(a.medals || [])], acquired: [...(a.acquired || [])], offers: [], pts: 0, flags: {} };
     this.occ.delete(this.key(sq.x, sq.y));
     this.fx.push({ type: 'death', x: sq.x, y: sq.y, color: a.color });
     this.say(`✝ ${this.nm(sq)} ha muerto (${cause}). Todo su equipo se pierde en las profundidades.`, 'bad');
@@ -358,8 +381,11 @@ export class CombatPart {
     if (i < 0) return;
     const t = this.traps.splice(i, 1)[0];
     if (this.isVisible(e.x, e.y)) this.say(`¡${this.enm(e)} pisa ${ITEMS[t.b].name}!`, 'o1');
-    if (t.blast) this.explode(e.x, e.y, t.blast, t.dmg, null, 0, 0);
-    else { this.fx.push({ type: 'slash', x0: e.x, y0: e.y, x1: e.x, y1: e.y }); this.damageEnemy(e, rng.int(t.dmg[0], t.dmg[1]), null); }
-    if (t.stun && e.hp > 0) e.stun = Math.max(e.stun || 0, ACTORS[e.type].boss ? 1 : t.stun);
+    const k = 1 + (t.bonus || 0) / 100;
+    const dmg = [Math.round(t.dmg[0] * k), Math.round(t.dmg[1] * k)];
+    if (t.blast) this.explode(e.x, e.y, t.blast, dmg, null, 0, 0);
+    else { this.fx.push({ type: 'slash', x0: e.x, y0: e.y, x1: e.x, y1: e.y }); this.damageEnemy(e, rng.int(dmg[0], dmg[1]), null); }
+    const stun = t.stun ? t.stun + (t.stunPlus || 0) : 0;
+    if (stun && e.hp > 0) e.stun = Math.max(e.stun || 0, ACTORS[e.type].boss ? 1 : stun);
   }
 }

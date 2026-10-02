@@ -7,7 +7,8 @@ import { FACTIONS } from '../data/factions.js';
 import { EVENTS } from '../data/events.js';
 import { DIALOGS } from '../data/dialogs.js';
 import { createItem, itemName, mergeInto, rarityColor } from '../core/items.js';
-import { agentStats, bagCapacity, giveXp } from '../core/agents.js';
+import { agentStats, bagCapacity, giveXp, chooseSpec, talentDef, ALL_TALENTS } from '../core/agents.js';
+import { SPECS } from '../data/specs.js';
 import { runEffects } from '../core/events.js';
 import * as C from '../core/campaign.js';
 
@@ -48,6 +49,7 @@ export function installDebug(app) {
     throw new Error(m.length ? `ambiguo: ${m.slice(0, 12).join(', ')}${m.length > 12 ? '…' : ''}` : `no existe «${q}»`);
   };
   const num = (v, d) => (v == null || v === '' ? d : Number(v));
+  const who = () => { const e = exp(); if (e && !e.ended) return e.cur.a; const a = (app.base && app.base.selAgent) || S.agents[0]; if (!a) throw new Error('no hay agentes'); return a; };
 
   const CMDS = {
     help: { a: '', d: 'esta ayuda', f: () => { for (const [k, c] of Object.entries(CMDS)) print(`<b>${k}</b> <span class="dimt">${esc(c.a)}</span> — ${esc(c.d)}`); } },
@@ -102,6 +104,17 @@ export function installDebug(app) {
       const list = e && !e.ended ? [e.cur.a] : S.agents;
       for (const a of list) { const ups = giveXp(a, k); print(`${esc(a.nick)}: Nv ${a.lvl}${ups ? ` (+${ups})` : ''} · ${a.pts || 0} puntos · ${a.offers.length} talentos pendientes`); }
     } },
+    spec: { a: '<especialización>', d: 'especializa al agente activo/seleccionado (sube a nivel 5 si hace falta)', f: ([id]) => {
+      if (!SPECS[id]) throw new Error('especializaciones: ' + Object.keys(SPECS).join(', '));
+      const a = who(); if (a.lvl < 5) giveXp(a, Math.max(0, 750 - a.xp)); a.spec = null; chooseSpec(a, id);
+      print(`${esc(a.nick)} → ${esc(SPECS[id].name)} (Nv ${a.lvl})`);
+    } },
+    talent: { a: '<id>', d: 'enseña un talento al agente activo/seleccionado', f: ([id]) => {
+      if (!talentDef(id)) throw new Error('talento desconocido');
+      const a = who(); if (!a.talents.includes(id)) a.talents.push(id);
+      print(`${esc(a.nick)} aprende ${esc(talentDef(id).name)}`);
+    } },
+    cd: { a: '', d: 'recarga al instante la habilidad del agente activo', f: () => { const e = needExp(); e.cur.abcd = 0; print('habilidad lista'); } },
     ess: { a: '<n>', d: 'suma esencia', f: ([n]) => { S.ess += num(n, 100); print(`esencia ${S.ess}`); } },
     rub: { a: '<n>', d: 'suma rublos', f: ([n]) => { S.rub += num(n, 500); print(`rublos ${S.rub}`); } },
     rel: { a: '[facción actitud]', d: 'muestra o cambia la actitud del escuadrón hacia una facción', f: ([f, att]) => {
@@ -152,6 +165,8 @@ export function installDebug(app) {
     else if (parts[0] === 'rel' && parts.length === 3) pool = ['hostile', 'neutral', 'allied'];
     else if (parts[0] === 'event' && parts.length === 2) pool = EVENTS.map((x) => x.id);
     else if (parts[0] === 'dialog' && parts.length === 2) pool = Object.keys(DIALOGS);
+    else if (parts[0] === 'spec' && parts.length === 2) pool = Object.keys(SPECS);
+    else if (parts[0] === 'talent' && parts.length === 2) pool = Object.keys(ALL_TALENTS);
     else return;
     const last = parts[parts.length - 1];
     const m = pool.filter((k) => k.startsWith(last));

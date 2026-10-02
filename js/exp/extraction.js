@@ -15,14 +15,16 @@ import { esc } from '../util/dom.js';
 import { RADIO } from '../data/lore.js';
 import { D8, FISTS, BLOCKING_OBJ, ESSENCE_COLOR } from './shared.js';
 
+import { BACKGROUNDS } from '../data/backgrounds.js';
 export class ExtractionPart {
   // ---------------------------------------------------------------- extracción
   exitAt(x, y) { return this.exits.find((ex) => cheb(ex.x, ex.y, x, y) <= 1 && (ex.perm || ex.expires > this.turn)); }
   requestEvac(sq, ex) {
     if (this.evac) { this.say(`La evacuación ya está en marcha (${this.evac.left} turnos).`, 'cyan'); return false; }
-    this.evac = { x: ex.x, y: ex.y, left: 3, name: ex.name };
+    const fast = Math.max(0, ...this.team.map((o) => this.flag(o, 'evacFast')));
+    this.evac = { x: ex.x, y: ex.y, left: Math.max(1, 3 - fast), name: ex.name };
     if (!ex.perm) ex.expires = Math.max(ex.expires, this.turn + 5);
-    this.say(`Evacuación solicitada en ${ex.name}. Mantened la posición <b>3 turnos</b>: todos los agentes en la zona serán extraídos.`, 'cyan');
+    this.say(`Evacuación solicitada en ${ex.name}. Mantened la posición <b>${this.evac.left} turnos</b>: todos los agentes en la zona serán extraídos.`, 'cyan');
     this.fx.push({ type: 'evac', x: ex.x, y: ex.y });
     this.noise(ex.x, ex.y, 9);
     return true;
@@ -56,5 +58,7 @@ export class ExtractionPart {
     this.occ.delete(this.key(sq.x, sq.y));
     this.fx.push({ type: 'extract', x: sq.x, y: sq.y, color: sq.a.color });
     this.say(`⇑ ${this.nm(sq)} ha sido extraído con ${sq.ess} ✦.`, 'cyan');
+    const B = BACKGROUNDS[sq.a.bg];
+    if (B && rng.chance(0.4)) this.say(`<span style="color:${sq.a.color}">${esc(sq.a.nick)}</span>: <i>${esc(rng.pick(B.lines.extract))}</i>`, 'o1');
   }
 }

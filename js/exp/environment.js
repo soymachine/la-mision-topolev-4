@@ -76,15 +76,18 @@ export class EnvironmentPart {
       a.rad = Math.min(150, a.rad + r * (1 - st.rad / 100));
       if (a.rad >= 100) this.damageAgent(sq, 1, 'envenenamiento por radiación');
       if (!this.inMap(sq)) continue;
-      if (this.gas[k] && !st.gasImmune) { this.addPoison(sq, 1); this.damageAgent(sq, 1, 'gas tóxico'); }
+      if (this.gas[k] && !st.gasImmune) {
+        if (this.flag(sq, 'gasResist')) { if (this.turn % 2) this.damageAgent(sq, 1, 'gas tóxico'); }
+        else { this.addPoison(sq, 1); this.damageAgent(sq, 1, 'gas tóxico'); }
+      }
       if (!this.inMap(sq)) continue;
-      if (this.fire[k]) { sq.burn = 2; this.damageAgent(sq, rng.int(2, 5), 'quemaduras'); }
+      if (this.fire[k] && !this.flag(sq, 'fireImmune')) { sq.burn = 2; this.damageAgent(sq, rng.int(2, 5), 'quemaduras'); }
       if (!this.inMap(sq)) continue;
       if (this.anomaly[k] && !this.flag(sq, 'antiAnomaly') && rng.chance(0.5)) { this.fx.push({ type: 'zap', x: sq.x, y: sq.y }); this.damageAgent(sq, rng.int(4, 9), 'anomalía eléctrica'); if (sq === this.cur) this.say('¡Descarga eléctrica!', 'bad'); }
       if (!this.inMap(sq)) continue;
       if (sq.poison > 0) { sq.poison--; this.damageAgent(sq, 1, 'veneno'); }
       if (!this.inMap(sq)) continue;
-      if (sq.burn > 0) { sq.burn--; this.damageAgent(sq, 2, 'quemaduras'); }
+      if (sq.burn > 0) { sq.burn--; if (!this.flag(sq, 'fireImmune')) this.damageAgent(sq, 2, 'quemaduras'); }
       if (!this.inMap(sq)) continue;
       // efectos temporales
       if (sq.buffs && sq.buffs.length) {
@@ -133,7 +136,7 @@ export class EnvironmentPart {
       const spot = this.findTempExitSpot();
       if (spot) {
         const names = ['Grieta al exterior', 'Montacargas de emergencia', 'Conducto de ventilación', 'Escalera de incendios', 'Pozo de drenaje'];
-        const dur = rng.int(28, 42) + S.modules.radar * 4;
+        const dur = rng.int(28, 42) + S.modules.radar * 4 + Math.max(0, ...this.team.map((o) => this.flag(o, 'exitPlus')));
         const nm = rng.pick(names);
         const s = this.sectorAt(spot[0], spot[1]);
         this.spawnTempExit(spot[0], spot[1], dur, nm);

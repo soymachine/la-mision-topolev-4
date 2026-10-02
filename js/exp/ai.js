@@ -103,6 +103,7 @@ export class AIPart {
       const d = Math.hypot(c.x - e.x, c.y - e.y);
       if (d > sight || d >= td) continue;
       if (!this.hostile(e, c)) continue;
+      if (c.a && d > 1.5 && this.flag(c, 'vanish')) continue; // Desaparecer (Explorador)
       const sg = dormant && this.isSquad(c) ? Math.max(1, sight - this.flag(c, 'stealth')) : sight;
       if (d <= sg && this.los(e.x, e.y, c.x, c.y)) { tgt = c; td = d; }
     }

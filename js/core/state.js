@@ -1,6 +1,8 @@
 // Estado global de la partida + guardado en localStorage
 import { MODULES } from '../data/world.js';
-import { createAgent, starterKit, blankAttrs, rollOffer } from './agents.js';
+import { createAgent, starterKit } from './agents.js';
+import { ATTRS, ATTR_MAX } from '../data/talents.js';
+import { BACKGROUNDS } from '../data/backgrounds.js';
 import { createItem } from './items.js';
 import { ITEMS } from '../data/items.js';
 import { RNG } from '../util/rng.js';
@@ -33,7 +35,7 @@ export function newGame(n = slot) {
     agents: [], stash: [], fallen: [], unlocked: 1, cleared: {}, bestiary: {},
     stats: { expeditions: 0, extractions: 0, deaths: 0, kills: 0, essTotal: 0, rubTotal: 0, turns: 0, bestItem: null },
     shop: null, recruits: null, messages: [], lastReport: null, exp: null, introSeen: false,
-    flags: {}, rep: {}, eventsDone: {}, pendingDialogs: [],
+    flags: {}, rep: {}, eventsDone: {}, pendingDialogs: [], instructors: [],
   };
   for (let i = 0; i < 3; i++) {
     const a = createAgent(g, { day: 1, avoid: new Set(S.agents.map((x) => x.nick)) });
@@ -110,20 +112,36 @@ export function load(n = lastSlot()) {
 // actualiza estructuras de versiones anteriores
 function upgrade(d) {
   if (d.v < 2) { d.flags = d.flags || {}; d.rep = d.rep || {}; d.eventsDone = d.eventsDone || {}; d.v = 2; }
-  d.flags = d.flags || {}; d.rep = d.rep || {}; d.eventsDone = d.eventsDone || {}; d.pendingDialogs = d.pendingDialogs || [];
+  d.flags = d.flags || {}; d.rep = d.rep || {}; d.eventsDone = d.eventsDone || {}; d.pendingDialogs = d.pendingDialogs || []; d.instructors = d.instructors || [];
   for (const a of d.agents || []) upgradeAgent(a);
 }
-// fase 14: atributos, talentos (ofertas retroactivas para los veteranos) y ranura de contenedor
+// fases 14 y 15: atributos 1–10, trasfondo, talentos (ofertas retroactivas), contenedor y honores
 function upgradeAgent(a) {
   a.flags = a.flags || {};
-  if (!a.attr) a.attr = blankAttrs();
   if (a.pts == null) a.pts = 0;
   if (!a.talents) a.talents = [];
-  if (!a.offers) {
-    a.offers = [];
-    for (let l = 3; l <= a.lvl; l += 3) a.offers.push(rollOffer(a));
-  }
+  if (!a.offers) { a.offers = []; for (let l = 3; l <= a.lvl; l += 3) a.offers.push(null); }
   if (!('case' in a.equip)) a.equip.case = null;
+  if (a.av !== 2 || !a.attr) {
+    // de precisión/agilidad base (+ puntos extra de la fase 14) al modelo de 6 atributos de 1 a 10
+    const bonus = a.attr || {};
+    const at = {
+      pun: 1 + (a.acc || 0) + (bonus.pun || 0), agi: 1 + (a.ev || 0) + (bonus.agi || 0),
+      fue: 3 + (bonus.fue || 0), agu: 3 + (bonus.agu || 0), per: 3 + (bonus.per || 0), tec: 3 + (bonus.tec || 0),
+    };
+    for (const x of ATTRS) if (at[x.id] > ATTR_MAX) { a.pts += at[x.id] - ATTR_MAX; at[x.id] = ATTR_MAX; }
+    a.baseHp = (a.baseHp || 30) + (bonus.fue || 0) + (bonus.agu || 0);
+    a.attr = at;
+    delete a.acc; delete a.ev;
+    if (!a.bg) {
+      const fit = Object.keys(BACKGROUNDS).filter((k) => BACKGROUNDS[k].traits.includes(a.trait));
+      const pool = fit.length ? fit : Object.keys(BACKGROUNDS);
+      a.bg = pool[(a.id || '').length % pool.length];
+    }
+    a.av = 2;
+  }
+  if (a.spec === undefined) a.spec = null;
+  a.wounds = a.wounds || []; a.medals = a.medals || []; a.acquired = a.acquired || [];
 }
 
 // Ajustes de compatibilidad con contenido retirado

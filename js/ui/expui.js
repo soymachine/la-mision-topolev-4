@@ -305,6 +305,14 @@ export class ExpeditionUI {
       return r;
     };
     b.append(el('div', { class: 'h', text: 'ARMAS  (X cambia · R recarga)' }), wrow('w1'), wrow('w2'));
+    // habilidad de especialización
+    const ab = e.abilityOf(sq);
+    if (ab) {
+      const cd = sq.abcd || 0;
+      const btn = el('button', { class: 'btn small ab-btn' + (cd ? ' cooling' : ''), html: `${esc(ab.glyph)} ${esc(ab.name.toUpperCase())} <span class="dimt">[V]</span> ${cd ? `<span class="dimt">· ${cd} t</span>` : '<span class="good">· lista</span>'}`, onclick: () => this.useAbility() });
+      tip(btn, () => `<div class="tt-title">${esc(ab.glyph)} ${esc(ab.name)}</div><div>${esc(ab.desc)}</div><div class="dimt">Recarga: ${e.abilityCdMax(sq, ab)} turnos${cd ? ` · faltan ${cd}` : ''}. Tecla V.</div>`);
+      b.append(btn);
+    }
     const prot = el('div', { class: 'dimt', html: `PROT <b>${st.prot}</b> · RES.RAD <b>${st.rad}%</b> · AGI <b>${st.ev}</b> · VIS <b>${st.vision}</b>` });
     b.append(prot);
     b.append(el('div', { class: 'sep', text: '─'.repeat(80) }));
@@ -429,6 +437,7 @@ export class ExpeditionUI {
       case 'x': ev.preventDefault(); e.swapWeapon(); sfx.click(); break;
       case 't': ev.preventDefault(); this.enterFire(); break;
       case 'h': ev.preventDefault(); this.quickHeal(); break;
+      case 'v': ev.preventDefault(); this.useAbility(); break;
       case 'b': ev.preventDefault(); this.quickGrenade(); break;
       case 'i': ev.preventDefault(); this.openInventory(); break;
       case 'm': ev.preventDefault(); this.toggleBigMap(); break;
@@ -512,9 +521,25 @@ export class ExpeditionUI {
     this.showBanner();
     this.updateTargetOverlay();
   }
+  // habilidad de especialización (tecla V): con objetivo entra en modo apuntar
+  useAbility() {
+    const e = this.exp;
+    if (!e || e.ended || !this.canAct()) return;
+    const sq = e.cur;
+    const ab = e.abilityOf(sq);
+    if (!ab) { e.say('Este agente no tiene especialización (se elige al nivel 5, en la base).', 'dimt'); return; }
+    if (sq.abcd > 0) { e.say(`${ab.name}: disponible en ${sq.abcd} turnos.`, 'dimt'); return; }
+    if (!ab.target) { this.travel = null; e.act((q) => e.useAbility(q)); sfx.click(); return; }
+    const list = e.abilityTargets(sq);
+    if (!list.length) { e.say('No hay objetivos a la vista.', 'dimt'); return; }
+    this.mode = { type: 'ability', ab, list, i: 0, cx: list[0].x, cy: list[0].y };
+    this.showBanner();
+    this.updateTargetOverlay();
+  }
   showBanner() {
     const m = this.mode;
     this.banner.classList.remove('hidden');
+    if (m.type === 'ability') { this.banner.innerHTML = `${esc(m.ab.name.toUpperCase())} — clic / F / Enter: confirmar · Tab: siguiente objetivo · Esc: cancelar`; return; }
     this.banner.innerHTML = m.type === 'fire'
       ? 'APUNTANDO — clic / F / Enter: disparar · Tab: siguiente objetivo · Esc: cancelar'
       : ITEMS[m.it.b].use === 'trap' ? `COLOCAR ${esc(ITEMS[m.it.b].name.toUpperCase())} — clic en una casilla adyacente · Esc: cancelar`
@@ -543,6 +568,11 @@ export class ExpeditionUI {
       if (ok) this.cancelMode();
       return;
     }
+    if (m && m.type === 'ability') {
+      const ok = e.act((sq) => e.useAbility(sq, x, y));
+      if (ok) this.cancelMode();
+      return;
+    }
     const en = e.enemyAt(x, y);
     if (!en || !e.isVisible(x, y)) { e.say('No hay objetivo ahí.', 'dimt'); return; }
     if (!e.hostile(e.cur, en)) { this.confirmAttack(en); return; }
@@ -567,7 +597,9 @@ export class ExpeditionUI {
     if (!m) return;
     this.r.hover = [m.cx, m.cy];
     const ov = { targetMode: true };
-    if (m.type === 'fire') {
+    if (m.type === 'ability') {
+      ov.line = [c.x, c.y, m.cx, m.cy, !!e.enemyAt(m.cx, m.cy)];
+    } else if (m.type === 'fire') {
       const en = e.enemyAt(m.cx, m.cy);
       const ok = en && e.isVisible(m.cx, m.cy) && e.canShoot(c, en) === 'ok';
       ov.line = [c.x, c.y, m.cx, m.cy, ok];

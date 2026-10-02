@@ -458,11 +458,17 @@ export class MapRenderer {
       if (t.x < x0 || t.x > x1 || t.y < y0 || t.y > y1 || !e.explored[t.y * e.w + t.x]) continue;
       glyph(t.x, t.y, '×', `rgba(255,80,60,${0.55 + 0.25 * Math.sin(T_ * 3)})`);
     }
+    // ---- cargas de demolición (Zapador): parpadean más deprisa cuanto menos falta ----
+    for (const c of e.charges || []) {
+      if (c.x < x0 || c.x > x1 || c.y < y0 || c.y > y1) continue;
+      const sp = 4 + (4 - c.t) * 5;
+      glyph(c.x, c.y, String(c.t), `rgba(255,${120 + 80 * Math.sin(T_ * sp)},40,${0.7 + 0.3 * Math.sin(T_ * sp)})`, null, 1.05, true);
+    }
     // ---- enemigos detectados por el detector de movimiento ----
-    if (e.sense > 0) {
+    if (e.sense > 0 || e.team.some((q) => q.trackR)) {
       for (const en of e.enemies) {
         if (e.visible[en.y * e.w + en.x]) continue;
-        if (!e.team.some((q) => Math.hypot(q.x - en.x, q.y - en.y) <= e.senseR)) continue;
+        if (!e.sensed(en)) continue;
         if (en.x < x0 || en.x > x1 || en.y < y0 || en.y > y1) continue;
         const def = ACTORS[en.type];
         ctx.globalAlpha = 0.35 + 0.2 * Math.sin(T_ * 4 + en.x);

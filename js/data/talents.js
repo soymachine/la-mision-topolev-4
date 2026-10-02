@@ -1,16 +1,19 @@
 // Atributos y talentos de los agentes (fase 14.2, adelanto de la fase 15)
-// Al subir de nivel: +1 punto de atributo. Cada 3 niveles: elegir 1 de 3 talentos al azar.
+// Al subir de nivel: +1 punto de atributo. Cada 3 niveles: elegir 1 de 3 talentos.
+// Antes de especializarse (nivel 5) se ofrecen talentos generales; después, los del árbol (data/specs.js).
 
-// Cada punto se suma a las estadísticas del agente (ver agentStats)
+// Seis atributos de 1 a 10 (fase 15). Valores iniciales según el trasfondo; +1 punto por nivel.
+// Las estadísticas derivadas se calculan en core/agents.js (agentStats).
 export const ATTRS = [
-  { id: 'pun', name: 'Puntería', glyph: '⌖', desc: '+1 precisión (+2% de impacto)', per: { acc: 1 } },
-  { id: 'agi', name: 'Agilidad', glyph: '≈', desc: '+1 agilidad (esquiva)', per: { ev: 1 } },
-  { id: 'fue', name: 'Fortaleza', glyph: '■', desc: '+4 salud máx. · +4% daño cuerpo a cuerpo · +1 hueco cada 3 puntos', per: { hp: 4, meleePct: 4 }, every: [3, { slots: 1 }] },
-  { id: 'agu', name: 'Aguante', glyph: '☢', desc: '+3% resistencia a la radiación · +2 salud máx.', per: { rad: 3, hp: 2 } },
-  { id: 'per', name: 'Percepción', glyph: '◉', desc: '+1% crítico · +1 visión cada 3 puntos', per: { crit: 1 }, every: [3, { vision: 1 }] },
-  { id: 'tec', name: 'Técnica', glyph: '¤', desc: '+3% esencia recogida · +5% curación', per: { essence: 3, healPct: 5 } },
+  { id: 'pun', name: 'Puntería', glyph: '⌖', desc: '+1 precisión por punto (+2% de impacto)' },
+  { id: 'agi', name: 'Agilidad', glyph: '≈', desc: '+1 agilidad (esquiva) por punto' },
+  { id: 'fue', name: 'Fortaleza', glyph: '■', desc: '+3 salud máx. y +5% daño cuerpo a cuerpo por punto · +1 hueco de mochila a 7 y a 10' },
+  { id: 'agu', name: 'Aguante', glyph: '☢', desc: '+3% resistencia a la radiación y +1 salud máx. por punto · el veneno dura menos' },
+  { id: 'per', name: 'Percepción', glyph: '◉', desc: '+1% crítico por punto · +1 visión a 5 y a 8 · desde 6 percibe a los enemigos cercanos sin verlos' },
+  { id: 'tec', name: 'Técnica', glyph: '¤', desc: '+2% esencia y +4% curación por punto · extracción rápida de vetas a 7' },
 ];
-export const ATTR_MAX = 10; // puntos extra por atributo
+export const ATTR_MAX = 10; // valor máximo al repartir puntos (los talentos pueden superarlo)
+export const ATTR_MIN = 1;
 
 // mods → estadísticas estáticas · flags → efectos especiales de expedición (los mismos que los gadgets)
 export const TALENTS = {

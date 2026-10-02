@@ -9,7 +9,7 @@ import { generateMap } from './mapgen.js';
 import { computeFOV, hasLOS } from './fov.js';
 import { astar, dijkstra } from './path.js';
 import { itemStats, itemName, createItem, rollLoot, mergeInto, rarityColor, gadgetExtras } from '../core/items.js';
-import { agentStats, agentName, giveXp, bagCapacity, talentFlag } from '../core/agents.js';
+import { agentStats, agentName, giveXp, bagCapacity, talentFlag, effectSources } from '../core/agents.js';
 import { S, seeEnemy, killEnemy as bestiaryKill } from '../core/state.js';
 import { esc } from '../util/dom.js';
 import { RADIO } from '../data/lore.js';
@@ -24,6 +24,7 @@ import { ExtractionPart } from './extraction.js';
 import { AIPart } from './ai.js';
 import { EnvironmentPart } from './environment.js';
 import { StoryPart } from './story.js';
+import { AbilityPart } from './abilities.js';
 export { ORDERS, ESSENCE_COLOR };
 
 function b64(u8) {
@@ -119,6 +120,7 @@ export class Expedition {
       rad: sparse(this.rad, 100), anomaly: an, gas: sparse(this.gas), fire: sparse(this.fire), smoke: sparse(this.smoke),
       traps: this.traps, sense: this.sense, senseR: this.senseR, relations: this.relations || {},
       eventsDone: this.eventsDone || {}, secSeen: this.secSeen || {}, facSeen: this.facSeen || {}, dlg: this.dlg || null, dlgQueue: this.dlgQueue || [],
+      charges: this.charges || [], patria: this.patria || 0, truceUsed: this.truceUsed || 0,
       floorItems: [...this.floorItems.entries()], essence: [...this.essence.entries()],
       turn: this.turn, log: this.log.slice(-60), evac: this.evac, pending: this.pending, flares: this.flares, tally: this.tally,
       surgeAt: this.surgeAt, nextTemp: this.nextTemp, nextRadio: this.nextRadio, active: this.active,
@@ -138,6 +140,8 @@ export class Expedition {
     this.objMap = new Map();
     for (const o of this.objects) this.objMap.set(this.key(o.x, o.y), o);
     if (this.nextRadio == null) this.nextRadio = this.turn + 40;
+    this.charges = this.charges || [];
+    this.updateTrack();
     this.ended = false;
     this.interrupt = false;
     this.dirty = true;
@@ -203,6 +207,14 @@ export class Expedition {
       const d = ITEMS[g.b];
       if (d.aura && cheb(o.x, o.y, sq.x, sq.y) <= d.aura.r) add(gadgetExtras(g).aura.mods);
     }
+    // talentos, rasgos y medallas: condiciones propias y auras de los compañeros (las auras iguales no se suman)
+    for (const src of effectSources(sq.a)) if (src.cond && this.condTrue(sq, src.cond.when, st)) add(src.cond.mods);
+    const auras = new Set();
+    for (const o of team) for (const src of effectSources(o.a)) {
+      if (!src.aura || auras.has(src) || cheb(o.x, o.y, sq.x, sq.y) > src.aura.r) continue;
+      auras.add(src);
+      add(src.aura.mods);
+    }
     st.rad = Math.min(90, st.rad);
     st.vision = Math.min(16, st.vision);
     return st;
@@ -225,6 +237,11 @@ export class Expedition {
     if (when === 'still') return (sq.lastMove ?? -9) < this.turn - 1;
     if (when === 'hurt') return sq.a.hp < st.hpMaxEff * 0.5;
     if (when === 'lowhp') return sq.a.hp < st.hpMaxEff * 0.3;
+    if (when === 'moved') return sq.lastMove === this.turn;
+    if (when === 'irradiated') return sq.a.rad >= 50;
+    if (when === 'light') return sq.a.bag.length * 2 <= st.slots;
+    if (when === 'inWater') { const t = this.tile(sq.x, sq.y); return t === T.WATER || t === T.DEEP; }
+    if (when === 'alliesNear') return this.enemies.some((e) => cheb(e.x, e.y, sq.x, sq.y) <= 5 && isHuman(e) && this.attitudeToSquad(e) === 'allied');
     return false;
   }
   addBuff(sq, b) {
@@ -233,10 +250,17 @@ export class Expedition {
   }
   addPoison(sq, n) {
     if (this.flag(sq, 'poisonImmune')) return;
+    n = Math.max(1, n - Math.floor((agentStats(sq.a).attrs.agu - 1) / 4)); // el Aguante acorta el veneno
     sq.poison = Math.min(12, (sq.poison || 0) + n);
   }
   weapon(sq) { return sq.a.equip[sq.cur] || null; }
-  weaponStats(sq) { const w = this.weapon(sq); return w ? itemStats(w) : FISTS; }
+  weaponStats(sq) {
+    const w = this.weapon(sq);
+    const ws = w ? itemStats(w) : FISTS;
+    // Ráfaga controlada: +1 bala en las armas de ráfaga
+    if (ws.burst > 1 && ws.wtype !== 'melee' && this.flag(sq, 'burstPlus')) return { ...ws, burst: ws.burst + this.flag(sq, 'burstPlus') };
+    return ws;
+  }
 
   // Actores no jugadores: chebylitas y personas de otras expediciones (lista this.enemies)
   spawnEnemy(type, lvl, x, y, state = 'alerta', poi = null, faction = null) {
@@ -278,11 +302,18 @@ export class Expedition {
   // el escuadrón ataca a una facción no hostil: pasa a ser hostil durante la expedición
   provoke(faction) {
     if (faction === 'chebylitas' || this.attitude('squad', faction) === 'hostile') return;
+    // Tregua (Comisario): la primera vez por expedición solo es un aviso
+    if (!this.truceUsed && this.team.some((o) => this.flag(o, 'truce'))) {
+      this.truceUsed = 1;
+      this.say(`☮ ${FACTIONS[faction].name} os da un aviso: «¡Alto el fuego!». Una más y será la guerra.`, 'warn');
+      return;
+    }
+    const dipl = this.team.some((o) => this.flag(o, 'diplomat'));
     this.relations = this.relations || {};
     const k = 'squad' < faction ? 'squad|' + faction : faction + '|squad';
     this.relations[k] = 'hostile';
     S.rep = S.rep || {};
-    S.rep[faction] = (S.rep[faction] || 0) - 25;
+    S.rep[faction] = (S.rep[faction] || 0) - (dipl ? 12 : 25);
     for (const o of this.enemies) if (actorFaction(o) === faction) { o.state = 'alerta'; o.mem = 15; }
     this.say(`⚠ Has atacado a ${FACTIONS[faction].name} (${FACTIONS[faction].short}). Ahora son <b class="bad">hostiles</b>.`, 'bad');
     this.fx.push({ type: 'alert' });
@@ -410,6 +441,12 @@ export class Expedition {
     this.secSeen = this.secSeen || {};
     if (this.secSeen[s.id]) return;
     this.secSeen[s.id] = 1;
+    if (this.turn > 1) this.gainXp(sq, 4, true); // explorar también enseña
+    if (this.flag(sq, 'mapper')) {
+      for (let y = s.y; y < s.y + s.h; y++) for (let x = s.x; x < s.x + s.w; x++) { const k = this.key(x, y); if (TILES[this.t[k]].walk || this.t[k] === T.WALL || this.t[k] === T.MACHINE) this.explored[k] = 1; }
+      this.dirty = true;
+      if (sq === this.cur) this.say(`▦ ${this.nm(sq)} cartografía el sector ${s.code}.`, 'dimt');
+    }
     this.trigger('enterSector', { sector: s }, sq);
   }
 
@@ -430,7 +467,8 @@ export class Expedition {
   pickupEssence(sq, k) {
     const ess = this.essence.get(k);
     if (!ess) return;
-    const gain = Math.max(1, Math.round(ess * (1 + this.ast(sq).essence / 100)));
+    const re = this.flag(sq, 'radEss') && this.rad[k] > 0.3 ? this.flag(sq, 'radEss') : 0;
+    const gain = Math.max(1, Math.round(ess * (1 + (this.ast(sq).essence + re) / 100)));
     sq.ess += gain; this.tally.essence += gain;
     this.essence.delete(k);
     this.fx.push({ type: 'essence', x: k % this.w, y: (k / this.w) | 0, n: gain });
@@ -467,6 +505,17 @@ export class Expedition {
   // ---------------------------------------------------------------- turno
   endTurn() {
     if (this.ended) return;
+    // ¡Por la Patria!: el escuadrón actúa y los demás no
+    if (this.patria) {
+      this.patria = 0;
+      for (const sq of this.squad) { if (sq === this.cur || !this.inMap(sq)) continue; this.companionAct(sq); if (this.ended) return; }
+      this.tickAbilities();
+      this.turn++;
+      S.stats.turns++;
+      this.computeVisibility();
+      this.emit('turn');
+      return;
+    }
     // compañeros
     for (const sq of this.squad) {
       if (sq === this.cur || !this.inMap(sq)) continue;
@@ -487,6 +536,9 @@ export class Expedition {
     }
     this.environment();
     if (this.ended) return;
+    this.tickAbilities();
+    if (this.ended) return;
+    this.updateTrack();
     this.turn++;
     S.stats.turns++;
     this.computeVisibility();
@@ -503,7 +555,7 @@ export class Expedition {
 }
 
 // Mezcla de los módulos parciales en la clase principal
-for (const Part of [CombatPart, UsePart, ExtractionPart, AIPart, EnvironmentPart, StoryPart]) {
+for (const Part of [CombatPart, UsePart, ExtractionPart, AIPart, EnvironmentPart, StoryPart, AbilityPart]) {
   for (const k of Object.getOwnPropertyNames(Part.prototype)) {
     if (k === 'constructor') continue;
     if (Object.prototype.hasOwnProperty.call(Expedition.prototype, k)) throw new Error('Método duplicado en Expedition: ' + k);

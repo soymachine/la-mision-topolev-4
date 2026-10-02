@@ -4,7 +4,14 @@ import { fireEvents, dialogView, dialogChoose } from './events.js';
 import { ITEMS } from '../data/items.js';
 import { MAPS, MODULES, MODULE_MAX, moduleCost, rosterSize, stashSize, squadSize } from '../data/world.js';
 import { createItem, itemValue, itemName, itemStats, mergeInto, rollRarity } from './items.js';
-import { createAgent, starterKit, agentStats, recruitCost, agentName, bagCapacity, giveXp } from './agents.js';
+import { createAgent, starterKit, agentStats, recruitCost, agentName, bagCapacity, giveXp, agentHooks, talentFlag } from './agents.js';
+import { ACQUIRED, MEDALS, woundCost, RETIRE_LEVEL, MAX_INSTRUCTORS, INSTRUCTOR_XP, ROOKIE_LEVEL } from '../data/honors.js';
+import { SPECS } from '../data/specs.js';
+import { bgName } from '../data/backgrounds.js';
+
+// los instructores retirados aceleran a los novatos
+agentHooks.xpMult = (a) => (S && S.instructors && a.lvl <= ROOKIE_LEVEL ? 1 + (S.instructors.length * INSTRUCTOR_XP) / 100 : 1);
+export const partyDiscount = () => (S ? Math.max(0, ...S.agents.map((a) => talentFlag(a, 'partyDiscount'))) : 0);
 import { RNG, rng } from '../util/rng.js';
 import { Expedition } from '../exp/expedition.js';
 
@@ -25,8 +32,9 @@ export function shopAvailable(b) {
 }
 export function buyPrice(it) {
   const d = ITEMS[it.b];
-  if (d.price) return d.price;
-  let p = itemValue(it, true) * 1.15;
+  const disc = 1 - partyDiscount() / 100;
+  if (d.price) return Math.round(d.price * disc);
+  let p = itemValue(it, true) * 1.15 * disc;
   if (d.cat === 'ammo') p *= 1 - S.modules.polvorin * 0.15;
   if (d.cat === 'consumable' && d.use !== 'throw') p *= 1 - S.modules.enfermeria * 0.06;
   return Math.max(1, Math.round(p));
@@ -146,7 +154,35 @@ export function dismiss(a) {
   save();
 }
 
+// retiro de veteranos como instructores
+export function canRetire(a) {
+  if (a.lvl < RETIRE_LEVEL) return `Hace falta nivel ${RETIRE_LEVEL}.`;
+  if ((S.instructors || []).length >= MAX_INSTRUCTORS) return `Ya hay ${MAX_INSTRUCTORS} instructores.`;
+  return '';
+}
+export function retire(a) {
+  const why = canRetire(a);
+  if (why) return { ok: false, msg: why };
+  for (const it of [...Object.values(a.equip).filter(Boolean), ...a.bag]) addToStash(it);
+  S.instructors.push({ name: agentName(a), lvl: a.lvl, spec: a.spec, bg: bgName(a), day: S.day, color: a.color, medals: [...(a.medals || [])] });
+  S.agents.splice(S.agents.indexOf(a), 1);
+  addMessage(`${agentName(a)} se retira como instructor. Los novatos (nivel ${ROOKIE_LEVEL} o menos) aprenderán un ${INSTRUCTOR_XP}% más rápido.`);
+  save();
+  return { ok: true };
+}
+
 // ---------------- Enfermería ----------------
+export const treatWoundCost = () => woundCost(S.modules.enfermeria);
+export function treatWound(a, i) {
+  const w = a.wounds && a.wounds[i];
+  if (!w) return { ok: false, msg: 'No hay herida.' };
+  const c = treatWoundCost();
+  if (S.rub < c) return { ok: false, msg: 'Rublos insuficientes.' };
+  S.rub -= c;
+  a.wounds.splice(i, 1);
+  save();
+  return { ok: true, cost: c, name: w.name };
+}
 export function treatCost(a) {
   const st = agentStats(a);
   const missing = Math.max(0, st.hpMaxEff - a.hp);
@@ -230,6 +266,9 @@ export function finalizeExpedition(exp) {
       rep.essRaw += sq.ess;
       a.extractions = (a.extractions || 0) + 1;
       a.essTotal = (a.essTotal || 0) + sq.ess;
+      if ((def.lvl[0] + def.lvl[1]) / 2 >= 5) a.deepRuns = (a.deepRuns || 0) + 1;
+      awardHonors(exp, sq, a);
+      row.news = sq.news || [];
       const bonusXp = 15 * def.lvl[1];
       const ups = giveXp(a, bonusXp);
       row.lvl = a.lvl; row.lvlUp = a.lvl - sq.lvl0;
@@ -240,6 +279,7 @@ export function finalizeExpedition(exp) {
     } else {
       row.lost = sq.snap ? true : false;
       rep.lostItems += sq.startItems || 0;
+      row.news = [];
       if (sq.recovered) { row.recovered = sq.recovered; rep.lostItems = Math.max(0, rep.lostItems - 1); }
       if (sq.essKept) { row.essKept = sq.essKept; rep.essRaw += sq.essKept; }
     }
@@ -312,4 +352,31 @@ export function baseDialog() {
     },
     dismiss: () => { S.pendingDialogs.shift(); save(); },
   };
+}
+
+// condecoraciones y rasgos adquiridos al volver de una expedición
+function awardHonors(exp, sq, a) {
+  const news = (sq.news = sq.news || []);
+  const gain = (list, id, tbl, icon) => {
+    if (!a[list]) a[list] = [];
+    if (a[list].includes(id)) return;
+    a[list].push(id);
+    news.push(`${icon} ${tbl[id].name}`);
+  };
+  const others = exp.squad.filter((o) => o !== sq);
+  // rasgos adquiridos
+  if (sq.minPct != null && sq.minPct < 0.05) gain('acquired', 'superviviente', ACQUIRED, '✚');
+  if (a.rad >= 100) gain('acquired', 'irradiado', ACQUIRED, '✚');
+  if ((S.rep.rda || 0) >= 30 && exp.facSeen && exp.facSeen.rda) gain('acquired', 'rda', ACQUIRED, '✚');
+  if ((a.kills || 0) >= 50) gain('acquired', 'carnicero', ACQUIRED, '✚');
+  if ((a.extractions || 0) >= 10) gain('acquired', 'veterano', ACQUIRED, '✚');
+  if (others.length && others.every((o) => !o.out)) gain('acquired', 'solitario', ACQUIRED, '✚');
+  // condecoraciones
+  if (sq.bossKills > 0) gain('medals', 'estrella', MEDALS, '🎖');
+  if (sq.kills >= 8) gain('medals', 'valor', MEDALS, '🎖');
+  if ((a.extractions || 0) >= 5) gain('medals', 'servicio', MEDALS, '🎖');
+  if ((a.essTotal || 0) >= 1000) gain('medals', 'lenin', MEDALS, '🎖');
+  if ((a.deepRuns || 0) >= 3) gain('medals', 'liquidador', MEDALS, '🎖');
+  if ((a.saves || 0) >= 1 || (a.healedOthers || 0) >= 100) gain('medals', 'camarada', MEDALS, '🎖');
+  for (const n of news) if (n.startsWith('🎖')) addMessage(`${agentName(a)} recibe la ${n.slice(2)}.`);
 }
