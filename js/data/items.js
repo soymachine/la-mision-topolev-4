@@ -23,7 +23,7 @@ export const ITEMS = {
   // ---------- ARMAS ----------
   knife: W({ name: 'Cuchillo NR-40', wtype: 'melee', tier: 0, dmg: [3, 6], acc: 90, range: 1, crit: 12, noise: 1, value: 30, desc: 'Cuchillo de explorador. Silencioso y fiable.' }),
   shovel: W({ name: 'Pala de zapador MPL-50', wtype: 'melee', tier: 0, dmg: [4, 8], acc: 84, range: 1, crit: 8, noise: 2, value: 35, desc: 'Cava trincheras. Parte cráneos de chebylita.' }),
-  makarov: W({ name: 'Pistola Makarov PM', wtype: 'pistol', tier: 0, dmg: [4, 7], acc: 72, range: 6, mag: 8, ammo: 'a_9x18', noise: 9, value: 80, desc: 'La pistola reglamentaria. Ocho balas de esperanza.' }),
+  makarov: W({ name: 'Pistola Makarov PM', wtype: 'pistol', tier: 0, dmg: [5, 8], acc: 76, range: 6, mag: 8, ammo: 'a_9x18', noise: 9, value: 80, desc: 'La pistola reglamentaria. Ocho balas de esperanza.' }),
   axe: W({ name: 'Hacha de bombero', wtype: 'melee', tier: 1, dmg: [6, 12], acc: 78, range: 1, crit: 10, noise: 2, value: 70, desc: 'Pintada de rojo. Recuerdo del 26 de abril.' }),
   stechkin: W({ name: 'Pistola Stechkin APS', wtype: 'pistol', tier: 1, dmg: [3, 6], acc: 66, range: 6, mag: 20, burst: 2, ammo: 'a_9x18', noise: 10, value: 150, desc: 'Automática. Ráfagas cortas de 9×18.' }),
   toz: W({ name: 'Escopeta TOZ-34', wtype: 'shotgun', tier: 1, dmg: [9, 15], acc: 80, range: 3, mag: 2, ammo: 'a_12', noise: 12, value: 160, desc: 'Escopeta de caza de dos cañones. Devastadora a corta distancia.' }),

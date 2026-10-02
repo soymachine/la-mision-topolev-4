@@ -26,7 +26,7 @@ export function newGame() {
     shop: null, recruits: null, messages: [], lastReport: null, exp: null, introSeen: false,
   };
   for (let i = 0; i < 3; i++) {
-    const a = createAgent(g, { day: 1 });
+    const a = createAgent(g, { day: 1, avoid: new Set(S.agents.map((x) => x.nick)) });
     starterKit(a, g);
     S.agents.push(a);
   }

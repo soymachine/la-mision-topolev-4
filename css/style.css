@@ -279,7 +279,7 @@ body.no-crt #crt { display: none; }
 .exp-top .loc { color: var(--o2); font-weight: 800; letter-spacing: .1em; }
 .exp-top .right { margin-left: auto; display: flex; gap: 2ch; }
 .exp-map { position: relative; overflow: hidden; min-width: 0; min-height: 0; cursor: crosshair; }
-.exp-map canvas { position: absolute; left: 0; top: 0; }
+.exp-map > canvas { position: absolute; left: 0; top: 0; }
 .exp-side { grid-row: 2 / 4; grid-column: 2; display: flex; flex-direction: column; gap: 2px; min-height: 0; border-left: 1px solid var(--o6); padding: 2px 4px; }
 .exp-log { grid-column: 1; height: calc(var(--lh) * 7 + 4px); padding: 2px 1ch; border-top: 1px solid var(--o5); overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
 .exp-log .ln { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: lnin .3s ease-out; }

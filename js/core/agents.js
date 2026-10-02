@@ -30,7 +30,7 @@ export function createAgent(g = grng, opts = {}) {
   const trait = g.pick(TRAITS).id;
   const lvl = opts.lvl || 1;
   const a = {
-    id: uid('a'), first, last, nick: g.pick(NICKNAMES), female,
+    id: uid('a'), first, last, nick: pickNick(g, opts.avoid), female,
     lvl, xp: 0, baseHp: g.int(28, 36), acc: g.int(0, 5), ev: g.int(0, 4), trait,
     hp: 0, rad: 0, color: g.pick(AGENT_COLORS),
     equip: { w1: null, w2: null, armor: null, helmet: null, g1: null, g2: null, pack: null },
@@ -39,6 +39,11 @@ export function createAgent(g = grng, opts = {}) {
   for (let i = 1; i < lvl; i++) levelUpStats(a, g);
   a.hp = agentStats(a).hpMax;
   return a;
+}
+
+function pickNick(g, avoid) {
+  const free = avoid ? NICKNAMES.filter((n) => !avoid.has(n)) : NICKNAMES;
+  return g.pick(free.length ? free : NICKNAMES);
 }
 
 export function agentName(a, short = false) {

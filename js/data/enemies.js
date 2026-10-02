@@ -2,12 +2,12 @@
 // hue: tono propio. A nivel bajo, color tenue; a nivel alto, intenso.
 export const ENEMIES = {
   rata: {
-    name: 'Rata espinosa', glyph: 'r', hue: 350, origin: 'Animal', hp: 7, dmg: [1, 3], acc: 72, armor: 0, ev: 12, speed: 125,
-    range: 1, xp: 4, ess: [2, 4], minL: 1, maxL: 5, group: [3, 6], abil: [],
+    name: 'Rata espinosa', glyph: 'r', hue: 350, origin: 'Animal', hp: 6, dmg: [1, 3], acc: 70, armor: 0, ev: 10, speed: 120,
+    range: 1, xp: 4, ess: [2, 4], minL: 1, maxL: 5, group: [2, 5], abil: [],
     lore: 'Ratas de los sótanos cuyas púas se han calcificado con estroncio. Atacan en manada.',
   },
   polilla: {
-    name: 'Polilla de ceniza', glyph: 'ж', hue: 72, origin: 'Insecto', hp: 5, dmg: [1, 2], acc: 76, armor: 0, ev: 26, speed: 160,
+    name: 'Polilla de ceniza', glyph: 'ж', hue: 72, origin: 'Insecto', hp: 5, dmg: [1, 2], acc: 74, armor: 0, ev: 20, speed: 150,
     range: 1, xp: 4, ess: [2, 3], minL: 1, maxL: 6, group: [3, 7], abil: ['erratic', 'radbite'],
     lore: 'Su polvo de alas es radiactivo. Revolotean sin rumbo hasta que huelen sangre.',
   },
@@ -22,8 +22,8 @@ export const ENEMIES = {
     lore: 'Hongo hinchado de esporas. Revienta junto a sus víctimas liberando una nube tóxica.',
   },
   lobo: {
-    name: 'Lobo de grafito', glyph: 'Л', hue: 196, origin: 'Animal', hp: 14, dmg: [3, 6], acc: 76, armor: 1, ev: 15, speed: 135,
-    range: 1, xp: 7, ess: [4, 7], minL: 2, maxL: 9, group: [2, 5], abil: [],
+    name: 'Lobo de grafito', glyph: 'Л', hue: 196, origin: 'Animal', hp: 14, dmg: [3, 6], acc: 76, armor: 1, ev: 14, speed: 130,
+    range: 1, xp: 7, ess: [4, 7], minL: 3, maxL: 9, group: [2, 5], abil: [],
     lore: 'Lobos del Bosque Rojo con escamas de grafito incrustadas. Cazan en jauría.',
   },
   cuervo: {

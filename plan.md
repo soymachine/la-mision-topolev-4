@@ -63,9 +63,9 @@ js/audio.js           · sintetizador WebAudio (Geiger, disparos, UI) con silenc
 - Cada tipo de chebylita tiene su propio tono; **más tenue a nivel bajo, más intenso a nivel alto**.
 
 ### Controles de expedición (resumen)
-WASD/flechas/numpad + QEZC diagonales · clic para viajar · clic en enemigo para disparar · F apuntar/disparar ·
-R recargar · X cambiar arma · E interactuar/extraer/minar · G recoger · H curarse · T lanzar · Tab cambiar agente ·
-O órdenes del escuadrón · I inventario · M mapa · Espacio esperar · ? ayuda · +/- zoom.
+WASD/flechas/numpad + QEZC diagonales · clic para viajar · clic en enemigo para disparar · T apuntar (Tab ciclo, F/Enter dispara) ·
+R recargar · X cambiar arma · F interactuar/extraer/minar/evacuar · G recoger · H curarse · B lanzar granada · Tab / 1-4 cambiar agente ·
+O órdenes del escuadrón · I inventario · M mapa · Espacio esperar · ? ayuda · +/- zoom · Esc menú.
 
 ---
 
@@ -73,7 +73,7 @@ O órdenes del escuadrón · I inventario · M mapa · Espacio esperar · ? ayud
 - [x] 1.1 Plan detallado (`plan.md`)
 - [x] 1.2 `index.html`, `.nojekyll`, estructura de carpetas
 - [x] 1.3 CSS base: tema negro/naranja, fuente monoespaciada, pantalla completa, scanlines/viñeta CRT
-- [ ] 1.4 Router de pantallas (título, base, expedición, informe) en `main.js`
+- [x] 1.4 Router de pantallas (título, base, expedición, informe) en `main.js`
 
 ## FASE 2 — Núcleo
 - [x] 2.1 RNG con semilla + utilidades (rangos, pesos, shuffle)
@@ -101,51 +101,51 @@ O órdenes del escuadrón · I inventario · M mapa · Espacio esperar · ? ayud
 - [x] 4.7 Enemigos errantes y contenedores dispersos
 
 ## FASE 5 — Simulación de expedición
-- [ ] 5.1 FOV shadowcasting compartido por el escuadrón + niebla de guerra
-- [ ] 5.2 Movimiento, colisiones, puertas
-- [ ] 5.3 Sistema de turnos con velocidad (energía) para enemigos
-- [ ] 5.4 Combate a distancia y cuerpo a cuerpo (probabilidad, daño, armadura, críticos, cargador, recarga)
-- [ ] 5.5 IA enemiga: dormido / alerta / errante / fijo, mapa Dijkstra, ruido
-- [ ] 5.6 Habilidades especiales (veneno, explosión de esporas, carga, invocación, aura, a distancia)
-- [ ] 5.7 Compañeros con IA y órdenes (seguir / mantener / fuego libre)
-- [ ] 5.8 Peligros: radiación, gas, fuego, anomalías; radiación acumulada del agente
-- [ ] 5.9 Botín: drops, contenedores, recoger, vetas de esencia (minado ruidoso)
-- [ ] 5.10 Consumibles y granadas (lanzamiento con área)
-- [ ] 5.11 Extracción con cuenta atrás, extracciones temporales, baliza
-- [ ] 5.12 Muerte de agentes, fin de expedición, informe
+- [x] 5.1 FOV shadowcasting compartido por el escuadrón + niebla de guerra
+- [x] 5.2 Movimiento, colisiones, puertas
+- [x] 5.3 Sistema de turnos con velocidad (energía) para enemigos
+- [x] 5.4 Combate a distancia y cuerpo a cuerpo (probabilidad, daño, armadura, críticos, cargador, recarga)
+- [x] 5.5 IA enemiga: dormido / alerta / errante / fijo, mapa Dijkstra, ruido
+- [x] 5.6 Habilidades especiales (veneno, explosión de esporas, carga, invocación, aura, a distancia)
+- [x] 5.7 Compañeros con IA y órdenes (seguir / mantener / fuego libre)
+- [x] 5.8 Peligros: radiación, gas, fuego, anomalías; radiación acumulada del agente
+- [x] 5.9 Botín: drops, contenedores, recoger, vetas de esencia (minado ruidoso)
+- [x] 5.10 Consumibles y granadas (lanzamiento con área)
+- [x] 5.11 Extracción con cuenta atrás, extracciones temporales, baliza
+- [x] 5.12 Muerte de agentes, fin de expedición, informe
 
 ## FASE 6 — Interfaz de expedición
-- [ ] 6.1 Renderer ASCII en canvas con cámara, zoom y capa estática cacheada
-- [ ] 6.2 Entidades con interpolación suave de movimiento
-- [ ] 6.3 HUD: barra superior, tarjetas de agentes, registro de mensajes
-- [ ] 6.4 Minimapa siempre visible + mapa completo (M) con POIs, niveles y extracciones
-- [ ] 6.5 Rollover de casillas con tooltip (enemigo: nivel, salud, % impacto)
-- [ ] 6.6 Modo apuntar + clic para disparar, viaje por clic con interrupción
-- [ ] 6.7 Inventario de expedición con drag & drop (equipar, usar, tirar)
-- [ ] 6.8 Ayuda de controles (?)
+- [x] 6.1 Renderer ASCII en canvas con cámara, zoom y capa estática cacheada
+- [x] 6.2 Entidades con interpolación suave de movimiento
+- [x] 6.3 HUD: barra superior, tarjetas de agentes, registro de mensajes
+- [x] 6.4 Minimapa siempre visible + mapa completo (M) con POIs, niveles y extracciones
+- [x] 6.5 Rollover de casillas con tooltip (enemigo: nivel, salud, % impacto)
+- [x] 6.6 Modo apuntar + clic para disparar, viaje por clic con interrupción
+- [x] 6.7 Inventario de expedición con drag & drop (equipar, usar, tirar)
+- [x] 6.8 Ayuda de controles (?)
 
 ## FASE 7 — La base
-- [ ] 7.1 Cabecera con recursos + pestañas
-- [ ] 7.2 CUARTEL: resumen, mensajes del Dr. Topolev, último informe
-- [ ] 7.3 EQUIPO: lista de agentes, ficha, ranuras + mochila, almacén con drag & drop, tratamiento
-- [ ] 7.4 Reclutamiento de agentes
-- [ ] 7.5 LABORATORIO: mejoras de módulos
-- [ ] 7.6 INTENDENCIA: comprar / vender (stock rotativo por día)
-- [ ] 7.7 EXPEDICIÓN: selección de mapa y escuadrón, lanzamiento
-- [ ] 7.8 ARCHIVO: bestiario, caídos, estadísticas, instrucciones
+- [x] 7.1 Cabecera con recursos + pestañas
+- [x] 7.2 CUARTEL: resumen, mensajes del Dr. Topolev, último informe
+- [x] 7.3 EQUIPO: lista de agentes, ficha, ranuras + mochila, almacén con drag & drop, tratamiento
+- [x] 7.4 Reclutamiento de agentes
+- [x] 7.5 LABORATORIO: mejoras de módulos
+- [x] 7.6 INTENDENCIA: comprar / vender (stock rotativo por día)
+- [x] 7.7 EXPEDICIÓN: selección de mapa y escuadrón, lanzamiento
+- [x] 7.8 ARCHIVO: bestiario, caídos, estadísticas, instrucciones
 
 ## FASE 8 — Pulido visual y sonido
-- [ ] 8.1 Partículas: fogonazos, trazadoras, impactos, muerte (fragmentos), esencia volando
-- [ ] 8.2 Números de daño flotantes, sacudida de pantalla, parpadeos
-- [ ] 8.3 Animaciones de casillas: radiación, agua, extracción pulsante, anomalías
-- [ ] 8.4 Partículas de UI (compras, mejoras) y logo ASCII animado en el título
-- [ ] 8.5 Sonido sintetizado (Geiger, disparos, UI) con botón de silencio
+- [x] 8.1 Partículas: fogonazos, trazadoras, impactos, muerte (fragmentos), esencia volando
+- [x] 8.2 Números de daño flotantes, sacudida de pantalla, parpadeos
+- [x] 8.3 Animaciones de casillas: radiación, agua, extracción pulsante, anomalías
+- [x] 8.4 Partículas de UI (compras, mejoras) y logo ASCII animado en el título
+- [x] 8.5 Sonido sintetizado (Geiger, disparos, UI) con botón de silencio
 
 ## FASE 9 — Pantallas complementarias
-- [ ] 9.1 Pantalla de título (nueva, continuar, instrucciones, borrar)
-- [ ] 9.2 Intro narrativa (máquina de escribir) al empezar
-- [ ] 9.3 Sección de Instrucciones completa
-- [ ] 9.4 Informe de expedición (éxito / pérdidas)
+- [x] 9.1 Pantalla de título (nueva, continuar, instrucciones, borrar)
+- [x] 9.2 Intro narrativa (máquina de escribir) al empezar
+- [x] 9.3 Sección de Instrucciones completa
+- [x] 9.4 Informe de expedición (éxito / pérdidas)
 
 ## FASE 10 — Pruebas, balance y despliegue
 - [ ] 10.1 Prueba automatizada de humo (Playwright): carga, nueva partida, lanzar expedición, turnos

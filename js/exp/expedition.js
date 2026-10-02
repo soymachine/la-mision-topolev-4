@@ -106,7 +106,7 @@ export class Expedition {
       turn: this.turn, log: this.log.slice(-60), evac: this.evac, pending: this.pending, flares: this.flares, tally: this.tally,
       surgeAt: this.surgeAt, nextTemp: this.nextTemp, active: this.active,
       squad: this.squad.map((sq) => { const { a, ...rest } = sq; return rest; }),
-      enemies: this.enemies,
+      enemies: this.enemies.map(({ _st, ...r }) => r),
     };
   }
 
@@ -266,8 +266,8 @@ export class Expedition {
       this.say(`En el suelo: ${items.map((it) => `<span style="color:${rarityColor(it.r)}">${esc(itemName(it))}${it.q > 1 ? ' ×' + it.q : ''}</span>`).join(', ')}. <b>G</b> para recoger.`);
     }
     const o = this.objAt(sq.x, sq.y);
-    if (o && o.kind === 'corpse' && !o.opened && sq === this.cur) this.say('Un cadáver de liquidador. Pulsa <b>E</b> para registrarlo.', 'dimt');
-    if (this.exitAt(sq.x, sq.y) && sq === this.cur && !this.evac) this.say('Estás en un punto de extracción. Pulsa <b>E</b> para solicitar evacuación.', 'cyan');
+    if (o && o.kind === 'corpse' && !o.opened && sq === this.cur) this.say('Un cadáver de liquidador. Pulsa <b>F</b> para registrarlo.', 'dimt');
+    if (this.exitAt(sq.x, sq.y) && sq === this.cur && !this.evac) this.say('Estás en un punto de extracción. Pulsa <b>F</b> para solicitar evacuación.', 'cyan');
   }
 
   nm(sq) { return `<span style="color:${sq.a.color}">${esc(sq.a.nick)}</span>`; }
@@ -838,12 +838,18 @@ export class Expedition {
       }
     }
     if (sq.order === 'mantener') return;
-    // seguir al líder
-    const lead = this.cur;
+    // seguir al líder (o acudir a la evacuación)
+    let lead = this.cur;
+    let near = 2;
+    if (this.evac) {
+      if (cheb(sq.x, sq.y, this.evac.x, this.evac.y) <= 1) return;
+      lead = { x: this.evac.x, y: this.evac.y };
+      near = 0;
+    }
     const d = cheb(sq.x, sq.y, lead.x, lead.y);
-    if (d <= 2) return;
+    if (d <= near) return;
     const path = astar(this.w, this.h, sq.x, sq.y, lead.x, lead.y, (x, y) => (this.passable(x, y) && !this.enemyAt(x, y) ? (this.agentAt(x, y) ? 4 : this.hazardCost(x, y)) : Infinity), 2500);
-    if (path && path.length > 1) {
+    if (path && (path.length > 1 || (this.evac && path.length))) {
       const [nx, ny] = path[0];
       if (!this.entityAt(nx, ny)) {
         if (this.tile(nx, ny) === T.DOOR) this.t[this.key(nx, ny)] = T.DOOR_OPEN;

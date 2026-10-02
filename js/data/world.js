@@ -3,7 +3,7 @@
 export const MAPS = [
   {
     id: 'admin', name: 'Bloque Administrativo', short: 'ADMIN', lvl: [1, 2], w: 104, h: 66, sx: 3, sy: 2,
-    zones: { industrial: 0.75, ruinas: 0.25 }, enemies: ['rata', 'polilla', 'musgo', 'esporangio', 'lobo'],
+    zones: { industrial: 0.75, ruinas: 0.25 }, enemies: ['rata', 'polilla', 'musgo', 'esporangio'],
     ambientRad: 0, nests: [4, 5], veins: [3, 4], caches: [3, 4], hazards: [2, 3],
     desc: 'Oficinas, archivos y vestuarios del personal. La puerta de entrada a las profundidades.',
   },
