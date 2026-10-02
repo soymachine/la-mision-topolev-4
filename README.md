@@ -15,6 +15,11 @@ La partida se guarda automáticamente en el `localStorage` del navegador.
 
 El archivo `.nojekyll` evita que GitHub procese el sitio con Jekyll.
 
+## Catálogo del contenido (`admin.html`)
+
+`admin.html` es una web de consulta con todo lo que contiene el juego: armas, munición, protecciones, gadgets, mochilas, consumibles, botín, rarezas, propiedades, chebylitas, zonas, casillas, módulos, rasgos y textos narrativos. Lee directamente los archivos de `js/data/`, así que se actualiza sola cuando se añade contenido.
+En GitHub Pages: `https://soymachine.github.io/la-mision-topolev-4/admin.html`
+
 ## Jugar en local
 
 Los módulos ES no funcionan abriendo `index.html` con doble clic (`file://`). Sirve la carpeta con cualquier servidor estático:
@@ -30,6 +35,7 @@ python3 -m http.server 8000
 index.html          pantallas y carga
 css/style.css       tema negro/naranja, marcos ASCII, CRT
 js/main.js          arranque y navegación
+js/admin.js         catálogo de contenido (admin.html)
 js/util/            RNG con semilla, helpers DOM (marcos, tooltips, modales, drag & drop)
 js/data/            objetos, rarezas, chebylitas, mapas, módulos, casillas
 js/core/            estado y guardado, objetos, agentes, lógica de campaña
