@@ -154,8 +154,8 @@ O órdenes del escuadrón · I inventario · M mapa · Espacio esperar · ? ayud
 - [x] 10.4 Instrucciones de GitHub Pages en README.md
 
 ## Estado
-- Juego completo y jugable (fases 1–10). Probado con Playwright (bot automático en las 5 zonas, guardado/carga a mitad de expedición, drag & drop, compras).
-- Siguiente sesión: continuar con la fase 11 (opcional) o con ajustes de balance según el feedback.
+- Juego completo y jugable (fases 1–12). Probado con Playwright (bot automático en las 5 zonas, guardado/carga a mitad de expedición, drag & drop, compras).
+- **Siguiente sesión:** seguir la hoja de ruta de ampliación masiva en [`plan-ampliacion.md`](plan-ampliacion.md) (fases 13–24), empezando por la fase 13 (cimientos técnicos). Marcar allí las tareas al completarlas.
 
 ## FASE 12 — Ampliación del arsenal (petición del usuario)
 - [x] 12.1 69 armas (×4) en `js/data/weapons.js`, cada una con dibujo ASCII visible en su tooltip; nuevos tipos lanzador (explosión) y 5 municiones nuevas

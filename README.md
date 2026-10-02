@@ -43,7 +43,8 @@ js/exp/             generación procedural, FOV, caminos, simulación por turnos
 js/render/          renderer ASCII en canvas, partículas, minimapa
 js/ui/              base, expedición, título, intro, informe, instrucciones, partículas de UI
 js/audio.js         sonido sintetizado con WebAudio
-plan.md             plan de desarrollo por fases
+plan.md             plan de desarrollo por fases (hecho)
+plan-ampliacion.md  hoja de ruta de la ampliación masiva (fases 13–24)
 ```
 
 Dentro del juego, la sección **Instrucciones** explica las reglas y los controles.
