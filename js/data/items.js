@@ -1,0 +1,147 @@
+// Definiciones base de objetos
+// cat: weapon | ammo | armor | helmet | gadget | backpack | consumable | valuable
+// tier: 0..5 (disponibilidad en la intendencia y nivel de aparición)
+
+export const CAT_INFO = {
+  weapon: { name: 'Arma', glyph: '/' },
+  ammo: { name: 'Munición', glyph: '"' },
+  armor: { name: 'Armadura', glyph: '[' },
+  helmet: { name: 'Casco', glyph: '^' },
+  gadget: { name: 'Gadget', glyph: '¤' },
+  backpack: { name: 'Mochila', glyph: '(' },
+  consumable: { name: 'Consumible', glyph: '!' },
+  valuable: { name: 'Botín', glyph: '$' },
+};
+
+export const AMMO_NAMES = {
+  a_9x18: '9×18 mm', a_545: '5,45×39 mm', a_12: 'cal. 12', a_762: '7,62×54R', a_fuel: 'combustible', a_cell: 'celda de esencia',
+};
+
+const W = (o) => ({ cat: 'weapon', glyph: o.glyph || (o.wtype === 'melee' ? '†' : '/'), stack: 1, burst: 1, crit: 5, noise: 0, ...o });
+
+export const ITEMS = {
+  // ---------- ARMAS ----------
+  knife: W({ name: 'Cuchillo NR-40', wtype: 'melee', tier: 0, dmg: [3, 6], acc: 90, range: 1, crit: 12, noise: 1, value: 30, desc: 'Cuchillo de explorador. Silencioso y fiable.' }),
+  shovel: W({ name: 'Pala de zapador MPL-50', wtype: 'melee', tier: 0, dmg: [4, 8], acc: 84, range: 1, crit: 8, noise: 2, value: 35, desc: 'Cava trincheras. Parte cráneos de chebylita.' }),
+  makarov: W({ name: 'Pistola Makarov PM', wtype: 'pistol', tier: 0, dmg: [4, 7], acc: 72, range: 6, mag: 8, ammo: 'a_9x18', noise: 9, value: 80, desc: 'La pistola reglamentaria. Ocho balas de esperanza.' }),
+  axe: W({ name: 'Hacha de bombero', wtype: 'melee', tier: 1, dmg: [6, 12], acc: 78, range: 1, crit: 10, noise: 2, value: 70, desc: 'Pintada de rojo. Recuerdo del 26 de abril.' }),
+  stechkin: W({ name: 'Pistola Stechkin APS', wtype: 'pistol', tier: 1, dmg: [3, 6], acc: 66, range: 6, mag: 20, burst: 2, ammo: 'a_9x18', noise: 10, value: 150, desc: 'Automática. Ráfagas cortas de 9×18.' }),
+  toz: W({ name: 'Escopeta TOZ-34', wtype: 'shotgun', tier: 1, dmg: [9, 15], acc: 80, range: 3, mag: 2, ammo: 'a_12', noise: 12, value: 160, desc: 'Escopeta de caza de dos cañones. Devastadora a corta distancia.' }),
+  aks74u: W({ name: 'AKS-74U «Krinkov»', wtype: 'smg', tier: 2, dmg: [5, 8], acc: 66, range: 6, mag: 30, burst: 2, ammo: 'a_545', noise: 12, value: 320, desc: 'Carabina compacta para espacios cerrados.' }),
+  ak74: W({ name: 'Fusil AK-74', wtype: 'rifle', tier: 2, dmg: [6, 10], acc: 72, range: 9, mag: 30, ammo: 'a_545', noise: 13, value: 380, desc: 'El fusil del pueblo soviético. No falla nunca.' }),
+  saiga: W({ name: 'Escopeta Saiga-12', wtype: 'shotgun', tier: 2, dmg: [8, 14], acc: 74, range: 4, mag: 8, ammo: 'a_12', noise: 13, value: 400, desc: 'Escopeta semiautomática con cargador.' }),
+  svd: W({ name: 'Fusil SVD Dragunov', wtype: 'sniper', tier: 3, dmg: [14, 22], acc: 86, range: 14, mag: 10, crit: 20, ammo: 'a_762', noise: 15, value: 700, desc: 'Fusil de tirador. Precisión a larga distancia.' }),
+  rpk: W({ name: 'Ametralladora RPK-74', wtype: 'mg', tier: 3, dmg: [5, 9], acc: 62, range: 9, mag: 45, burst: 3, ammo: 'a_545', noise: 15, value: 650, desc: 'Ametralladora ligera. Muro de plomo.' }),
+  ks23: W({ name: 'Escopeta KS-23', wtype: 'shotgun', tier: 3, dmg: [14, 24], acc: 76, range: 4, mag: 3, ammo: 'a_12', noise: 15, value: 620, desc: 'Escopeta antidisturbios de calibre 23 mm.' }),
+  pkm: W({ name: 'Ametralladora PKM', wtype: 'mg', tier: 4, dmg: [9, 14], acc: 58, range: 10, mag: 100, burst: 4, ammo: 'a_762', noise: 18, value: 1200, desc: 'La reina del frente. Pesada y furiosa.' }),
+  lpo: W({ name: 'Lanzallamas LPO-50', wtype: 'flame', tier: 4, dmg: [10, 16], acc: 95, range: 5, mag: 3, ammo: 'a_fuel', noise: 8, value: 1100, desc: 'Abrasa todo en línea recta. Prende fuego al suelo.' }),
+  vss: W({ name: 'Fusil VSS Vintorez', wtype: 'sniper', tier: 4, dmg: [11, 17], acc: 85, range: 11, mag: 10, crit: 18, ammo: 'a_762', noise: 3, value: 1300, desc: 'Fusil de francotirador silenciado. Los chebylitas no lo oyen venir.' }),
+  gauss: W({ name: 'Rifle Gauss «Topolev-M»', wtype: 'energy', tier: 5, dmg: [24, 38], acc: 90, range: 16, mag: 5, crit: 15, ammo: 'a_cell', noise: 6, pierce: 99, value: 2600, glyph: '¥', desc: 'Prototipo del Dr. Topolev. Atraviesa a todo lo que encuentre en su línea.' }),
+  prometeo: W({ name: 'Proyector de esencia «Prometeo»', wtype: 'energy', tier: 5, dmg: [12, 20], acc: 88, range: 8, mag: 12, ammo: 'a_cell', noise: 5, chain: 2, value: 2400, glyph: '¥', desc: 'Arco de esencia que salta entre chebylitas cercanos.' }),
+
+  // ---------- MUNICIÓN ----------
+  a_9x18: { cat: 'ammo', name: 'Munición 9×18 mm', glyph: '"', tier: 0, stack: 120, value: 1, pack: 24, desc: 'Para Makarov y Stechkin.' },
+  a_12: { cat: 'ammo', name: 'Cartuchos cal. 12', glyph: '"', tier: 1, stack: 60, value: 3, pack: 12, desc: 'Perdigones para escopetas.' },
+  a_545: { cat: 'ammo', name: 'Munición 5,45×39 mm', glyph: '"', tier: 2, stack: 150, value: 2, pack: 30, desc: 'Para la familia AK-74.' },
+  a_762: { cat: 'ammo', name: 'Munición 7,62×54R', glyph: '"', tier: 3, stack: 100, value: 4, pack: 20, desc: 'Cartucho de fusil de largo alcance.' },
+  a_fuel: { cat: 'ammo', name: 'Combustible LPO', glyph: '"', tier: 4, stack: 30, value: 8, pack: 6, desc: 'Mezcla incendiaria para el LPO-50.' },
+  a_cell: { cat: 'ammo', name: 'Celda de esencia', glyph: '"', tier: 5, stack: 40, value: 14, pack: 8, desc: 'Esencia chebylita condensada y estabilizada.' },
+
+  // ---------- ARMADURAS ----------
+  overall: { cat: 'armor', name: 'Mono de trabajo', glyph: '[', tier: 0, prot: 0, rad: 5, ev: 0, value: 20, desc: 'Algodón azul de la central. Mejor que nada.' },
+  ozk: { cat: 'armor', name: 'Traje OZK', glyph: '[', tier: 0, prot: 1, rad: 30, ev: -1, value: 90, desc: 'Traje de protección química de goma.' },
+  b6b2: { cat: 'armor', name: 'Chaleco 6B2', glyph: '[', tier: 1, prot: 3, rad: 5, ev: -1, value: 160, desc: 'Chaleco antibalas de placas de titanio.' },
+  l1: { cat: 'armor', name: 'Traje L-1 de liquidador', glyph: '[', tier: 1, prot: 2, rad: 45, ev: -1, value: 180, desc: 'El mismo traje que llevaban los liquidadores.' },
+  b6b3: { cat: 'armor', name: 'Chaleco 6B3', glyph: '[', tier: 2, prot: 4, rad: 10, ev: -2, value: 300, desc: 'Chaleco pesado de infantería.' },
+  kzm: { cat: 'armor', name: 'Traje químico KZM', glyph: '[', tier: 2, prot: 2, rad: 60, ev: 0, value: 320, desc: 'Traje sellado para zonas contaminadas.' },
+  berkut: { cat: 'armor', name: 'Traje «Berkut-R»', glyph: '[', tier: 3, prot: 5, rad: 55, ev: -1, value: 650, desc: 'Combinación experimental de blindaje y aislamiento.' },
+  sputnik: { cat: 'armor', name: 'Exoesqueleto «Sputnik»', glyph: '[', tier: 4, prot: 8, rad: 45, ev: -3, hp: 10, value: 1300, desc: 'Servomotores militares y placas de plomo.' },
+  graphite: { cat: 'armor', name: 'Coraza de grafito chebylita', glyph: '[', tier: 5, prot: 10, rad: 75, ev: -1, hp: 15, value: 2500, desc: 'Fabricada con caparazones de Gólem de grafito.' },
+
+  // ---------- CASCOS ----------
+  cap: { cat: 'helmet', name: 'Gorra de liquidador', glyph: '^', tier: 0, prot: 0, rad: 5, value: 10, desc: 'Tela fina. Moral alta.' },
+  gp5: { cat: 'helmet', name: 'Máscara de gas GP-5', glyph: '^', tier: 0, prot: 0, rad: 15, gasImmune: 1, value: 60, desc: 'Inmune al gas de esporas.' },
+  ssh68: { cat: 'helmet', name: 'Casco SSh-68', glyph: '^', tier: 1, prot: 1, rad: 0, value: 70, desc: 'Casco de acero reglamentario.' },
+  zsh1: { cat: 'helmet', name: 'Casco ZSh-1', glyph: '^', tier: 2, prot: 2, rad: 10, value: 180, desc: 'Casco de titanio con visera.' },
+  gp7: { cat: 'helmet', name: 'Máscara GP-7 con filtro', glyph: '^', tier: 2, prot: 0, rad: 25, gasImmune: 1, value: 200, desc: 'Filtros de carbón activo. Inmune al gas.' },
+  sfera: { cat: 'helmet', name: 'Casco «Sfera»', glyph: '^', tier: 3, prot: 3, rad: 5, value: 420, desc: 'Casco de las fuerzas especiales.' },
+  vityaz: { cat: 'helmet', name: 'Casco «Vityaz» con visor', glyph: '^', tier: 4, prot: 3, rad: 15, vision: 2, value: 800, desc: 'Visor de intensificación de luz.' },
+  corona: { cat: 'helmet', name: 'Corona de corium', glyph: '^', tier: 5, prot: 4, rad: 30, vision: 2, gasImmune: 1, value: 1800, desc: 'Lava solidificada del reactor. Brilla en la oscuridad.' },
+
+  // ---------- GADGETS (pasivos) ----------
+  torch: { cat: 'gadget', name: 'Linterna KSF', glyph: '¤', tier: 0, vision: 1, value: 40, desc: 'Amplía el campo de visión.' },
+  geiger: { cat: 'gadget', name: 'Contador Geiger DP-5', glyph: '¤', tier: 1, rad: 15, value: 120, desc: 'Reduce la radiación absorbida. Clic, clic, clic.' },
+  compass: { cat: 'gadget', name: 'Brújula de esencia', glyph: '¤', tier: 1, essence: 10, value: 130, desc: 'La aguja apunta a la esencia. Más esencia recogida.' },
+  arclamp: { cat: 'gadget', name: 'Linterna de arco', glyph: '¤', tier: 2, vision: 2, value: 220, desc: 'Luz cegadora. Gran campo de visión.' },
+  kolba: { cat: 'gadget', name: 'Detector de esencia «Kolba»', glyph: '¤', tier: 2, essence: 20, value: 260, desc: 'Más esencia de cada chebylita y veta.' },
+  pso: { cat: 'gadget', name: 'Mira óptica PSO-1', glyph: '¤', tier: 3, acc: 8, value: 400, desc: 'Mejora la puntería con cualquier arma de fuego.' },
+  rtg: { cat: 'gadget', name: 'Pila de radioisótopo', glyph: '¤', tier: 3, regen: 1, value: 450, desc: 'Calor constante. Regenera salud poco a poco.' },
+  amulet: { cat: 'gadget', name: 'Amuleto chebylita', glyph: '¤', tier: 4, ev: 5, crit: 5, value: 700, desc: 'Un ojo petrificado. Los chebylitas parecen dudar.' },
+  heart: { cat: 'gadget', name: 'Corazón de Raíz-madre', glyph: '¤', tier: 5, regen: 2, rad: 20, hp: 10, value: 1600, desc: 'Late todavía. Cura heridas y radiación.' },
+
+  // ---------- MOCHILAS ----------
+  sack: { cat: 'backpack', name: 'Morral de lona', glyph: '(', tier: 0, slots: 3, value: 20, desc: '+3 huecos de mochila.' },
+  rd54: { cat: 'backpack', name: 'Mochila RD-54', glyph: '(', tier: 1, slots: 5, value: 120, desc: '+5 huecos de mochila.' },
+  taiga: { cat: 'backpack', name: 'Mochila «Taiga»', glyph: '(', tier: 3, slots: 8, value: 400, desc: '+8 huecos de mochila.' },
+  hide: { cat: 'backpack', name: 'Bolsa de piel chebylita', glyph: '(', tier: 5, slots: 11, value: 1100, desc: '+11 huecos de mochila. Huele fatal.' },
+
+  // ---------- CONSUMIBLES ----------
+  bandage: { cat: 'consumable', name: 'Venda', glyph: '!', tier: 0, stack: 10, use: 'heal', heal: 7, value: 8, desc: 'Cura 7 de salud.' },
+  ai2: { cat: 'consumable', name: 'Botiquín AI-2', glyph: '!', tier: 0, stack: 5, use: 'heal', heal: 22, cure: 1, value: 35, desc: 'Cura 22 de salud y elimina el veneno.' },
+  antirad: { cat: 'consumable', name: 'Antirrad (yoduro potásico)', glyph: '!', tier: 0, stack: 8, use: 'antirad', radHeal: 35, value: 25, desc: 'Reduce 35 de radiación acumulada.' },
+  stim: { cat: 'consumable', name: 'Estimulante «Sangre de Oso»', glyph: '!', tier: 2, stack: 5, use: 'stim', turns: 15, value: 90, desc: '+30% daño y +10 puntería durante 15 turnos.' },
+  surgkit: { cat: 'consumable', name: 'Kit quirúrgico', glyph: '!', tier: 3, stack: 3, use: 'heal', heal: 50, cure: 1, value: 160, desc: 'Cura 50 de salud y elimina el veneno.' },
+  serum: { cat: 'consumable', name: 'Suero Topolev', glyph: '!', tier: 5, stack: 3, use: 'heal', heal: 999, cure: 1, radHeal: 60, value: 500, desc: 'Restaura toda la salud y 60 de radiación.' },
+  rgd5: { cat: 'consumable', name: 'Granada RGD-5', glyph: '•', tier: 1, stack: 6, use: 'throw', blast: 1, dmg: [10, 18], range: 6, value: 45, desc: 'Explosión en radio 1. Alcance 6.' },
+  f1: { cat: 'consumable', name: 'Granada F-1', glyph: '•', tier: 2, stack: 5, use: 'throw', blast: 2, dmg: [16, 28], range: 6, value: 80, desc: 'Explosión de fragmentación en radio 2.' },
+  molotov: { cat: 'consumable', name: 'Cóctel Molotov', glyph: '•', tier: 0, stack: 6, use: 'throw', blast: 1, fire: 1, dmg: [4, 7], range: 6, value: 30, desc: 'Incendia una zona de radio 1.' },
+  flare: { cat: 'consumable', name: 'Bengala', glyph: '•', tier: 0, stack: 6, use: 'throw', lure: 1, range: 8, value: 20, desc: 'Ilumina la zona y atrae a los chebylitas cercanos.' },
+  beacon: { cat: 'consumable', name: 'Baliza de extracción', glyph: '•', tier: 3, stack: 2, use: 'beacon', value: 350, desc: 'Abre una extracción temporal donde estés en 6 turnos.' },
+
+  // ---------- BOTÍN (valiosos para vender) ----------
+  komsomol: { cat: 'valuable', name: 'Insignia del Komsomol', glyph: '$', tier: 0, value: 15, desc: 'Esmalte rojo y una sonrisa de Lenin.' },
+  vodka: { cat: 'valuable', name: 'Botella de Stolichnaya', glyph: '$', tier: 0, value: 25, desc: 'Todavía precintada. Un milagro.' },
+  reel: { cat: 'valuable', name: 'Cinta de bobina', glyph: '$', tier: 0, value: 30, desc: 'Grabación de una sala de control. ¿Qué contendrá?' },
+  poljot: { cat: 'valuable', name: 'Reloj Poljot', glyph: '$', tier: 1, value: 45, desc: 'Se detuvo a la 1:23.' },
+  vef: { cat: 'valuable', name: 'Radio VEF', glyph: '$', tier: 1, value: 55, desc: 'Radio de transistores letona.' },
+  medal: { cat: 'valuable', name: 'Medalla «Héroe del Trabajo»', glyph: '$', tier: 1, value: 65, desc: 'Otorgada a un operario de turno.' },
+  graphsample: { cat: 'valuable', name: 'Muestra de grafito', glyph: '$', tier: 2, value: 70, desc: 'Bloque del moderador del reactor.' },
+  board: { cat: 'valuable', name: 'Placa de circuito RBMK', glyph: '$', tier: 2, value: 85, desc: 'Electrónica de control del reactor.' },
+  icon: { cat: 'valuable', name: 'Icono ortodoxo', glyph: '$', tier: 3, value: 110, desc: 'San Jorge contra el dragón. Muy apropiado.' },
+  docs: { cat: 'valuable', name: 'Documentos clasificados', glyph: '$', tier: 3, value: 150, desc: 'Sello del KGB. «Prueba de turbina, 25-IV-1986».' },
+  crystal: { cat: 'valuable', name: 'Cristal de esencia', glyph: '✧', tier: 2, value: 40, essenceValue: 25, desc: 'Esencia cristalizada. Se puede vender o convertir en esencia en la base.' },
+  corium: { cat: 'valuable', name: 'Fragmento de corium', glyph: '$', tier: 4, value: 320, radioactive: 1, desc: 'Muy valioso. Muy radiactivo: irradia a quien lo lleve.' },
+};
+
+// Nombres míticos únicos
+export const MYTHIC_NAMES = [
+  '«Estrella Ajenjo»', '«Pata de Elefante»', '«Ira de Prípiat»', '«Último Liquidador»', '«Sol Negro»',
+  '«Lamento de Polesia»', '«Beso de Corium»', '«Noche del 26 de Abril»', '«Ojo de Dyatlov»', '«Bosque Rojo»',
+  '«Reactor Cuatro»', '«Canción de Slavutych»', '«Alba Roja»', '«Hijo de la Ceniza»', '«Sarcófago»',
+];
+export const EPITHETS = [
+  '«Camarada»', '«Tormenta»', '«Lobo Gris»', '«Polesia»', '«Hoz»', '«Krasnaya»', '«Taiga»', '«Vostok»',
+  '«Plomo»', '«Isótopo»', '«Grafito»', '«Ceniza»', '«Abedul»', '«Baba Yaga»', '«Koschei»', '«Volga»',
+  '«Dnipró»', '«Estepa»', '«Proletario»', '«Gagarin»', '«Ushanka»', '«Matrioska»',
+];
+export const UNCOMMON_SUFFIX = ['mejorado', 'de campaña', 'revisado', 'ajustado'];
+export const RARE_SUFFIX = ['de élite', 'reforzado', 'de precisión', 'del Spetsnaz'];
+
+// Afijos por categoría. roll(r, rng) devuelve el valor según la rareza.
+export const AFFIXES = [
+  { id: 'dmgPct', cats: ['weapon'], label: (v) => `+${v}% daño`, roll: (r, g) => g.int(6, 12) + r * 3 },
+  { id: 'acc', cats: ['weapon', 'gadget', 'helmet'], label: (v) => `+${v} puntería`, roll: (r, g) => g.int(3, 6) + r },
+  { id: 'crit', cats: ['weapon', 'gadget'], label: (v) => `+${v}% crítico`, roll: (r, g) => g.int(3, 6) + r * 2 },
+  { id: 'magPct', cats: ['weapon'], label: (v) => `+${v}% cargador`, roll: (r, g) => g.int(20, 35) + r * 5, ranged: 1 },
+  { id: 'range', cats: ['weapon'], label: (v) => `+${v} alcance`, roll: (r, g) => g.int(1, 2) + (r >= 4 ? 1 : 0), ranged: 1 },
+  { id: 'pierce', cats: ['weapon'], label: (v) => `+${v} perforación`, roll: (r, g) => g.int(1, 2) + Math.floor(r / 2) },
+  { id: 'prot', cats: ['armor', 'helmet'], label: (v) => `+${v} protección`, roll: (r, g) => 1 + Math.floor(r / 2) + (g.chance(0.3) ? 1 : 0) },
+  { id: 'rad', cats: ['armor', 'helmet', 'gadget'], label: (v) => `+${v}% resist. radiación`, roll: (r, g) => g.int(5, 10) + r * 2 },
+  { id: 'ev', cats: ['armor', 'helmet', 'gadget', 'backpack'], label: (v) => `+${v} agilidad`, roll: (r, g) => g.int(1, 2) + Math.floor(r / 2) },
+  { id: 'hp', cats: ['armor', 'helmet', 'gadget', 'backpack'], label: (v) => `+${v} salud máx.`, roll: (r, g) => g.int(3, 6) + r * 2 },
+  { id: 'vision', cats: ['helmet', 'gadget'], label: (v) => `+${v} visión`, roll: (r, g) => 1 + (r >= 4 ? 1 : 0) },
+  { id: 'essence', cats: ['gadget', 'backpack', 'armor'], label: (v) => `+${v}% esencia`, roll: (r, g) => g.int(5, 10) + r * 2 },
+  { id: 'regen', cats: ['gadget', 'armor'], label: (v) => `+${v} regeneración`, roll: (r, g) => 1 },
+  { id: 'slots', cats: ['backpack'], label: (v) => `+${v} huecos`, roll: (r, g) => 1 + Math.floor(r / 2) },
+  { id: 'valuePct', cats: ['valuable'], label: (v) => `+${v}% valor`, roll: (r, g) => g.int(10, 25) + r * 10 },
+];

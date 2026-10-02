@@ -71,34 +71,34 @@ O órdenes del escuadrón · I inventario · M mapa · Espacio esperar · ? ayud
 
 ## FASE 1 — Planificación y esqueleto
 - [x] 1.1 Plan detallado (`plan.md`)
-- [ ] 1.2 `index.html`, `.nojekyll`, estructura de carpetas
-- [ ] 1.3 CSS base: tema negro/naranja, fuente monoespaciada, pantalla completa, scanlines/viñeta CRT
+- [x] 1.2 `index.html`, `.nojekyll`, estructura de carpetas
+- [x] 1.3 CSS base: tema negro/naranja, fuente monoespaciada, pantalla completa, scanlines/viñeta CRT
 - [ ] 1.4 Router de pantallas (título, base, expedición, informe) en `main.js`
 
 ## FASE 2 — Núcleo
-- [ ] 2.1 RNG con semilla + utilidades (rangos, pesos, shuffle)
-- [ ] 2.2 Estado global + nueva partida
-- [ ] 2.3 Guardado/carga en `localStorage` (versión, autosave, guardado de expedición en curso)
-- [ ] 2.4 Helpers DOM: marcos ASCII con ResizeObserver, tooltip, modales, toasts
-- [ ] 2.5 Drag & drop genérico (pointer events) con fantasma ASCII
+- [x] 2.1 RNG con semilla + utilidades (rangos, pesos, shuffle)
+- [x] 2.2 Estado global + nueva partida
+- [x] 2.3 Guardado/carga en `localStorage` (versión, autosave, guardado de expedición en curso)
+- [x] 2.4 Helpers DOM: marcos ASCII con ResizeObserver, tooltip, modales, toasts
+- [x] 2.5 Drag & drop genérico (pointer events) con fantasma ASCII
 
 ## FASE 3 — Datos del juego
-- [ ] 3.1 Rarezas (colores, multiplicadores, pesos por nivel)
-- [ ] 3.2 Objetos: armas, munición, armaduras, cascos, gadgets, consumibles, valiosos
-- [ ] 3.3 Afijos por categoría y nombres por rareza (míticos con nombre propio)
-- [ ] 3.4 Chebylitas: 10 tipos + 2 jefes (origen animal/roca/planta/hongo/mineral), habilidades, lore
-- [ ] 3.5 Mapas: 5 localizaciones con nivel, tamaño, tipos de sector, enemigos posibles
-- [ ] 3.6 Módulos de la base y costes de mejora
-- [ ] 3.7 Nombres de agentes, rasgos, nombres de sectores
+- [x] 3.1 Rarezas (colores, multiplicadores, pesos por nivel)
+- [x] 3.2 Objetos: armas, munición, armaduras, cascos, gadgets, consumibles, valiosos
+- [x] 3.3 Afijos por categoría y nombres por rareza (míticos con nombre propio)
+- [x] 3.4 Chebylitas: 10 tipos + 2 jefes (origen animal/roca/planta/hongo/mineral), habilidades, lore
+- [x] 3.5 Mapas: 5 localizaciones con nivel, tamaño, tipos de sector, enemigos posibles
+- [x] 3.6 Módulos de la base y costes de mejora
+- [x] 3.7 Nombres de agentes, rasgos, nombres de sectores
 
 ## FASE 4 — Generación procedural
-- [ ] 4.1 División en sectores y asignación de tipo de zona
-- [ ] 4.2 Salas industriales (BSP) + pasillos
-- [ ] 4.3 Cavernas (autómata celular) + agua/escombros
-- [ ] 4.4 Conexión entre sectores y verificación de conectividad (flood fill)
-- [ ] 4.5 Punto de inserción y extracciones permanentes en extremos
-- [ ] 4.6 POIs: nidos con nivel, vetas de esencia, alijos, peligros
-- [ ] 4.7 Enemigos errantes y contenedores dispersos
+- [x] 4.1 División en sectores y asignación de tipo de zona
+- [x] 4.2 Salas industriales (BSP) + pasillos
+- [x] 4.3 Cavernas (autómata celular) + agua/escombros
+- [x] 4.4 Conexión entre sectores y verificación de conectividad (flood fill)
+- [x] 4.5 Punto de inserción y extracciones permanentes en extremos
+- [x] 4.6 POIs: nidos con nivel, vetas de esencia, alijos, peligros
+- [x] 4.7 Enemigos errantes y contenedores dispersos
 
 ## FASE 5 — Simulación de expedición
 - [ ] 5.1 FOV shadowcasting compartido por el escuadrón + niebla de guerra

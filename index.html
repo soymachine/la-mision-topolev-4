@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La Misión Topolev</title>
+<meta name="description" content="Extraction-looter por turnos en ASCII ambientado en la central nuclear de Chernóbil.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Ctext x='8' y='13' font-size='13' text-anchor='middle' fill='%23ff8a1f' font-family='monospace'%3E%E2%98%A2%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+<div id="app">
+  <section id="screen-title" class="screen"></section>
+  <section id="screen-intro" class="screen"></section>
+  <section id="screen-base" class="screen"></section>
+  <section id="screen-exp" class="screen"></section>
+  <section id="screen-report" class="screen"></section>
+  <section id="screen-help" class="screen"></section>
+</div>
+<canvas id="fx-overlay"></canvas>
+<div id="tooltip" class="tooltip hidden"></div>
+<div id="modal-root"></div>
+<div id="toasts"></div>
+<div id="crt"></div>
+<noscript><pre style="color:#ff8a1f;background:#000;padding:2em">Este juego necesita JavaScript.</pre></noscript>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
