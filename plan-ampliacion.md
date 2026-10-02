@@ -51,8 +51,8 @@
 **Objetivo:** preparar el código para crecer sin romperse.
 
 ### 13.1 Reorganización del código de expedición (M)
-- [ ] Dividir `js/exp/expedition.js` (≈1500 líneas) en módulos: `combat.js` (disparo, daño, explosiones), `ai.js` (IA enemiga y de aliados), `use.js` (consumibles, lanzar, trampas), `environment.js` (gas, fuego, humo, radiación, pulso), `extraction.js`.
-- [ ] Mantener `Expedition` como fachada para no tocar la UI.
+- [x] Dividir `js/exp/expedition.js` (≈1500 líneas) en módulos: `combat.js` (disparo, daño, explosiones), `ai.js` (IA enemiga y de aliados), `use.js` (consumibles, lanzar, trampas), `environment.js` (gas, fuego, humo, radiación, pulso), `extraction.js`.
+- [x] Mantener `Expedition` como fachada para no tocar la UI.
 
 ### 13.2 Entidades genéricas (L) — *pieza clave*
 Hoy existen dos tipos de actor: agentes (`squad`) y chebylitas (`enemies`). Hace falta un tipo común:
@@ -73,9 +73,9 @@ Hoy existen dos tipos de actor: agentes (`squad`) y chebylitas (`enemies`). Hace
 - [ ] Estado narrativo global `S.flags` y por agente `a.flags`.
 
 ### 13.4 Guardado v2 (M)
-- [ ] Compresión del guardado (LZ-string incrustado en `js/util/lz.js`, sin dependencias externas).
-- [ ] **3 ranuras de partida** + exportar/importar a archivo JSON (copia de seguridad).
-- [ ] `SAVE_VERSION = 2` con migración desde v1.
+- [x] Compresión del guardado (LZ-string incrustado en `js/util/lz.js`, sin dependencias externas).
+- [x] **3 ranuras de partida** + exportar/importar a archivo JSON (copia de seguridad).
+- [x] `SAVE_VERSION = 2` con migración desde v1 (la partida v1 pasa a la ranura 1 y se guarda una copia `topolev_save_v1_backup`).
 
 ### 13.5 Herramientas de desarrollo (S)
 - [ ] Consola de depuración oculta (tecla `º` o `?debug` en la URL): teletransporte, generar actor, dar objeto, revelar mapa, saltar día.

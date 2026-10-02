@@ -15,6 +15,7 @@ const mapIdx = +(process.argv[2] || 0);
   await p.goto(URL);
   await p.waitForTimeout(800);
   await p.click('text=NUEVA PARTIDA');
+  await p.click('.modal >> text=EMPEZAR AQUÍ >> nth=0');
   await p.click('#screen-intro');
   await p.click('text=COMENZAR');
   await p.evaluate(() => { window.__topolev.S.unlocked = 5; });
