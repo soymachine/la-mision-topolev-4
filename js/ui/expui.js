@@ -57,8 +57,15 @@ export class ExpeditionUI {
     this.agentPanel.classList.add('grow');
     this.side.append(this.mmPanel, this.squadPanel, this.agentPanel);
 
-    this.mmCanvas.addEventListener('click', () => this.toggleBigMap());
-    tip(this.mmCanvas, () => '<div class="tt-title">Radar</div><div class="dimt">Clic o <b>M</b> para ver el mapa completo con todos los puntos de interés.</div>');
+    this.mmCanvas.addEventListener('click', () => { hideTooltip(); this.toggleBigMap(); });
+    this.mmCanvas.addEventListener('pointermove', (ev) => {
+      const rc = this.mmCanvas.getBoundingClientRect();
+      const k = this.mmCanvas.width / rc.width;
+      const m = this.mm.markerAt((ev.clientX - rc.left) * k, (ev.clientY - rc.top) * k);
+      const html = m ? this.markerTooltip(m) : '<div class="tt-title">Radar</div><div class="dimt">Pasa el ratón por los iconos para ver detalles. Clic o <b>M</b> para el mapa completo.</div>';
+      showTooltip(html, ev.clientX, ev.clientY);
+    });
+    this.mmCanvas.addEventListener('pointerleave', () => hideTooltip());
 
     // ratón sobre el mapa
     const c = this.r.canvas;
@@ -85,7 +92,8 @@ export class ExpeditionUI {
     this.active = true;
     this.mode = null; this.travel = null; this.big = null;
     this.r.resize();
-    this.r.setZoom(settings.zoom || 15);
+    if (!settings.zoom) settings.zoom = Math.round(Math.max(13, Math.min(18, innerWidth / 105)));
+    this.r.setZoom(settings.zoom);
     this.r.radar = S.modules.radar;
     this.r.attach(exp);
     this.r.onEssence = () => {};
@@ -102,8 +110,9 @@ export class ExpeditionUI {
     this.renderLog();
     this.refresh();
     this.last = performance.now();
+    const token = (this.loopToken = (this.loopToken || 0) + 1);
     const loop = (now) => {
-      if (!this.active) return;
+      if (!this.active || token !== this.loopToken) return;
       const dt = Math.min(0.05, (now - this.last) / 1000);
       this.last = now;
       if (!this.root.classList.contains('active')) { requestAnimationFrame(loop); return; }
@@ -693,6 +702,22 @@ export class ExpeditionUI {
     return parts.join('');
   }
 
+  markerTooltip(m) {
+    const e = this.exp;
+    if (m.exit) return `<div class="tt-title cyan">⌂ ${esc(m.exit.name)}</div><div class="dimt">${m.exit.perm ? 'Extracción permanente' : `Temporal: ${m.exit.expires - e.turn} turnos`}</div>`;
+    const p = m.poi;
+    const sec = e.sectors[p.sector];
+    let h = `<div class="tt-title">${esc(p.name)}</div>`;
+    if (p.type === 'nest') { const d = ENEMIES[p.boss || p.enemy]; h += `<div>Nivel <b style="color:${enemyColor(d.hue, p.lvl)}">${p.lvl}</b>${p.cleared ? ' · <span class="good">despejado</span>' : ''}${p.boss ? ' · <span class="bad">☠ jefe</span>' : ''}</div><div class="tt-lore">${S.bestiary[p.boss || p.enemy] ? esc(d.lore) : 'Especie no catalogada.'}</div>`; }
+    if (p.type === 'vein') h += `<div class="cyan">${p.cleared ? 'Agotada' : 'Esencia extraíble'} · Nv ${p.lvl}</div>`;
+    if (p.type === 'cache') h += `<div>${p.cleared ? 'Saqueado' : 'Suministros sin abrir'}${S.modules.radar >= 2 && !p.cleared ? ` · mejor objeto: <span style="color:${rarityColor(p.best)}">${['común', 'no común', 'raro', 'épico', 'legendario', 'mítico'][p.best]}</span>` : ''}</div>`;
+    if (p.type === 'hazard') h += `<div class="dimt">Peligro de nivel ${p.lvl}</div>`;
+    if (sec) h += `<div class="dimt">Sector ${sec.code} · ${esc(sec.name)}</div>`;
+    const c = e.cur;
+    if (c) h += `<div class="dimt">Distancia: ${Math.round(Math.hypot(p.x - c.x, p.y - c.y))} casillas</div>`;
+    return h;
+  }
+
   // ------------------------------------------------------------ mapa completo
   toggleBigMap() {
     if (this.big) { this.big.wrap.remove(); this.big = null; return; }
@@ -717,19 +742,8 @@ export class ExpeditionUI {
       const rc = cv.getBoundingClientRect();
       const px = (ev.clientX - rc.left) * dpr, py = (ev.clientY - rc.top) * dpr;
       const m = mm.markerAt(px, py);
-      if (m && m.poi) {
-        const p = m.poi;
-        const sec = e.sectors[p.sector];
-        let h = `<div class="tt-title">${esc(p.name)}</div>`;
-        if (p.type === 'nest') { const d = ENEMIES[p.boss || p.enemy]; h += `<div>Nivel <b style="color:${enemyColor(d.hue, p.lvl)}">${p.lvl}</b>${p.cleared ? ' · <span class="good">despejado</span>' : ''}</div><div class="tt-lore">${esc(d.lore)}</div>`; }
-        if (p.type === 'vein') h += `<div class="cyan">${p.cleared ? 'Agotada' : 'Esencia extraíble'}</div>`;
-        if (p.type === 'cache') h += `<div>${p.cleared ? 'Saqueado' : 'Suministros sin abrir'}${S.modules.radar >= 2 && !p.cleared ? ` · mejor objeto: <span style="color:${rarityColor(p.best)}">${['común', 'no común', 'raro', 'épico', 'legendario', 'mítico'][p.best]}</span>` : ''}</div>`;
-        if (p.type === 'hazard') h += `<div class="dimt">Peligro de nivel ${p.lvl}</div>`;
-        if (sec) h += `<div class="dimt">Sector ${sec.code} · ${esc(sec.name)}</div>`;
-        showTooltip(h, ev.clientX, ev.clientY);
-      } else if (m && m.exit) {
-        showTooltip(`<div class="tt-title cyan">⌂ ${esc(m.exit.name)}</div><div class="dimt">${m.exit.perm ? 'Extracción permanente' : `Temporal: ${m.exit.expires - e.turn} turnos`}</div>`, ev.clientX, ev.clientY);
-      } else hideTooltip();
+      if (m) showTooltip(this.markerTooltip(m), ev.clientX, ev.clientY);
+      else hideTooltip();
     });
     cv.addEventListener('pointerleave', () => hideTooltip());
     cv.addEventListener('click', (ev) => {
@@ -746,7 +760,7 @@ export class ExpeditionUI {
     const e = this.exp;
     if (!e || e.ended) return;
     if (this.invClose) { this.invClose(); return; }
-    const body = el('div', { style: { display: 'grid', gridTemplateColumns: 'minmax(36ch,1fr) minmax(36ch,1fr) minmax(30ch,.8fr)', gap: '2ch', minWidth: 'min(120ch, 86vw)' } });
+    const body = el('div', { style: { display: 'grid', gridTemplateColumns: 'minmax(0,1.1fr) minmax(0,1fr) minmax(0,.8fr)', gap: '2ch' } });
     const render = () => {
       const sq = e.cur;
       const a = sq.a;
@@ -821,7 +835,7 @@ export class ExpeditionUI {
     };
     render();
     this.invRefresh = render;
-    const close = modal({ title: 'INVENTARIO', body, actions: [{ label: 'CERRAR (I)' }], onClose: () => { this.invClose = null; this.invRefresh = null; this.refresh(); } });
+    const close = modal({ title: 'INVENTARIO', body, width: 'min(124ch, 94vw)', actions: [{ label: 'CERRAR (I)' }], onClose: () => { this.invClose = null; this.invRefresh = null; this.refresh(); } });
     this.invClose = close;
   }
 
@@ -831,7 +845,7 @@ export class ExpeditionUI {
     const sq = e.cur;
     const list = d.obj ? d.obj.items : e.floorAt(d.x, d.y);
     const title = d.obj ? OBJ_NAME[d.obj.kind].toUpperCase() : 'SUELO';
-    const body = el('div', { style: { display: 'grid', gridTemplateColumns: 'minmax(34ch,1fr) minmax(34ch,1fr)', gap: '3ch' } });
+    const body = el('div', { style: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '3ch' } });
     const render = () => {
       body.innerHTML = '';
       const left = el('div', { style: { minHeight: '12em' } }, el('div', { class: 'h', text: `CONTENIDO (${list.length})` }));
@@ -857,7 +871,7 @@ export class ExpeditionUI {
     };
     render();
     const close = modal({
-      title, body,
+      title, body, width: 'min(90ch, 94vw)',
       actions: [
         { label: 'COGER TODO', cls: 'primary', fn: () => { for (const it of [...list]) if (!e.takeItem(sq, list, it)) break; render(); return list.length === 0 ? undefined : false; } },
         { label: 'CERRAR' },

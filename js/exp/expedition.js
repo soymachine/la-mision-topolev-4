@@ -137,6 +137,18 @@ export class Expedition {
   walkTile(x, y) { return this.inb(x, y) && TILES[this.t[this.key(x, y)]].walk === 1; }
   blockedObj(x, y) { const o = this.objMap.get(this.key(x, y)); return o && BLOCKING_OBJ[o.kind] ? o : null; }
   passable(x, y) { return this.walkTile(x, y) && !this.blockedObj(x, y); }
+  // línea de visión simétrica (Bresenham en ambos sentidos)
+  los(x0, y0, x1, y1, objs = false) {
+    const op = objs ? (x, y) => this.opaque(x, y) || this.blockedObj(x, y) != null : (x, y) => this.opaque(x, y);
+    return hasLOS(x0, y0, x1, y1, op) || hasLOS(x1, y1, x0, y0, op);
+  }
+  // ¿el campo de visión desde (x0,y0) alcanza (x1,y1)? (coincide con lo que el jugador ve)
+  fovSees(x0, y0, x1, y1) {
+    let hit = false;
+    const r = Math.ceil(Math.hypot(x1 - x0, y1 - y0)) + 1;
+    computeFOV(x0, y0, r, (x, y) => this.opaque(x, y), (x, y) => { if (x === x1 && y === y1) hit = true; });
+    return hit;
+  }
   isVisible(x, y) { return this.inb(x, y) && this.visible[this.key(x, y)] > 0; }
   entityAt(x, y) { return this.occ.get(this.key(x, y)); }
   enemyAt(x, y) { const e = this.occ.get(this.key(x, y)); return e && e.type ? e : null; }
@@ -291,7 +303,7 @@ export class Expedition {
     const w = this.weapon(sq);
     if (!w || w.ld <= 0) return cheb(sq.x, sq.y, e.x, e.y) <= 1 ? 'ok' : 'empty';
     if (d > ws.range * 2 + 0.5) return 'range';
-    if (!hasLOS(sq.x, sq.y, e.x, e.y, (x, y) => this.opaque(x, y) || (this.blockedObj(x, y) != null))) return 'los';
+    if (!this.los(sq.x, sq.y, e.x, e.y, true) && !this.fovSees(sq.x, sq.y, e.x, e.y)) return 'los';
     return 'ok';
   }
 
@@ -676,7 +688,7 @@ export class Expedition {
   throwAt(sq, it, tx, ty) {
     const d = ITEMS[it.b];
     if (Math.hypot(tx - sq.x, ty - sq.y) > d.range + 0.5) { this.say('Demasiado lejos.', 'bad'); return false; }
-    if (!hasLOS(sq.x, sq.y, tx, ty, (x, y) => this.opaque(x, y))) { this.say('No hay línea de lanzamiento.', 'bad'); return false; }
+    if (!this.los(sq.x, sq.y, tx, ty)) { this.say('No hay línea de lanzamiento.', 'bad'); return false; }
     this.consume(sq, it);
     this.fx.push({ type: 'throw', x0: sq.x, y0: sq.y, x1: tx, y1: ty, glyph: d.glyph });
     if (d.lure) {
@@ -883,7 +895,7 @@ export class Expedition {
     if (this.tile(x, y) === T.DOOR) { this.t[this.key(x, y)] = T.DOOR_OPEN; this.dirty = true; }
     this.moveEntity(e, x, y);
   }
-  enemyLOS(e, sq) { return hasLOS(e.x, e.y, sq.x, sq.y, (x, y) => this.opaque(x, y)); }
+  enemyLOS(e, sq) { return this.los(e.x, e.y, sq.x, sq.y); }
 
   enemyAct(e) {
     const def = ENEMIES[e.type];

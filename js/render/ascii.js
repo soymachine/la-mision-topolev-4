@@ -74,6 +74,9 @@ export class MapRenderer {
     this.sctx.font = `${this.fs}px ${FONT}`;
     this.sctx.fillStyle = '#000';
     this.sctx.fillRect(0, 0, e.w * this.cw, e.h * this.ch);
+    // retícula tenue de radar sobre lo inexplorado (muestra los límites del mapa)
+    this.sctx.fillStyle = '#2c1606';
+    for (let y = 0; y < e.h; y += 3) for (let x = 0; x < e.w; x += 4) this.sctx.fillText(x % 20 === 0 && y % 15 === 0 ? '+' : '·', x * this.cw + this.cw / 2, y * this.ch + this.ch / 2);
     this.code = new Int16Array(e.w * e.h).fill(-1);
     // roca expuesta
     this.exposed = new Uint8Array(e.w * e.h);
@@ -97,7 +100,7 @@ export class MapRenderer {
       if (bucket === 0) {
         // recordado: oscuro y algo desaturado
         const m = (r + g + b) / 3;
-        const f = 0.3;
+        const f = 0.4;
         c = `rgb(${Math.round((r * 0.7 + m * 0.3) * f)},${Math.round((g * 0.7 + m * 0.3) * f)},${Math.round((b * 0.7 + m * 0.3) * f)})`;
       } else {
         const f = 0.5 + (bucket / 7) * 0.62;
@@ -114,7 +117,7 @@ export class MapRenderer {
     const W = e.w, H = e.h;
     for (let k = 0; k < W * H; k++) {
       const ex = e.explored[k];
-      if (!ex) { if (all) this.code[k] = 0; continue; }
+      if (!ex) continue;
       const v = e.visible[k];
       const bucket = v ? 1 + Math.min(6, Math.floor(((v - 40) / 216) * 7)) : 0;
       const tt = e.t[k];

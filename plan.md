@@ -148,10 +148,14 @@ O órdenes del escuadrón · I inventario · M mapa · Espacio esperar · ? ayud
 - [x] 9.4 Informe de expedición (éxito / pérdidas)
 
 ## FASE 10 — Pruebas, balance y despliegue
-- [ ] 10.1 Prueba automatizada de humo (Playwright): carga, nueva partida, lanzar expedición, turnos
-- [ ] 10.2 Balance inicial de economía y dificultad
-- [ ] 10.3 Revisión de errores de consola y rendimiento
-- [ ] 10.4 Instrucciones de GitHub Pages en README.md
+- [x] 10.1 Prueba automatizada de humo (Playwright): carga, nueva partida, lanzar expedición, turnos
+- [x] 10.2 Balance inicial de economía y dificultad
+- [x] 10.3 Revisión de errores de consola y rendimiento
+- [x] 10.4 Instrucciones de GitHub Pages en README.md
+
+## Estado
+- Juego completo y jugable (fases 1–10). Probado con Playwright (bot automático en las 5 zonas, guardado/carga a mitad de expedición, drag & drop, compras).
+- Siguiente sesión: continuar con la fase 11 (opcional) o con ajustes de balance según el feedback.
 
 ## FASE 11 — Ideas futuras (opcional)
 - [ ] 11.1 Eventos narrativos aleatorios en expedición (radio, supervivientes)

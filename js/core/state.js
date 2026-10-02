@@ -83,7 +83,7 @@ export function wipe() {
 }
 
 function loadSettings() {
-  const def = { sound: true, crt: true, zoom: 15, volume: 0.5 };
+  const def = { sound: true, crt: true, zoom: null, volume: 0.5 };
   try { return { ...def, ...(JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}) }; } catch { return def; }
 }
 export function saveSettings() {
