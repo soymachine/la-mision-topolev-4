@@ -119,6 +119,7 @@ export class CombatPart {
     const crit = rng.chance((ws.crit + (st.crit || 0)) / 100);
     if (crit) dmg *= 1.8 * (1 + (sq.a ? this.flag(sq, 'critDmg') : 0) / 100);
     const es = this.est(e);
+    if (sq.a && S.photos && S.photos[e.type]) dmg *= 1.1; // ficha fotográfica (Zenit-E)
     if (sq.a) {
       // talentos y rasgos: Tiro de gracia, Emboscada, Cazador de jefes
       if (e.hp < e.hpMax * 0.3) dmg *= 1 + this.flag(sq, 'execute') / 100;
@@ -221,6 +222,9 @@ export class CombatPart {
 
   killEnemy(e, src, delay = 0) {
     const def = ACTORS[e.type];
+    if (def.companion) { if (this.enemies.includes(e)) this.companionDown(e); return; }
+    // lo abatido por un compañero cuenta para su dueño
+    if (src && src.type && ACTORS[src.type] && ACTORS[src.type].companion) src = this.compOwner(src) || null;
     const human = !!HUMANS[e.type];
     const es = this.est(e);
     e.hp = 0;
@@ -288,6 +292,8 @@ export class CombatPart {
 
   noise(x, y, r) {
     if (r <= 0) return;
+    // generador de ruido blanco: el ruido cerca del escuadrón queda en un susurro
+    if (this.quietT > this.turn && this.team.some((q) => cheb(q.x, q.y, x, y) <= 3)) r = Math.min(r, 3);
     if (r >= 9) this.collapseNear(x, y, Math.min(4, Math.floor(r / 3)));
     for (const e of this.enemies) {
       if (e.state === 'alerta') { if (Math.hypot(e.x - x, e.y - y) <= r) e.mem = Math.max(e.mem, 12); continue; }
@@ -322,6 +328,16 @@ export class CombatPart {
         if (medic !== sq) medic.a.saves = (medic.a.saves || 0) + 1;
         this.fx.push({ type: 'heal', x: sq.x, y: sq.y });
         this.say(`✚ ¡${this.nm(medic)} ${medic === sq ? 'se aferra a la vida' : 'salva in extremis a ' + this.nm(sq)}! (1 de salud)`, 'good');
+      }
+    }
+    // desfibrilador: una vez por expedición, a 2 casillas del portador
+    if (sq.a.hp <= 0 && !this.defibUsed) {
+      const doc = this.team.find((o) => this.flag(o, 'defib') && cheb(o.x, o.y, sq.x, sq.y) <= 2);
+      if (doc) {
+        this.defibUsed = 1;
+        sq.a.hp = Math.max(1, Math.round(this.ast(sq).hpMaxEff * 0.25));
+        this.fx.push({ type: 'zap', x: sq.x, y: sq.y });
+        this.say(`ϟ ¡${this.nm(doc)} aplica el desfibrilador! ${this.nm(sq)} vuelve a respirar (${sq.a.hp} de salud).`, 'good');
       }
     }
     if (sq.a.hp <= 0) this.agentDies(sq, cause);

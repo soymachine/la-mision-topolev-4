@@ -19,6 +19,7 @@ import { NOTES, FOREIGN_NOTES } from '../data/lore.js';
 import { showDialog } from './dialog.js';
 
 import { WEATHER } from '../data/modifiers.js';
+import { DOG_ORDERS } from '../data/companions.js';
 const SOCIAL_TIP = { trader: 'Compra y venta.', medic: 'Curas y tratamiento de la radiación.', board: 'Rumores y trabajos.', archive: 'Expedientes del KGB.' };
 export function toggleFullscreen() {
   try {
@@ -70,7 +71,18 @@ export class ExpeditionUI {
     this.agentPanel.classList.add('grow');
     this.side.append(this.mmPanel, this.squadPanel, this.agentPanel);
 
-    this.mmCanvas.addEventListener('click', () => { hideTooltip(); this.toggleBigMap(); });
+    this.mmCanvas.addEventListener('click', (ev) => {
+      hideTooltip();
+      // con un Strizh en el aire, el clic lo manda a ese punto
+      const e = this.exp;
+      const dr = e && e.cur && e.enemies.find((x) => x.type === 'strizh' && x.ownerId === e.cur.id);
+      if (dr) {
+        const rc = this.mmCanvas.getBoundingClientRect(), k = this.mmCanvas.width / rc.width;
+        const c = this.mm.cellAt((ev.clientX - rc.left) * k, (ev.clientY - rc.top) * k);
+        if (c) { dr.target = c; dr.goal = null; e.say(`ˇ Strizh: rumbo a ${c[0]},${c[1]}.`, 'cyan'); this.renderLog(); return; }
+      }
+      this.toggleBigMap();
+    });
     this.mmCanvas.addEventListener('pointermove', (ev) => {
       const rc = this.mmCanvas.getBoundingClientRect();
       const k = this.mmCanvas.width / rc.width;
@@ -146,7 +158,7 @@ export class ExpeditionUI {
       if (!this.mmT || now - this.mmT > 90) {
         this.mmT = now;
         const cols = this.r.vw / this.r.cw, rows = this.r.vh / this.r.ch;
-        const storm = (this.exp.mods || []).includes('tormenta');
+        const storm = this.exp.stormOn();
         this.mm.draw(now, { radar: S.modules.radar, storm, view: { x: this.r.cam.x, y: this.r.cam.y, w: cols, h: rows } });
         if (this.big) this.big.mm.draw(now, { big: true, radar: S.modules.radar, storm });
       }
@@ -291,6 +303,16 @@ export class ExpeditionUI {
       tip(card, () => `<div class="tt-title" style="color:${a.color}">${esc(agentName(a))}</div><div class="dimt">Nivel ${a.lvl} · ${esc(traitOf(a).name)}</div><div class="tt-sep">${'─'.repeat(40)}</div><div class="tt-row"><span class="dimt">Puntería</span><span>${st.acc}</span></div><div class="tt-row"><span class="dimt">Agilidad</span><span>${st.ev}</span></div><div class="tt-row"><span class="dimt">Protección</span><span>${st.prot}</span></div><div class="tt-row"><span class="dimt">Resist. rad.</span><span>${st.rad}%</span></div><div class="tt-row"><span class="dimt">Visión</span><span>${st.vision}</span></div><div class="tt-row"><span class="dimt">Bajas</span><span>${sq.kills}</span></div>${e.inMap(sq) && sq !== e.cur ? '<div class="dimt">Clic para controlar. Arrastra objetos aquí para dárselos (adyacente).</div>' : ''}`);
       b.append(card);
     });
+    // compañeros mecánicos en el mapa
+    for (const c of e.enemies.filter((x) => e.isComp(x) && !ACTORS[x.type].turret)) {
+      const def = ACTORS[c.type];
+      const row = el('div', { class: 'comp-row', html: `<span style="color:${def.color};font-weight:700">${esc(def.glyph)}</span> ${esc(def.name)} <span class="dimt">${c.hp}/${c.hpMax}</span>${c.battery != null ? ` <span class="dimt">· bat. ${c.battery}</span>` : ''}${c.cargo && c.cargo.length ? ` <span class="cyan">· ${c.cargo.length}/4</span>` : ''}` });
+      if (c.type === 'laika') {
+        const owner = e.squad.find((q) => q.id === c.ownerId);
+        for (const [k, v] of Object.entries(DOG_ORDERS)) row.append(el('button', { class: 'btn small ' + (c.order === k ? 'primary' : ''), onclick: () => { if (owner) e.dogOrder(owner, k); sfx.click(); this.refresh(); } }, v));
+      }
+      b.append(row);
+    }
     if (e.team.length > 1) {
       const ord = el('div', { class: 'row', style: { marginTop: '4px', flexWrap: 'wrap' } }, el('span', { class: 'dimt', text: 'Órdenes (O):' }));
       for (const [k, v] of Object.entries(ORDERS)) {
@@ -372,7 +394,7 @@ export class ExpeditionUI {
     const e = this.exp;
     const d = ITEMS[it.b];
     if (d.cat === 'consumable') {
-      if (d.use === 'throw' || d.use === 'trap') { this.enterThrow(it); return; }
+      if (d.use === 'throw' || d.use === 'trap' || d.use === 'cage' || d.use === 'photo' || (d.use === 'recorder' && it.rec)) { this.enterThrow(it); return; }
       if (d.use === 'tool') { this.exp.say(`${esc(d.name)}: ${esc(d.desc)}`, 'dimt'); return; }
       e.act((sq) => e.useItem(sq, it));
       return;
@@ -459,6 +481,7 @@ export class ExpeditionUI {
       case 'h': ev.preventDefault(); this.quickHeal(); break;
       case 'v': ev.preventDefault(); this.useAbility(); break;
       case 'l': ev.preventDefault(); e.toggleLight(e.cur); this.refresh(); break;
+      case 'd': ev.preventDefault(); this.companionKey(); break;
       case 'b': ev.preventDefault(); this.quickGrenade(); break;
       case 'i': ev.preventDefault(); this.openInventory(); break;
       case 'm': ev.preventDefault(); this.toggleBigMap(); break;
@@ -543,6 +566,25 @@ export class ExpeditionUI {
     this.showBanner();
     this.updateTargetOverlay();
   }
+  // compañero (tecla D): órdenes al perro, lanzar o recoger drones
+  companionKey() {
+    const e = this.exp;
+    if (!e || e.ended || !this.canAct()) return;
+    const sq = e.cur;
+    const it = sq.a.equip.comp;
+    if (!it) { e.say('Este agente no lleva compañero (ranura COMPAÑERO; se compran en el GARAJE).', 'dimt'); this.renderLog(); return; }
+    const d = ITEMS[it.b];
+    if ((d.drone === 'eco' || d.drone === 'kamikadze') && !it.broken && !e.droneOf(sq)) {
+      const list = this.visibleEnemies();
+      this.mode = { type: 'drone', drone: d.drone, list, i: 0, cx: list[0] ? list[0].x : sq.x + 3, cy: list[0] ? list[0].y : sq.y };
+      this.showBanner(); this.updateTargetOverlay();
+      return;
+    }
+    this.travel = null;
+    e.act((q) => e.launchDrone(q));
+    sfx.click();
+    this.refresh();
+  }
   // habilidad de especialización (tecla V): con objetivo entra en modo apuntar
   useAbility() {
     const e = this.exp;
@@ -562,6 +604,7 @@ export class ExpeditionUI {
     const m = this.mode;
     this.banner.classList.remove('hidden');
     if (m.type === 'ability') { this.banner.innerHTML = `${esc(m.ab.name.toUpperCase())} — clic / F / Enter: confirmar · Tab: siguiente objetivo · Esc: cancelar`; return; }
+    if (m.type === 'drone') { this.banner.innerHTML = `${m.drone === 'eco' ? 'ECO: ELIGE DÓNDE HACER RUIDO' : 'KAMIKADZE: ELIGE EL OBJETIVO'} — clic / F / Enter: confirmar · flechas: mover · Tab: siguiente · Esc: cancelar`; return; }
     this.banner.innerHTML = m.type === 'fire'
       ? 'APUNTANDO — clic / F / Enter: disparar · Tab: siguiente objetivo · Esc: cancelar'
       : ITEMS[m.it.b].use === 'trap' ? `COLOCAR ${esc(ITEMS[m.it.b].name.toUpperCase())} — clic en una casilla adyacente · Esc: cancelar`
@@ -592,6 +635,11 @@ export class ExpeditionUI {
     }
     if (m && m.type === 'ability') {
       const ok = e.act((sq) => e.useAbility(sq, x, y));
+      if (ok) this.cancelMode();
+      return;
+    }
+    if (m && m.type === 'drone') {
+      const ok = e.act((sq) => (m.drone === 'eco' ? e.launchEco(sq, x, y) : e.kamikaze(sq, x, y)));
       if (ok) this.cancelMode();
       return;
     }
@@ -792,7 +840,7 @@ export class ExpeditionUI {
       else if (obj.kind === 'survivor') parts.push('<div class="tt-title" style="color:#a0e8a0">☺ Superviviente</div><div class="dimt">Alguien sigue vivo aquí abajo. Ponte al lado y pulsa <b>F</b>.</div>');
       else if (SOCIAL_TIP[obj.kind]) parts.push(`<div class="tt-title o1">${OBJ_NAME[obj.kind]}</div><div class="dimt">${SOCIAL_TIP[obj.kind]} Adyacente + <b>F</b> o clic.</div>`);
       else if (obj.kind === 'radio') parts.push(`<div class="tt-title cyan">☏ Radio de campaña</div><div class="dimt">${obj.opened ? 'Ya escuchada.' : 'De otra expedición. Adyacente + <b>F</b> para escuchar.'}</div>`);
-      else parts.push(`<div class="tt-title o1">${obj.label || OBJ_NAME[obj.kind]}</div>${obj.owner && !obj.opened ? `<div class="warn">Suministros de ${esc(FACTIONS[obj.owner].name)}: abrirla es robar.</div>` : ''}<div class="dimt">${!obj.opened ? 'Sin registrar. Adyacente + <b>F</b> o clic.' : obj.items.length ? `${obj.items.length} objeto(s) dentro.` : 'Vacío.'}</div>`);
+      else parts.push(`<div class="tt-title o1">${obj.label || OBJ_NAME[obj.kind]}${obj.sealed ? ' <span class="cyan">(sellado)</span>' : ''}</div>${obj.sealed ? '<div class="dimt">Hace falta un equipo de soldadura o un soplete.</div>' : ''}${obj.owner && !obj.opened ? `<div class="warn">Suministros de ${esc(FACTIONS[obj.owner].name)}: abrirla es robar.</div>` : ''}<div class="dimt">${!obj.opened ? 'Sin registrar. Adyacente + <b>F</b> o clic.' : obj.items.length ? `${obj.items.length} objeto(s) dentro.` : 'Vacío.'}</div>`);
     }
     if (vis && e.essence.get(k)) parts.push(`<div class="cyan">✦ ${e.essence.get(k)} de esencia</div>`);
     const fl = e.floorItems.get(k);
@@ -859,7 +907,7 @@ export class ExpeditionUI {
     cv.style.width = e.w * s + 'px'; cv.style.height = e.h * s + 'px';
     const mm = new Minimap(cv);
     mm.attach(e);
-    mm.draw(performance.now(), { big: true, radar: S.modules.radar, force: true, storm: (ex.mods || []).includes('tormenta') });
+    mm.draw(performance.now(), { big: true, radar: S.modules.radar, force: true, storm: ex.stormOn() });
     this.big = { wrap, mm };
     cv.addEventListener('pointermove', (ev) => {
       const rc = cv.getBoundingClientRect();

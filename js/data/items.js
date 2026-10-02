@@ -2,6 +2,7 @@
 // cat: weapon | mod | ammo | armor | helmet | gadget | backpack | consumable | valuable
 // tier: 0..5 (disponibilidad en la intendencia y nivel de aparición)
 import { WEAPONS, NEW_AMMO } from './weapons.js';
+import { COMPANION_ITEMS } from './companions.js';
 import { MODS } from './mods.js';
 
 export const CAT_INFO = {
@@ -15,6 +16,8 @@ export const CAT_INFO = {
   case: { name: 'Contenedor', glyph: '▣' },
   consumable: { name: 'Consumible', glyph: '!' },
   valuable: { name: 'Botín', glyph: '$' },
+  companion: { name: 'Compañero', glyph: '§' },
+  dogmod: { name: 'Módulo de Laika', glyph: '¬' },
 };
 
 export const AMMO_NAMES = {
@@ -27,6 +30,7 @@ export const ITEMS = {
   ...WEAPONS,
   ...MODS,
   ...NEW_AMMO,
+  ...COMPANION_ITEMS,
 
   // ---------- MUNICIÓN ----------
   a_9x18: { cat: 'ammo', name: 'Munición 9×18 mm', glyph: '"', tier: 0, stack: 120, value: 1, pack: 24, desc: 'Para Makarov y Stechkin.' },
@@ -199,6 +203,21 @@ export const ITEMS = {
   relic: { cat: 'valuable', name: 'Reliquia de la Ceniza', glyph: '$', tier: 3, value: 380, origin: 'culto', desc: 'Un hueso de chebylita tallado con espirales. Todavía brilla un poco.' },
   ashrosary: { cat: 'gadget', name: 'Rosario de dientes', glyph: '¤', tier: 3, flags: { charmResist: 1 }, essence: 10, value: 450, west: 1, origin: 'culto', desc: '+10% esencia. Los sacerdotes de la Ceniza no pueden azuzar a los chebylitas contra quien lo lleva.' },
   foreigndiary: { cat: 'valuable', name: 'Diario de otra expedición', glyph: '$', tier: 1, value: 60, desc: 'Lo que vieron otros. Al KGB le interesa todo.' },
+  // ---- fase 19: gadgets creativos ----
+  gnomo: { cat: 'consumable', name: 'Torreta desplegable «Gnomo»', glyph: 'Ŧ', tier: 3, stack: 1, use: 'deploy', ammoMax: 60, value: 650, desc: 'Se coloca en una casilla adyacente y dispara sola a los hostiles (60 balas). F a su lado para recogerla; si te vas sin ella, se pierde.' },
+  cage: { cat: 'consumable', name: 'Jaula de captura', glyph: '#', tier: 2, stack: 3, use: 'cage', range: 2, value: 120, desc: 'Atrapa vivo a un chebylita pequeño y herido (menos del 50% de salud, a 2 casillas) para la celda de contención de la base.' },
+  cagefull: { cat: 'valuable', name: 'Jaula con un chebylita vivo', glyph: '#', tier: 2, value: 260, desc: 'Un ejemplar vivo para investigar. El laboratorio pagará bien… o lo estudiará (fase 21).' },
+  zenit: { cat: 'consumable', name: 'Cámara Zenit-E', glyph: '¤', tier: 2, stack: 1, use: 'photo', reusable: 1, charges: 12, range: 10, value: 300, desc: 'Fotografía a un chebylita a la vista (12 fotos por carrete): completa su ficha del bestiario y da +10% de daño contra su especie para siempre.' },
+  defib: { cat: 'gadget', name: 'Desfibrilador portátil', glyph: '¤', tier: 3, flags: { defib: 1 }, value: 750, desc: 'Una vez por expedición, si un agente cae a 2 casillas del portador, lo reanima con 25% de salud (hasta que llegue el sistema de abatidos).' },
+  grapple: { cat: 'gadget', name: 'Gancho y cuerda', glyph: '¤', tier: 2, flags: { grapple: 1 }, value: 260, desc: 'Cruza simas de un salto (muévete hacia una sima con suelo al otro lado) y baja por ellas sin daño ni gastar cuerda.' },
+  welder: { cat: 'gadget', name: 'Equipo de soldadura', glyph: '¤', tier: 2, flags: { welder: 1 }, value: 380, desc: 'Abre puertas blindadas y contenedores sellados sin gastarse. Muy ruidoso.' },
+  whitenoise: { cat: 'consumable', name: 'Generador de ruido blanco', glyph: '¤', tier: 2, stack: 3, use: 'whitenoise', turns: 10, value: 140, desc: 'Durante 10 turnos, los disparos del escuadrón no despiertan a los nidos (todo el ruido queda en un susurro).' },
+  scint: { cat: 'gadget', name: 'Contador de centelleo', glyph: '¤', tier: 3, flags: { scint: 12 }, value: 480, desc: 'Muestra vetas y cristales de esencia a 12 casillas, aunque estén detrás de las paredes.' },
+  recorder: { cat: 'consumable', name: 'Grabadora de bobina «Yauza»', glyph: '¤', tier: 2, stack: 1, use: 'recorder', reusable: 1, value: 280, desc: 'Primer uso: graba al chebylita visible más cercano. Después: reproduce la grabación y atrae a los de su especie… y espanta a los más débiles que él.' },
+  seismic: { cat: 'consumable', name: 'Sonda sísmica', glyph: '¤', tier: 1, stack: 3, use: 'seismic', radius: 15, value: 110, desc: 'Detecta a 15 casillas las minas enemigas, las simas y los escombros inestables.' },
+  cloak: { cat: 'consumable', name: 'Camuflaje de ceniza termoóptico', glyph: '¤', tier: 4, stack: 1, use: 'cloak', reusable: 1, cooldown: 25, value: 1700, desc: 'Prototipo: invisible durante 5 turnos (solo te ven si estás pegado a ellos). Recarga: 25 turnos.' },
+  umbrella: { cat: 'gadget', name: 'Paraguas antirradiación', glyph: '¤', tier: 0, flags: { rainShield: 1 }, value: 70, desc: 'De plomo y lona. Un 80% menos de radiación de la lluvia al raso. Humor soviético, eficacia soviética.' },
+  remote: { cat: 'gadget', name: 'Mando a distancia', glyph: '¤', tier: 2, flags: { remote: 1 }, garage: 1, value: 320, desc: 'Más alcance y batería para drones y compañeros: Strizh y Eco duran un 50% más y el perro obedece desde más lejos.' },
   blackbox: { cat: 'valuable', name: 'Caja negra', glyph: '$', tier: 4, value: 650, west: 1, desc: 'Registrador de vuelo. Moscú pagará muy bien por lo que oyeron los pilotos.' },
   intel: { cat: 'valuable', name: 'Informes de inteligencia occidental', glyph: '$', tier: 4, value: 420, west: 1, desc: 'Mapas, fotos de satélite y nombres. Material para el KGB.' },
   docs: { cat: 'valuable', name: 'Documentos clasificados', glyph: '$', tier: 3, value: 150, desc: 'Sello del KGB. «Prueba de turbina, 25-IV-1986».' },

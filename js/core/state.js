@@ -114,6 +114,7 @@ export function load(n = lastSlot()) {
 function upgrade(d) {
   if (d.v < 2) { d.flags = d.flags || {}; d.rep = d.rep || {}; d.eventsDone = d.eventsDone || {}; d.v = 2; }
   d.flags = d.flags || {}; d.rep = d.rep || {}; d.eventsDone = d.eventsDone || {}; d.pendingDialogs = d.pendingDialogs || []; d.instructors = d.instructors || []; d.eventZones = d.eventZones || [];
+  if (d.modules) for (const m of MODULES) if (d.modules[m.id] == null) d.modules[m.id] = 0;
   // fase 18: la reputación pasa a ser absoluta (−100…+100) partiendo de la postura inicial de cada facción
   if (!d.repV) { for (const [f, F] of Object.entries(FACTIONS)) if (F.rep0 != null) d.rep[f] = Math.max(-100, Math.min(100, F.rep0 + (d.rep[f] || 0))); d.repV = 1; }
   for (const a of d.agents || []) upgradeAgent(a);
@@ -121,6 +122,7 @@ function upgrade(d) {
 // fases 14 y 15: atributos 1–10, trasfondo, talentos (ofertas retroactivas), contenedor y honores
 function upgradeAgent(a) {
   a.flags = a.flags || {};
+  if (a.equip && !('comp' in a.equip)) a.equip.comp = null;
   if (a.pts == null) a.pts = 0;
   if (!a.talents) a.talents = [];
   if (!a.offers) { a.offers = []; for (let l = 3; l <= a.lvl; l += 3) a.offers.push(null); }

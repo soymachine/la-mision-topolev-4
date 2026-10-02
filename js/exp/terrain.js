@@ -194,6 +194,7 @@ export class TerrainPart {
       let how = null;
       if (card) { this.consume(sq, card); how = 'pasa la tarjeta magnética'; }
       else if (tec >= 7) how = 'puentea el cierre electrónico';
+      else if (this.flag(sq, 'welder')) { how = 'corta las bisagras con el equipo de soldadura'; this.noise(x, y, 12); }
       else if (torch) { this.consume(sq, torch); how = 'corta las bisagras con el soplete'; this.noise(x, y, 8); }
       if (!how) { this.say('Puerta blindada: hace falta una <b>tarjeta</b>, <b>Técnica 7</b>, un <b>soplete</b> o piratear un <b>terminal</b> cercano.', 'warn'); return false; }
       this.t[k] = T.DOOR_OPEN;

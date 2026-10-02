@@ -4,6 +4,7 @@ import { MOD_SLOTS, weaponSlots } from '../data/mods.js';
 import { RARITIES, rarityWeights } from '../data/rarity.js';
 import { rng as grng, uid } from '../util/rng.js';
 import { esc } from '../util/dom.js';
+import { ENEMIES } from '../data/enemies.js';
 
 export const base = (it) => ITEMS[it.b];
 export const isStack = (it) => (ITEMS[it.b].stack || 1) > 1;
@@ -249,6 +250,16 @@ export function itemTooltip(it, compare = null, extra = '') {
   let h = `<div class="tt-title" style="color:${col}">${esc(itemName(it))}${it.q > 1 ? ` <span class="dimt">×${it.q}</span>` : ''}</div>`;
   h += `<div class="tt-sub">${CAT_INFO[d.cat].name}${d.cat === 'weapon' ? ' · ' + WTYPE_NAMES[d.wtype] : ''}${d.cat !== 'ammo' ? ` · <span style="color:${col}">${rr.name}</span>` : ''} · Nv ${d.tier}</div>`;
   if (d.art) h += `<pre class="tt-art" style="color:${col}">${esc(d.art)}</pre>`;
+  // estado propio del objeto (fase 19): compañeros, cargas, grabaciones, capturas
+  const st19 = [];
+  if (it.broken) st19.push('<span class="bad">DESTROZADO: se repara en el Garaje</span>');
+  else if (d.cat === 'companion' && d.hp) st19.push(`Salud ${it.hp == null ? d.hp : it.hp}/${d.hp}+`);
+  if (it.dmods && it.dmods.length) st19.push(`Módulos: ${it.dmods.map((m) => esc(ITEMS[m.b].name.replace('Módulo: ', ''))).join(', ')}`);
+  if (d.charges) st19.push(`Fotos: ${it.ch == null ? d.charges : it.ch}/${d.charges}`);
+  if (d.use === 'recorder') st19.push(it.rec ? `Grabado: <b>${esc(ENEMIES[it.rec] ? ENEMIES[it.rec].name : it.rec)}</b> (clic: reproducir en un punto)` : 'Cinta vacía (clic: grabar)');
+  if (d.use === 'deploy') st19.push(`Munición: ${it.ammo == null ? d.ammoMax : it.ammo}`);
+  if (it.species) st19.push(`Dentro: <b>${esc(ENEMIES[it.species] ? ENEMIES[it.species].name : it.species)}</b> (Nv ${it.lvl || 1})`);
+  if (st19.length) h += `<div class="cyan">${st19.join(' · ')}</div>`;
   h += `<div class="tt-sep">${'─'.repeat(60)}</div>`;
   const cs = compare ? itemStats(compare) : null;
   const cmp = (v, o, lowerBetter = false) => {

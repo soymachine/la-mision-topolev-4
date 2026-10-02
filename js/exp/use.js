@@ -39,6 +39,11 @@ export class UsePart {
         const e = this.talkableAt(sq.x + dx, sq.y + dy);
         if (e) return this.interactActor(sq, e);
       }
+      // compañeros: la torreta se recoge, el perro enseña su carga
+      for (const [dx, dy] of D8) {
+        const c = this.enemyAt(sq.x + dx, sq.y + dy);
+        if (c && this.isComp(c) && (ACTORS[c.type].turret || c.type === 'laika')) return this.interactComp(sq, c);
+      }
       // 3. casillas que se usan (puertas blindadas, terminales, interruptores, montacargas, simas, grafito)
       for (const [dx, dy] of [[0, 0], ...D8]) {
         const x = sq.x + dx, y = sq.y + dy;
@@ -68,6 +73,15 @@ export class UsePart {
     if (OBJ_DIALOG[o.kind]) {
       if (sq === this.cur) this.openDialog(o.dlg || OBJ_DIALOG[o.kind], sq, o);
       return false;
+    }
+    if (!o.opened && o.sealed) {
+      const torch = sq.a.bag.find((x) => x.b === 'soplete');
+      if (this.flag(sq, 'welder')) this.say(`${this.nm(sq)} corta el cierre soldado con el equipo de soldadura. El chisporroteo se oye lejos.`, 'o1');
+      else if (torch) { this.consume(sq, torch); this.say(`${this.nm(sq)} corta el cierre con el soplete.`, 'o1'); }
+      else { this.say('Contenedor sellado: hace falta un <b>equipo de soldadura</b> o un <b>soplete</b>.', 'warn'); return false; }
+      this.noise(sq.x, sq.y, 12);
+      this.fx.push({ type: 'zap', x: o.x, y: o.y });
+      o.sealed = 0;
     }
     if (!o.opened) {
       if (o.owner) this.checkTheft(sq, o);
@@ -198,6 +212,40 @@ export class UsePart {
         this.say(`${this.nm(sq)} usa ${d.name}${parts.length ? ` (${parts.join(', ')})` : ''}.`, 'good');
         break;
       }
+      case 'whitenoise':
+        this.quietT = this.turn + (d.turns || 10);
+        this.say(`${this.nm(sq)} enciende el generador de ruido blanco: ${d.turns} turnos de silencio.`, 'cyan');
+        break;
+      case 'seismic': {
+        let n = 0, m = 0;
+        for (let y = sq.y - d.radius; y <= sq.y + d.radius; y++) for (let x = sq.x - d.radius; x <= sq.x + d.radius; x++) {
+          if (!this.inb(x, y) || Math.hypot(x - sq.x, y - sq.y) > d.radius) continue;
+          const tt = this.tile(x, y);
+          if (tt === T.CHASM || tt === T.UNSTABLE || tt === T.DEBRIS) { if (!this.explored[this.key(x, y)]) n++; this.explored[this.key(x, y)] = 1; }
+        }
+        for (const mn of this.mines || []) if (Math.hypot(mn.x - sq.x, mn.y - sq.y) <= d.radius && !mn.known) { mn.known = 1; this.explored[this.key(mn.x, mn.y)] = 1; m++; }
+        this.dirty = true;
+        this.say(`${this.nm(sq)} clava la sonda sísmica: ${m ? `<span class="bad">${m} mina(s) enemiga(s)</span>` : 'ninguna mina'}${n ? `, ${n} cavidad(es) y escombros` : ''}.`, m ? 'warn' : 'o1');
+        break;
+      }
+      case 'cloak':
+        if (it.cdT > this.turn) { this.say(`El camuflaje se está recargando (${it.cdT - this.turn} turnos).`, 'dimt'); return false; }
+        it.cdT = this.turn + (d.cooldown || 25);
+        this.addBuff(sq, { name: 'Camuflaje', turns: 5, flags: { vanish: 1 } });
+        this.fx.push({ type: 'smoke', x: sq.x, y: sq.y, r: 0 });
+        this.say(`${this.nm(sq)} activa el camuflaje de ceniza: invisible durante 5 turnos.`, 'cyan');
+        break;
+      case 'recorder': {
+        // primer uso: grabar al chebylita visible más cercano
+        const near = this.enemies.filter((o) => o.faction === 'chebylitas' && this.isVisible(o.x, o.y) && Math.hypot(o.x - sq.x, o.y - sq.y) <= 12).sort((a, b) => Math.hypot(a.x - sq.x, a.y - sq.y) - Math.hypot(b.x - sq.x, b.y - sq.y))[0];
+        if (!near) { this.say('No hay ningún chebylita a la vista que grabar.', 'dimt'); return false; }
+        it.rec = near.type;
+        this.say(`${this.nm(sq)} graba el sonido de ${ACTORS[near.type].name}. Ahora se puede reproducir donde quieras.`, 'o1');
+        break;
+      }
+      case 'deploy':
+        if (!this.deployTurret(sq, it)) return false;
+        break;
       case 'redflare':
         this.redFlare(sq);
         break;
@@ -244,7 +292,7 @@ export class UsePart {
       }
       default: return false;
     }
-    this.consume(sq, it);
+    if (!d.reusable) this.consume(sq, it);
     // Manos firmes (Sanitario): la primera curación de la expedición no gasta turno
     if (d.use === 'heal' && !sq.healFreeUsed && this.flag(sq, 'healFree')) { sq.healFreeUsed = true; this.say('(Manos firmes: sin gastar turno.)', 'dimt'); return false; }
     return true;
@@ -265,6 +313,7 @@ export class UsePart {
       this.fx.push({ type: 'open', x: tx, y: ty });
       return true;
     }
+    if (d.use === 'cage' || d.use === 'photo' || d.use === 'recorder') return this.aimGadget(sq, it, tx, ty);
     if (Math.hypot(tx - sq.x, ty - sq.y) > d.range + this.flag(sq, 'throwRange') + 0.5) { this.say('Demasiado lejos.', 'bad'); return false; }
     if (!this.los(sq.x, sq.y, tx, ty)) { this.say('No hay línea de lanzamiento.', 'bad'); return false; }
     // Bolsillos hondos (Zapador): a veces no se gasta
@@ -311,6 +360,57 @@ export class UsePart {
     this.say(`${this.nm(sq)} lanza ${d.name}.`, 'o1');
     const bp = 1 + this.flag(sq, 'blastPct') / 100;
     this.explode(tx, ty, d.blast, [Math.round(d.dmg[0] * bp), Math.round(d.dmg[1] * bp)], sq, d.fire || 0, 260, { pierce: d.pierce || 0, essBoost: d.essBoost || 0, noise: d.noise || 14 });
+    return true;
+  }
+
+  // gadgets con destino: jaula, cámara, grabadora
+  aimGadget(sq, it, tx, ty) {
+    const d = ITEMS[it.b];
+    const e = this.enemyAt(tx, ty);
+    if (d.use === 'recorder') {
+      if (!it.rec) return this.useItem(sq, it);
+      if (Math.hypot(tx - sq.x, ty - sq.y) > 12) { this.say('Demasiado lejos (12 casillas).', 'bad'); return false; }
+      const rec = ACTORS[it.rec];
+      let lured = 0, fled = 0;
+      for (const o of this.enemies) {
+        if (o.faction !== 'chebylitas' || ACTORS[o.type].abil.includes('stationary')) continue;
+        const dist = Math.hypot(o.x - tx, o.y - ty);
+        if (o.type === it.rec && dist <= 20) { o.lure = { x: tx, y: ty, t: 10 }; if (o.state === 'dormido') o.state = 'errante'; lured++; }
+        else if (dist <= 10 && (ACTORS[o.type].minL || 1) < (rec.minL || 1)) { o.fear = 6; o.fearX = tx; o.fearY = ty; fled++; }
+      }
+      this.noise(tx, ty, 4);
+      this.fx.push({ type: 'flare', x: tx, y: ty });
+      this.say(`📼 La grabadora reproduce a ${rec.name}: ${lured} acuden${fled ? `, ${fled} más débiles huyen` : ''}.`, 'o1');
+      return true;
+    }
+    if (!e || !this.isVisible(tx, ty) || e.faction !== 'chebylitas' || this.isComp(e)) { this.say('Elige a un chebylita a la vista.', 'bad'); return false; }
+    const dist = Math.hypot(tx - sq.x, ty - sq.y);
+    if (dist > (d.range || 2) + 0.5) { this.say('Demasiado lejos.', 'bad'); return false; }
+    if (d.use === 'photo') {
+      S.photos = S.photos || {};
+      const nuevo = !S.photos[e.type];
+      S.photos[e.type] = (S.photos[e.type] || 0) + 1;
+      it.ch = (it.ch == null ? d.charges : it.ch) - 1;
+      this.fx.push({ type: 'flash', x: tx, y: ty, r: 0 });
+      this.say(`📷 ¡Clic! ${ACTORS[e.type].name} fotografiado${nuevo ? ': ficha completa y <span class="good">+10% de daño contra su especie</span>' : ''}. Quedan ${it.ch} fotos.`, nuevo ? 'good' : 'o1');
+      if (nuevo) this.gainXp(sq, 10, true);
+      if (it.ch <= 0) { this.consume(sq, it); this.say('Carrete agotado.', 'dimt'); }
+      if (e.state === 'dormido' && rng.chance(0.3)) { e.state = 'alerta'; e.mem = 10; }
+      return true;
+    }
+    // jaula: chebylita pequeño y malherido
+    const def = ACTORS[e.type];
+    if (def.boss || def.hp > 16) { this.say(`${def.name} es demasiado grande para la jaula.`, 'bad'); return false; }
+    if (e.hp > e.hpMax * 0.5) { this.say(`${def.name} está demasiado entero: hay que herirlo primero (menos del 50%).`, 'bad'); return false; }
+    this.consume(sq, it);
+    this.dismissActor(e);
+    const full = createItem('cagefull', 0, rng);
+    full.species = e.type; full.lvl = e.lvl;
+    if (mergeInto(sq.a.bag, full, bagCapacity(sq.a))) this.addFloor(sq.x, sq.y, full);
+    S.captured = S.captured || {};
+    S.captured[e.type] = (S.captured[e.type] || 0) + 1;
+    this.say(`# ${this.nm(sq)} atrapa vivo a ${def.name} (Nv ${e.lvl}). Para la celda de contención.`, 'good');
+    this.gainXp(sq, 8, true);
     return true;
   }
 

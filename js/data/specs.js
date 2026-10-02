@@ -130,7 +130,7 @@ export const SPEC_TALENTS = {
   z_desactiva: T('zapador', 1, 1, { name: 'Desactivador', glyph: 'ϟ', desc: 'Inmune a las anomalías eléctricas.', flags: { antiAnomaly: 1 } }),
   z_cebo: T('zapador', 1, 2, { name: 'Cebo', glyph: '¤', desc: 'Tus trampas inmovilizan 2 turnos más.', flags: { trapStun: 2 } }),
   z_cables: T('zapador', 1, 2, { name: 'Cables trampa', glyph: '#', desc: 'Quien te ataca cuerpo a cuerpo recibe 4 de daño.', flags: { thorns: 4 } }),
-  z_mecanico: T('zapador', 2, 1, { name: 'Mecánico', glyph: '¤', desc: '+2 Técnica. (Mejorará a los futuros compañeros mecánicos.)', attr: { tec: 2 }, flags: { mechanic: 1 } }),
+  z_mecanico: T('zapador', 2, 1, { name: 'Mecánico', glyph: '¤', desc: '+2 Técnica. Compañeros mecánicos: +30% salud y daño, drones con un 50% más de batería y reparaciones un 40% más baratas.', attr: { tec: 2 }, flags: { mechanic: 1 } }),
   z_chatarra: T('zapador', 2, 1, { name: 'Chatarrero', glyph: '(', desc: '+2 huecos de mochila.', mods: { slots: 2 } }),
   z_ingeniero: T('zapador', 2, 2, { name: 'Ingeniero de campaña', glyph: '¤', desc: 'Ajusta tus aparatos: contador Geiger +15% res. radiación, pila de radioisótopo +1 regeneración, radio de campaña +1 visión, linterna de arco +2% crítico.', syn: [{ gadget: 'geiger', mods: { rad: 15 } }, { gadget: 'rtg', mods: { regen: 1 } }, { gadget: 'radio', mods: { vision: 1 } }, { gadget: 'arclamp', mods: { crit: 2 } }] }),
   z_blindaje: T('zapador', 2, 2, { name: 'Blindaje improvisado', glyph: '▓', desc: '+3 protección.', mods: { prot: 3 } }),

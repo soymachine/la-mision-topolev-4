@@ -290,11 +290,12 @@ Se añade una ranura **COMPAÑERO** por agente (o por escuadrón) y un edificio 
 
 ### 19.1 Perro robot «Laika-M» (L)
 Homenaje a Laika: chasis de cuatro patas de la Academia de Ciencias.
-- [ ] Sigue a su dueño, tiene **salud, blindaje y 4 huecos de almacén** propios (botín extra que sobrevive si el perro vuelve).
-- [ ] **Órdenes:** seguir, quedarse (vigilar), buscar (va hacia el botín más cercano y lo trae), atacar.
-- [ ] **Módulos intercambiables** (3 ranuras): ametralladora ligera montada (gasta munición 5,45), lanzabengalas, detector de chebylitas a distancia (los marca en el radar a 15 casillas), sensor de radiación (muestra los focos), botiquín (cura a los adyacentes), mandíbula hidráulica (cuerpo a cuerpo potente), blindaje de plomo.
-- [ ] Si lo destruyen, deja un **chasis** recuperable; reparar en el Garaje cuesta rublos y piezas.
-- [ ] Sinergias: talento «Mecánico» (Zapador), gadget «Mando a distancia» (+alcance de órdenes).
+- [x] Sigue a su dueño, tiene **salud, blindaje y 4 huecos de almacén** propios (botín extra que sobrevive si el perro vuelve).
+- [x] **Órdenes:** seguir, quedarse (vigilar), buscar (va hacia el botín más cercano y lo trae), atacar.
+- [x] **Módulos intercambiables** (3 ranuras): ametralladora ligera montada (gasta munición 5,45), lanzabengalas, detector de chebylitas a distancia (los marca en el radar a 15 casillas), sensor de radiación (muestra los focos), botiquín (cura a los adyacentes), mandíbula hidráulica (cuerpo a cuerpo potente), blindaje de plomo.
+- [x] Si lo destruyen, deja un **chasis** recuperable; reparar en el Garaje cuesta rublos y piezas.
+- [x] Sinergias: talento «Mecánico» (Zapador), gadget «Mando a distancia» (+alcance de órdenes).
+  - *Hecho:* ranura **COMPAÑERO** por agente y módulo **Garaje** (niveles 1–5: tienda, módulos y reparaciones) con su pestaña en la base. `data/companions.js` (perro, 5 drones, 7 módulos y los actores) y `exp/companions.js` (IA del perro y de los drones, torreta, cambio de piso, vuelta a la base). Laika-M: salud y blindaje propios, 4 huecos de carga que llegan al almacén si su dueño extrae, órdenes con D o desde el panel de escuadra, lo que abate cuenta para su dueño; destruido → chasis recuperable (reparar: rublos + 2 piezas). «Mecánico»: +30% salud y daño, +50% batería, reparaciones −40%. «Mando a distancia»: el doble de alcance de órdenes y +50% de batería.
 
 ### 19.2 Drones (L)
 | Dron | Rol | Detalles |
@@ -305,21 +306,23 @@ Homenaje a Laika: chasis de cuatro patas de la Academia de Ciencias.
 | **«Eco»** | Señuelo | Emite ruido y luz: atrae chebylitas lejos del grupo |
 | **«Relé»** | Radio | Mantiene el contacto con la base en zonas sin radar (anula la tormenta electromagnética) |
 
-- [ ] Control: tecla `D` para lanzar o recoger; órdenes con clic en el minimapa.
+- [x] Control: tecla `D` para lanzar o recoger; órdenes con clic en el minimapa.
+  - *Hecho:* Strizh (batería por turno, explora lo no visto y revela con su propia visión; clic en el radar lo guía; vuelve solo o con D), Mula (los 3 objetos más valiosos a la extracción → base, una vez por expedición), Kamikadze (radio 2, un solo uso), Eco (ruido, luz y señuelo durante 15 turnos; luego aterriza y se recoge) y Relé (pasivo: anula la tormenta electromagnética y adelanta las extracciones temporales).
 
 ### 19.3 Otros gadgets creativos (M)
-- [ ] **Torreta desplegable «Gnomo»**: se coloca en una casilla y dispara sola (munición limitada); se recoge al irse.
-- [ ] **Jaula de captura**: atrapa chebylitas pequeños **vivos** para la celda de contención de la base (investigación, fase 21).
-- [ ] **Cámara Zenit-E**: fotografiar chebylitas completa su ficha en el bestiario → +% de daño contra esa especie.
-- [ ] **Desfibrilador**: reanima a un agente **abatido** (fase 23) en 2 turnos.
-- [ ] **Gancho y cuerda**: cruzar simas y bajar de nivel sin daño.
-- [ ] **Equipo de soldadura**: abrir puertas blindadas y contenedores sellados (hace ruido).
-- [ ] **Generador de ruido blanco**: los disparos no despiertan nidos durante 10 turnos.
-- [ ] **Contador de centelleo**: muestra vetas y cristales a través de las paredes.
-- [ ] **Grabadora de bobina**: graba el sonido de un chebylita y lo reproduce para atraer a los de su especie (o asustarlos con el de un depredador).
-- [ ] **Sonda sísmica**: detecta minas, trampas y cavidades (simas ocultas).
-- [ ] **Camuflaje de ceniza termoóptico** (prototipo): invisibilidad breve con recarga.
-- [ ] **Paraguas antirradiación** (humor soviético): reduce la radiación de la lluvia en superficie.
+- [x] **Torreta desplegable «Gnomo»**: se coloca en una casilla y dispara sola (munición limitada); se recoge al irse.
+- [x] **Jaula de captura**: atrapa chebylitas pequeños **vivos** para la celda de contención de la base (investigación, fase 21).
+- [x] **Cámara Zenit-E**: fotografiar chebylitas completa su ficha en el bestiario → +% de daño contra esa especie.
+- [x] **Desfibrilador**: reanima a un agente **abatido** (fase 23) en 2 turnos.
+- [x] **Gancho y cuerda**: cruzar simas y bajar de nivel sin daño.
+- [x] **Equipo de soldadura**: abrir puertas blindadas y contenedores sellados (hace ruido).
+- [x] **Generador de ruido blanco**: los disparos no despiertan nidos durante 10 turnos.
+- [x] **Contador de centelleo**: muestra vetas y cristales a través de las paredes.
+- [x] **Grabadora de bobina**: graba el sonido de un chebylita y lo reproduce para atraer a los de su especie (o asustarlos con el de un depredador).
+- [x] **Sonda sísmica**: detecta minas, trampas y cavidades (simas ocultas).
+- [x] **Camuflaje de ceniza termoóptico** (prototipo): invisibilidad breve con recarga.
+- [x] **Paraguas antirradiación** (humor soviético): reduce la radiación de la lluvia en superficie.
+  - *Hecho:* todos en `data/items.js`. Torreta Gnomo (60 balas, F para recogerla con lo que le quede), jaula (chebylitas pequeños por debajo del 50% → «jaula con un chebylita vivo», `S.captured`), Zenit-E (12 fotos, `S.photos` → +10% de daño y marca en el bestiario), desfibrilador (una vez por expedición, a 2 casillas: el sistema de abatidos llegará en la fase 23), gancho (salta simas de hasta 3 casillas y baja sin daño), soldadura (puertas blindadas y los nuevos contenedores sellados), ruido blanco (10 turnos), contador de centelleo (12 casillas), grabadora (graba y reproduce: atrae a su especie y espanta a los más débiles), sonda sísmica (las nuevas minas enemigas ocultas, simas y escombros), camuflaje (5 turnos invisible, recarga 25) y paraguas (−80% de radiación de la lluvia). Pruebas: sección de la fase 19 de `tests/systems.cjs`.
 
 ---
 

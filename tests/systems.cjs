@@ -244,7 +244,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
   ok(squad.length === 3, `escuadrón especializado: ${squad.join(', ')}`);
   await rd('god');
   await rd('spawn lobo 2 2');
-  await R.evaluate(() => { const e = window.__topolev.exp; e.active = e.squad.findIndex((s) => s.a.spec === 'tirador'); e.emit('switch'); });
+  await R.evaluate(() => { const e = window.__topolev.exp; for (const x of e.enemies) if (x.type === 'lobo') { x.hp = x.hpMax = 999; } e.active = e.squad.findIndex((s) => s.a.spec === 'tirador'); e.emit('switch'); });
   await R.waitForTimeout(200);
   ok(await R.$('.ab-btn:has-text("MARCAR OBJETIVO")'), 'botón de habilidad en el panel del agente');
   await R.keyboard.press('v'); await R.waitForTimeout(150);
@@ -328,7 +328,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
   if (await F.$('.modal-back')) await F.click('.modal-back >> text=LANZAR');
   await F.waitForTimeout(700);
   await fd('god');
-  const m1 = await F.evaluate(() => { const e = window.__topolev.exp; const c = e.cur; return { mods: e.mods, lit: e.lightMap.reduce((a, b) => a + b, 0), dark: e.darkRadius(c, e.ast(c).vision), vis: e.ast(c).vision, humans: e.enemies.filter((x) => x.w).length, floors: e.nFloors }; });
+  const m1 = await F.evaluate(() => { const e = window.__topolev.exp; const c = e.cur; return { mods: e.mods, lit: (() => { const fires = []; for (let k = 0; k < e.t.length; k++) if (e.t[k] === 55) fires.push(k); let n = 0; for (let k = 0; k < e.lightMap.length; k++) if (e.lightMap[k] && !fires.some((f) => Math.hypot((f % e.w) - (k % e.w), ((f / e.w) | 0) - ((k / e.w) | 0)) <= 5)) n++; return n; })(), dark: e.darkRadius(c, e.ast(c).vision), vis: e.ast(c).vision, humans: e.enemies.filter((x) => x.w).length, floors: e.nFloors }; });
   ok(m1.lit === 0 && m1.dark < m1.vis, `Apagón: sin luz, visión a oscuras ${m1.dark}/${m1.vis}`);
   ok(m1.humans > 0, `Presencia extranjera: ${m1.humans} personas en el mapa`);
   const lt = await F.evaluate(() => {
@@ -690,6 +690,216 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
   await ctx6.close();
 
   }
+  // ================================================================ fase 19
+  console.log('· Fase 19: compañeros mecánicos, drones y gadgets');
+  {
+    const ctx7 = await b.newContext({ viewport: { width: 1440, height: 860 } });
+    const G = await ctx7.newPage();
+    G.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
+    G.on('console', (m) => { if ((m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) || m.type() === 'warning') errs.push(m.text()); });
+    const gClose = async () => { for (let i = 0; i < 6 && (await G.$('.modal')); i++) { await G.keyboard.press('Escape'); await G.waitForTimeout(150); } };
+    await G.goto(URL); await G.waitForTimeout(800);
+    await G.click('text=NUEVA PARTIDA'); await G.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await G.click('#screen-intro'); await G.click('text=COMENZAR');
+    await G.waitForTimeout(300);
+    const ga = await G.evaluate(async () => {
+      const S = window.__topolev.S; const C = await import('./js/core/campaign.js');
+      const none = C.garageStock().length;
+      S.modules.garaje = 3; S.rub = 20000;
+      const stock = C.garageStock();
+      const dog = C.garageBuy('laika').it; C.garageBuy('dm_lead'); C.garageBuy('dm_jaw');
+      C.installDogMod(dog, S.stash.find((x) => x.b === 'dm_lead')); C.installDogMod(dog, S.stash.find((x) => x.b === 'dm_jaw'));
+      const max = C.compMaxHp(dog);
+      dog.hp = 10; const cost = C.repairCost(dog).rub; const rep = C.repairComp(dog).ok;
+      S.stash.splice(S.stash.indexOf(dog), 1); S.agents[0].equip.comp = dog;
+      for (const a of S.agents) { a.baseHp = 200; a.hp = 400; }
+      return { none, stock: ['laika', 'mula', 'kamikadze', 'rele', 'dm_mg'].every((b) => stock.includes(b)), max, cost, rep, hp: dog.hp };
+    });
+    ok(ga.none === 0 && ga.stock, 'sin garaje no hay tienda; con garaje 3, perro, drones y módulos');
+    ok(ga.max === 55 && ga.cost === 135 && ga.rep && ga.hp === 55, `módulos del perro (salud ${ga.max}) y reparación (${ga.cost} ₽)`);
+    await G.click('.tab:has-text("GARAJE")'); await G.waitForTimeout(250);
+    ok((await G.$$('#screen-base .mapcard')).length >= 1 && (await G.evaluate(() => document.body.innerText.includes('TIENDA DEL GARAJE'))), 'pestaña GARAJE');
+    await G.click('.tab:has-text("EXPEDICIÓN")'); await G.waitForTimeout(200);
+    for (let i = 0; i < 2; i++) { const rows = await G.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+    await G.click('text=LANZAR EXPEDICIÓN'); await G.waitForTimeout(300);
+    if (await G.$('.modal-back >> text=LANZAR')) await G.click('.modal-back >> text=LANZAR');
+    await G.waitForTimeout(800); await gClose();
+    await G.evaluate(async () => {
+      window.__topolev.debug.run('god');
+      const { createItem } = await import('./js/core/items.js'); window.__mk = createItem;
+      window.__adj = (e, sq = e.cur, d = 1) => [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]].map(([dx, dy]) => [sq.x + dx * d, sq.y + dy * d]).find(([x, y]) => e.passable(x, y) && !e.entityAt(x, y) && e.los(sq.x, sq.y, x, y));
+      window.__clr = (e) => { for (const x of [...e.enemies]) if (!e.isComp(x)) e.dismissActor(x); if (e.dlg) e.closeDialog(); e.dlgQueue = []; };
+    });
+    const dg = await G.evaluate(() => {
+      const e = window.__topolev.exp; window.__clr(e);
+      const dog = e.enemies.find((x) => x.type === 'laika');
+      const out = { dog: !!dog, hp: dog && dog.hpMax, owner: dog && dog.ownerId === e.squad[0].id };
+      e.dogOrder(e.squad[0], 'quedarse'); out.o1 = dog.order;
+      e.dogOrder(e.squad[0]); out.o2 = dog.order;
+      // buscar: un objeto en el suelo cerca
+      const [x, y] = window.__adj(e, e.cur, 3) || window.__adj(e, e.cur, 2);
+      e.addFloor(x, y, window.__mk('vodka', 0)); e.explored[e.key(x, y)] = 1;
+      e.dogOrder(e.squad[0], 'buscar');
+      for (let i = 0; i < 12 && !(dog.cargo || []).length; i++) e.wait();
+      out.cargo = (dog.cargo || []).map((c) => c.b);
+      return out;
+    });
+    ok(dg.dog && dg.hp === 55 && dg.owner, 'Laika-M sale con su dueño (salud con módulos)');
+    ok(dg.o1 === 'quedarse' && dg.o2 === 'buscar' && dg.cargo.includes('vodka'), `órdenes del perro y «buscar» trae botín (${dg.cargo.join(', ')})`);
+    const dr = await G.evaluate(() => {
+      const e = window.__topolev.exp; window.__clr(e);
+      const sq = e.squad[1]; sq.a.equip.comp = window.__mk('strizh', 0);
+      e.active = 1;
+      const ex0 = e.explored.reduce((a, b) => a + b, 0);
+      e.act((q) => e.launchDrone(q));
+      const d = e.enemies.find((x) => x.type === 'strizh');
+      const b0 = d && d.battery;
+      for (let i = 0; i < 10; i++) e.wait();
+      const b1 = d.battery, ex1 = e.explored.reduce((a, b) => a + b, 0) - ex0;
+      e.launchDrone(sq);
+      for (let i = 0; i < 40 && e.enemies.includes(d); i++) e.wait();
+      const back = !e.enemies.includes(d) && sq.a.equip.comp && sq.a.equip.comp.b === 'strizh';
+      // kamikadze
+      sq.a.equip.comp = window.__mk('kamikadze', 0);
+      const p = window.__adj(e, sq, 4) || window.__adj(e, sq, 3);
+      const w = e.spawnEnemy('lobo', 2, p[0], p[1], 'dormido');
+      const hp0 = w.hp;
+      e.kamikaze(sq, w.x, w.y);
+      const kam = { gone: !sq.a.equip.comp, hurt: !e.enemies.includes(w) || w.hp < hp0 };
+      e.active = 0;
+      return { b0, b1, ex1, back, kam };
+    });
+    ok(dr.b0 === 39 && dr.b1 === 29 && dr.ex1 > 20, `Strizh: batería por turno (${dr.b0} → ${dr.b1}) y explora (${dr.ex1} casillas)`);
+    ok(dr.back, 'el Strizh vuelve con su dueño al pedírselo (D)');
+    ok(dr.kam.gone && dr.kam.hurt, 'el Kamikadze se estrella contra el objetivo y se gasta');
+    const ml = await G.evaluate(() => {
+      const e = window.__topolev.exp; window.__clr(e);
+      e.active = 1;
+      window.__topolev.debug.run('tp exit');
+      const sq = e.cur; sq.a.equip.comp = window.__mk('mula', 0);
+      sq.a.bag.push(window.__mk('intel', 0), window.__mk('docs', 0));
+      e.act((q) => e.launchDrone(q));
+      const m = e.enemies.find((x) => x.type === 'mula');
+      for (let i = 0; i < 25 && e.enemies.includes(m); i++) e.wait();
+      const res = { sent: (e.sentHome || []).map((x) => x.b), bag: sq.a.bag.some((x) => x.b === 'intel'), again: e.launchDrone(sq) };
+      e.active = 0;
+      return res;
+    });
+    ok(ml.sent.includes('intel') && !ml.bag && ml.again === false, `la Mula envía a la base lo más valioso (${ml.sent.join(', ')}), una sola vez`);
+    const gd = await G.evaluate(() => {
+      const e = window.__topolev.exp; window.__clr(e); const sq = e.cur; const out = {};
+      // torreta
+      const tg = window.__mk('gnomo', 0); sq.a.bag.push(tg);
+      e.act((q) => e.useItem(q, tg));
+      const tur = e.enemies.find((x) => x.type === 'gnomo');
+      out.tur = !!tur;
+      const p = window.__adj(e, sq, 4) || window.__adj(e, sq, 3);
+      e.spawnEnemy('rata', 1, p[0], p[1], 'alerta');
+      for (let i = 0; i < 4; i++) e.wait();
+      out.ammo = tur.ammo;
+      e.interactComp(sq, tur);
+      out.back = sq.a.bag.some((x) => x.b === 'gnomo' && x.ammo === tur.ammo) && !e.enemies.includes(tur);
+      window.__clr(e);
+      // jaula y cámara
+      const c1 = window.__adj(e, sq, 1);
+      const rat = e.spawnEnemy('rata', 1, c1[0], c1[1], 'dormido'); rat.hp = 1;
+      const cage = window.__mk('cage', 0, undefined, 1); sq.a.bag.push(cage);
+      e.computeVisibility(true);
+      e.act((q) => e.throwAt(q, cage, rat.x, rat.y));
+      out.cage = sq.a.bag.some((x) => x.b === 'cagefull' && x.species === 'rata') && !e.enemies.includes(rat);
+      const c2 = window.__adj(e, sq, 3) || window.__adj(e, sq, 2);
+      const wolf = e.spawnEnemy('lobo', 1, c2[0], c2[1], 'dormido');
+      const cam = window.__mk('zenit', 0); sq.a.bag.push(cam);
+      e.computeVisibility(true);
+      e.act((q) => e.throwAt(q, cam, wolf.x, wolf.y));
+      out.photo = !!(window.__topolev.S.photos && window.__topolev.S.photos.lobo) && cam.ch === 11 && sq.a.bag.includes(cam);
+      // grabadora
+      const rec = window.__mk('recorder', 0); sq.a.bag.push(rec);
+      e.act((q) => e.useItem(q, rec));
+      out.rec = rec.rec;
+      // otro lobo lejos, fuera de la vista: la grabación lo atrae
+      let far2 = null;
+      for (let k = 0; k < e.t.length && !far2; k++) { const x = k % e.w, y = (k / e.w) | 0, d = Math.hypot(x - sq.x, y - sq.y); if (d > 10 && d < 18 && e.passable(x, y) && !e.entityAt(x, y) && !e.los(sq.x, sq.y, x, y)) far2 = [x, y]; }
+      const wolf2 = e.spawnEnemy('lobo', 1, far2[0], far2[1], 'dormido');
+      e.throwAt(sq, rec, sq.x, sq.y);
+      out.lure = !!wolf2.lure && wolf2.state !== 'dormido';
+      window.__clr(e);
+      // sonda sísmica
+      const m = window.__adj(e, sq, 3) || window.__adj(e, sq, 2);
+      e.mines = [{ x: m[0], y: m[1] }];
+      const so = window.__mk('seismic', 0, undefined, 1); sq.a.bag.push(so);
+      e.act((q) => e.useItem(q, so));
+      out.mine = !!e.mines[0].known;
+      e.mines = [];
+      // camuflaje con recarga
+      const cl = window.__mk('cloak', 0); sq.a.bag.push(cl);
+      e.act((q) => e.useItem(q, cl));
+      out.cloak = !!e.flag(sq, 'vanish') && e.useItem(sq, cl) === false;
+      // ruido blanco
+      const wn = window.__mk('whitenoise', 0, undefined, 1); sq.a.bag.push(wn);
+      e.act((q) => e.useItem(q, wn));
+      const far = window.__adj(e, sq, 6) || window.__adj(e, sq, 5);
+      const sl = e.spawnEnemy('rata', 1, far[0], far[1], 'dormido');
+      e.noise(sq.x, sq.y, 14);
+      out.quiet = sl.state === 'dormido';
+      window.__clr(e);
+      // soldadura en un contenedor sellado
+      sq.a.equip.g1 = window.__mk('welder', 0);
+      const c3 = window.__adj(e, sq, 1);
+      const box = { kind: 'crate', x: c3[0], y: c3[1], items: [window.__mk('vodka', 0)], opened: false, lvl: 1, sealed: 1 };
+      e.objects.push(box); e.objMap.set(e.key(box.x, box.y), box);
+      e.interactObj(sq, box);
+      out.weld = box.opened && !box.sealed;
+      // gancho: cruzar una sima
+      sq.a.equip.g2 = window.__mk('grapple', 0);
+      let jumped = false;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
+        const a1 = [sq.x + dx, sq.y + dy], a2 = [sq.x + dx * 2, sq.y + dy * 2];
+        if (a2[0] < 1 || a2[1] < 1 || a2[0] >= e.w - 1 || a2[1] >= e.h - 1 || e.entityAt(...a1) || e.entityAt(...a2) || e.objAt(...a1) || e.objAt(...a2)) continue;
+        e.t[e.key(...a2)] = 2;
+        const old = e.t[e.key(...a1)]; e.t[e.key(...a1)] = 26;
+        const x0 = sq.x; e.act((q) => e.tryMove(q, a1[0], a1[1], true));
+        jumped = sq.x === a2[0] && sq.y === a2[1] && x0 !== sq.x;
+        e.t[e.key(...a1)] = old;
+        break;
+      }
+      out.grapple = jumped;
+      // relé contra la tormenta
+      e.mods = ['tormenta'];
+      const s0 = e.stormOn();
+      e.squad[1].a.equip.comp = window.__mk('rele', 0);
+      out.relay = s0 && !e.stormOn();
+      e.mods = [];
+      // paraguas
+      sq.a.equip.g2 = window.__mk('umbrella', 0);
+      out.umbrella = !!e.flag(sq, 'rainShield');
+      return out;
+    });
+    ok(gd.tur && gd.ammo < 60 && gd.back, `torreta «Gnomo»: dispara sola (${gd.ammo} balas) y se recoge con su munición`);
+    ok(gd.cage && gd.photo, 'jaula de captura (rata viva) y cámara Zenit-E (+10% contra lobos)');
+    ok(gd.rec === 'lobo' && gd.lure, 'la grabadora graba a un lobo y atrae a los suyos');
+    ok(gd.mine && gd.cloak && gd.quiet, 'sonda sísmica (mina), camuflaje con recarga y ruido blanco');
+    ok(gd.weld && gd.grapple && gd.relay && gd.umbrella, `soldadura, gancho sobre una sima, relé contra la tormenta y paraguas (${['weld', 'grapple', 'relay', 'umbrella'].filter((k) => !gd[k]).join(', ') || 'todo bien'})`);
+    const df = await G.evaluate(() => {
+      const e = window.__topolev.exp; window.__clr(e);
+      e.god = false;
+      const [a, b2] = e.team;
+      a.a.equip.g1 = window.__mk('defib', 0);
+      if (cheb2(a, b2) > 2) { const c = window.__adj(e, a, 1); e.moveEntity(b2, c[0], c[1]); }
+      e.damageAgent(b2, b2.a.hp + 5, 'prueba');
+      const alive = b2.alive && b2.a.hp > 0;
+      // el perro cae: queda su chasis
+      const dog = e.enemies.find((x) => x.type === 'laika');
+      e.damageEnemy(dog, 999, null);
+      const ch = [...e.floorItems.values()].flat().find((x) => x.b === 'laika');
+      e.god = true;
+      return { alive, used: e.defibUsed, chassis: !!(ch && ch.broken), slot: e.squad[0].a.equip.comp };
+      function cheb2(p, q) { return Math.max(Math.abs(p.x - q.x), Math.abs(p.y - q.y)); }
+    });
+    ok(df.alive && df.used === 1, 'el desfibrilador reanima a un agente caído cerca del portador');
+    ok(df.chassis && df.slot === null, 'si el perro cae deja un chasis destrozado que se puede recuperar');
+    await ctx7.close();
+  }
+
   console.log(errs.length ? 'ERRORES:\n' + errs.join('\n') : '  ✓ sin errores en consola');
   await b.close();
   if (fails || errs.length) { console.log(`FALLOS: ${fails}`); process.exit(1); }

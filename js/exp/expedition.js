@@ -27,6 +27,7 @@ import { StoryPart } from './story.js';
 import { AbilityPart } from './abilities.js';
 import { TerrainPart } from './terrain.js';
 import { FactionPart } from './factions.js';
+import { CompanionPart } from './companions.js';
 import { MODIFIERS, modEss, modRad, WEATHER } from '../data/modifiers.js';
 export { ORDERS, ESSENCE_COLOR };
 
@@ -83,6 +84,7 @@ export class Expedition {
     });
     e.active = 0;
     e.init();
+    e.spawnCompanions();
     // planos parciales gracias al radar
     if (S.modules.radar >= 4) {
       for (let k = 0; k < e.w * e.h; k++) if (TILES[e.t[k]].walk && rng.chance(0.35)) e.explored[k] = 1;
@@ -116,7 +118,7 @@ export class Expedition {
     this.exits = m.exits; this.pois = m.pois; this.objects = m.objects; this.vents = m.vents;
     this.rad = m.radField; this.anomaly = m.anomaly;
     this.start = m.start; this.lift = m.lift; this.chasms = m.chasms;
-    this.surface = !!def.surface; this.indoor = m.indoor || null; this.antennaAt = m.antennaAt || null; this.railRows = m.railRows || [];
+    this.mines = m.mines || []; this.surface = !!def.surface; this.indoor = m.indoor || null; this.antennaAt = m.antennaAt || null; this.railRows = m.railRows || [];
     if (this.railRows.length && !this.trainAt) this.trainAt = rng.int(60, 140);
     this.floorItems = new Map();
     for (const fi of m.floor) this.addFloor(fi.x, fi.y, fi.item);
@@ -140,14 +142,14 @@ export class Expedition {
       surface: !!this.surface, indoor: this.indoor ? b64(this.indoor) : null, antennaAt: this.antennaAt || null, railRows: this.railRows || [],
       sectors: this.sectors, exits: this.exits, pois: this.pois, objects: this.objects, vents: this.vents, start: this.start, lift: this.lift || null, chasms: this.chasms || [],
       rad: sparse(this.rad, 100), anomaly: an, gas: sparse(this.gas), fire: sparse(this.fire), smoke: sparse(this.smoke),
-      traps: this.traps, pending: this.pending || [], flares: this.flares || [], charges: this.charges || [],
+      traps: this.traps, mines: this.mines || [], pending: this.pending || [], flares: this.flares || [], charges: this.charges || [],
       steam: this.steam || [], sampled: this.sampled || {}, litOn: this.litOn || {}, termFails: this.termFails || {}, secSeen: this.secSeen || {},
       floorItems: [...this.floorItems.entries()], essence: [...this.essence.entries()],
       enemies: this.enemies.map(({ _st, ...r }) => r),
     };
   }
   applyMapState(d) {
-    for (const k of ['w', 'h', 'sectors', 'exits', 'pois', 'objects', 'vents', 'start', 'lift', 'chasms', 'traps', 'pending', 'flares', 'charges', 'steam', 'sampled', 'litOn', 'termFails', 'secSeen', 'enemies', 'antennaAt', 'railRows']) if (d[k] !== undefined) this[k] = d[k];
+    for (const k of ['w', 'h', 'sectors', 'exits', 'pois', 'objects', 'vents', 'start', 'lift', 'chasms', 'traps', 'pending', 'flares', 'charges', 'steam', 'sampled', 'litOn', 'termFails', 'secSeen', 'enemies', 'antennaAt', 'railRows', 'mines']) if (d[k] !== undefined) this[k] = d[k];
     this.surface = !!d.surface; this.indoor = d.indoor ? unb64(d.indoor) : null;
     this.t = unb64(d.t); this.sec = unb64(d.sec); this.explored = unb64(d.explored);
     const N = this.w * this.h;
@@ -181,7 +183,7 @@ export class Expedition {
       mapIdx: this.mapIdx, seed: this.seed, zoneDef: this.zoneDef || null, mods: this.mods || [], nFloors: this.nFloors || 1, floor: this.floor || 0, floorStore: this.floorStore || [],
       sense: this.sense, senseR: this.senseR, relations: this.relations || {},
       eventsDone: this.eventsDone || {}, facSeen: this.facSeen || {}, dlg: this.dlg || null, dlgQueue: this.dlgQueue || [],
-      patria: this.patria || 0, truceUsed: this.truceUsed || 0, fac: this.fac || null,
+      patria: this.patria || 0, truceUsed: this.truceUsed || 0, defibUsed: this.defibUsed || 0, quietT: this.quietT || 0, fac: this.fac || null, sentHome: this.sentHome || [],
       clock: this.clock ?? null, weather: this.weather || null, trainAt: this.trainAt || 0, raidAt: this.raidAt || 0, revealT: this.revealT || 0, antennaUsed: this.antennaUsed || 0,
       turn: this.turn, log: this.log.slice(-60), evac: this.evac, tally: this.tally,
       surgeAt: this.surgeAt, nextTemp: this.nextTemp, nextRadio: this.nextRadio, active: this.active,
@@ -194,6 +196,7 @@ export class Expedition {
   changeFloor(to, via) {
     if (to < 0 || to >= this.nFloors) return false;
     const from = this.floor;
+    const comps = this.takeCompanionsAlong();
     this.floorStore[from] = this.mapState();
     if (this.evac) { this.say('La evacuación solicitada se cancela al cambiar de piso.', 'warn'); this.evac = null; }
     if (this.floorStore[to]) { this.applyMapState(this.floorStore[to]); this.floorStore[to] = null; this.floor = to; }
@@ -221,6 +224,7 @@ export class Expedition {
       for (const [dx, dy] of D8) { const nx = x + dx, ny = y + dy, nk = this.key(nx, ny); if (this.inb(nx, ny) && !seen.has(nk) && TILES[this.t[nk]].walk) { seen.add(nk); q.push([nx, ny]); } }
     }
     team.forEach((sq, i) => { const [x, y] = spots[i] || [ax, ay]; sq.x = x; sq.y = y; sq.px = x; sq.py = y; this.occ.set(this.key(x, y), sq); });
+    this.placeCompanions(comps);
     this.visible = new Uint8Array(this.w * this.h);
     this.dmap = null;
     this.updateTrack();
@@ -256,6 +260,7 @@ export class Expedition {
     // sima: cuerda o golpe
     const hurt = [];
     for (const o of this.team) {
+      if (this.flag(o, 'grapple')) continue;
       const rope = o.a.bag.find((it) => it.b === 'rope');
       if (rope) this.consume(o, rope);
       else hurt.push(o);
@@ -418,6 +423,7 @@ export class Expedition {
     return e;
   }
   est(e) {
+    if (ACTORS[e.type].companion) return this.compStats(e);
     if (!e._st || e._st.l !== e.lvl) {
       const def = ACTORS[e.type];
       e._st = { l: e.lvl, ...(HUMANS[e.type] ? scaleHuman(def, e.lvl) : scaleEnemy(def, e.lvl)) };
@@ -442,7 +448,7 @@ export class Expedition {
   attitudeToSquad(e) { return this.attitude('squad', this.factionOf(e)); }
   // el escuadrón ataca a una facción no hostil: pasa a ser hostil durante la expedición
   provoke(faction) {
-    if (faction === 'chebylitas' || this.attitude('squad', faction) === 'hostile') return;
+    if (faction === 'squad' || faction === 'chebylitas' || this.attitude('squad', faction) === 'hostile') return;
     // Tregua (Comisario): la primera vez por expedición solo es un aviso
     if (!this.truceUsed && this.team.some((o) => this.flag(o, 'truce'))) {
       this.truceUsed = 1;
@@ -474,6 +480,12 @@ export class Expedition {
     const sources = [];
     for (const sq of this.team) { const R = Math.max(3, this.ast(sq).vision - fog); sources.push([sq.x, sq.y, R, this.darkRadius(sq, R)]); }
     for (const f of this.flares) sources.push([f.x, f.y, 5, 5]);
+    for (const d of this.enemies) if (d.type === 'strizh') sources.push([d.x, d.y, 6, 4]);
+    // contador de centelleo: vetas y cristales cercanos, aunque haya paredes
+    for (const sq of this.team) {
+      const r = this.flag(sq, 'scint');
+      if (r) for (const o of this.objects) if ((o.kind === 'vein' || o.kind === 'shard') && Math.hypot(o.x - sq.x, o.y - sq.y) <= r) this.explored[this.key(o.x, o.y)] = 1;
+    }
     for (const [ox, oy, r, dr] of sources) {
       computeFOV(ox, oy, r, (x, y) => this.opaque(x, y), (x, y, d) => {
         if (!this.inb(x, y)) return;
@@ -577,6 +589,20 @@ export class Expedition {
       return this.interactObj(sq, obj);
     }
     const tt = this.tile(nx, ny);
+    // gancho y cuerda: saltar al otro lado de una sima
+    if (tt === T.CHASM && bump && this.flag(sq, 'grapple')) {
+      const dx = nx - sq.x, dy = ny - sq.y;
+      for (let n = 2; n <= 4; n++) {
+        const lx = sq.x + dx * n, ly = sq.y + dy * n;
+        if (!this.inb(lx, ly) || this.tile(lx, ly) === T.CHASM) continue;
+        if (!this.passable(lx, ly) || this.entityAt(lx, ly)) break;
+        this.moveEntity(sq, lx, ly);
+        this.noise(lx, ly, 3);
+        this.say(`${this.nm(sq)} lanza el gancho y cruza la sima de un salto. <span class="dimt">(F junto a ella para bajar)</span>`, 'o1');
+        this.onAgentEnter(sq);
+        return true;
+      }
+    }
     if (!TILES[tt].walk) {
       if (bump && (tt === T.ROOTS || tt === T.DEBRIS)) return this.clearObstacle(sq, nx, ny);
       if (bump && TILES[tt].use) return this.useTile(sq, nx, ny);
@@ -619,6 +645,15 @@ export class Expedition {
 
   onAgentEnter(sq) {
     const k = this.key(sq.x, sq.y);
+    // minas enemigas ocultas
+    const mi = (this.mines || []).findIndex((m) => m.x === sq.x && m.y === sq.y);
+    if (mi >= 0) {
+      const m = this.mines.splice(mi, 1)[0];
+      this.say(`💥 ¡${this.nm(sq)} pisa una mina${m.known ? '' : ' oculta'}!`, 'bad');
+      this.explode(sq.x, sq.y, 1, [12, 22], null, 0, 0, { noise: 15 });
+      this.interrupt = true;
+      if (!this.inMap(sq)) return;
+    }
     this.checkSector(sq);
     this.pickupEssence(sq, k);
     const items = this.floorItems.get(k);
@@ -722,7 +757,7 @@ export class Expedition {
 }
 
 // Mezcla de los módulos parciales en la clase principal
-for (const Part of [CombatPart, UsePart, ExtractionPart, AIPart, EnvironmentPart, StoryPart, AbilityPart, TerrainPart, FactionPart]) {
+for (const Part of [CombatPart, UsePart, ExtractionPart, AIPart, EnvironmentPart, StoryPart, AbilityPart, TerrainPart, FactionPart, CompanionPart]) {
   for (const k of Object.getOwnPropertyNames(Part.prototype)) {
     if (k === 'constructor') continue;
     if (Object.prototype.hasOwnProperty.call(Expedition.prototype, k)) throw new Error('Método duplicado en Expedition: ' + k);

@@ -183,6 +183,8 @@ export class AbilityPart {
   updateTrack() { for (const sq of this.squad) sq.trackR = this.inMap(sq) ? this.trackRadius(sq) : 0; }
   // ¿se percibe a este enemigo sin verlo? (detector de movimiento o rastreo)
   sensed(en) {
+    if (en.companion || (en.type && ACTORS[en.type] && ACTORS[en.type].companion)) return true;
+    if (en.pingT != null && this.turn - en.pingT <= 1) return true;
     for (const q of this.team) {
       const d = Math.hypot(q.x - en.x, q.y - en.y);
       if (this.sense > 0 && d <= this.senseR) return true;

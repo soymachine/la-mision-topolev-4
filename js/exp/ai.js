@@ -123,10 +123,13 @@ export class AIPart {
   }
 
   enemyAct(e) {
+    if (ACTORS[e.type].companion) { this.mechAct(e); return; }
     if (HUMANS[e.type]) { this.humanAct(e); return; }
     const def = ACTORS[e.type];
     const abil = def.abil;
     const st = this.est(e);
+    // grabadora: un depredador más fuerte les asusta
+    if (e.fear > 0) { e.fear--; this.stepAway(e, { x: e.fearX, y: e.fearY }); return; }
     const sight = e.state === 'dormido' ? 4 + Math.floor(e.lvl / 3) : 11;
     const [tgt, td] = this.pickTarget(e, sight, e.state === 'dormido');
     if (e.state === 'dormido') {

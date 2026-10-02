@@ -415,3 +415,4 @@ body.no-crt #crt { display: none; }
 .repbar { white-space: pre; font-size: 12px; letter-spacing: 0; }
 .repbar.big { font-size: 14px; margin: .5em 0; }
 .fac-card .dif { text-align: right; }
+.comp-row { font-size: 12px; padding: 2px 0 2px 1ch; display: flex; gap: .5ch; align-items: center; flex-wrap: wrap; border-left: 2px solid #5fd0ff44; margin: 2px 0; }

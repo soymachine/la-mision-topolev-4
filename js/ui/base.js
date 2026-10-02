@@ -7,6 +7,7 @@ import { ENEMIES, enemyColor, ABIL_TEXT } from '../data/enemies.js';
 import { RARITIES, rarityWeights } from '../data/rarity.js';
 import { itemHTML, itemTooltip, itemName, itemStats, sortItems, mergeInto, rarityColor, itemValue, forgeCost, infuse, FORGE_CATS, slotsOf, modFits, installMod, removeMod, WTYPE_NAMES, caseRefusal, caseUsed } from '../core/items.js';
 import { MOD_SLOTS } from '../data/mods.js';
+import { talentFlag } from '../core/agents.js';
 import { agentStats, agentName, EQUIP_SLOTS, canEquip, bagCapacity, traitOf, xpForLevel, pendingAscent, pickTalent, talentDef, effAttrs, specOf, needsSpec, chooseSpec, currentOffer, rerollOffer, MAX_LEVEL, synOk } from '../core/agents.js';
 import { ATTRS, ATTR_MAX, TALENTS, TALENT_EVERY } from '../data/talents.js';
 import { SPECS, SPEC_TALENTS, SPEC_LEVEL, rerollCost } from '../data/specs.js';
@@ -32,6 +33,7 @@ const TABS = [
   { id: 'intendencia', label: 'INTENDENCIA' },
   { id: 'expedicion', label: 'EXPEDICIÓN' },
   { id: 'radio', label: 'RADIO' },
+  { id: 'garaje', label: 'GARAJE' },
   { id: 'archivo', label: 'ARCHIVO' },
 ];
 
@@ -42,6 +44,20 @@ function repBar(v, w = 20) {
   const right = v > 0 ? `<span class="good">${'█'.repeat(n)}</span>` + ' '.repeat(half - n) : '·'.repeat(half);
   return `<span class="dimt">[</span>${v < 0 ? left : `<span class="dimt">${left}</span>`}<span class="o2">|</span>${v > 0 ? right : `<span class="dimt">${right}</span>`}<span class="dimt">]</span>`;
 }
+
+const DOG_ART = String.raw`
+        __
+   (\,--'  \___      LAIKA-M
+    \_ o    o  \     Академия наук СССР
+      \__,-.__ /|
+       |_|  |_|/ |
+      /_/  /_/  /`;
+const DRONE_ART = String.raw`
+     _______    _______
+    (___o___)--(___o___)
+         \  [▣]  /
+          \_____/
+         //  ||  \\`;
 
 const BASE_ART = String.raw`
             .   *        .        ☢          .
@@ -937,6 +953,63 @@ export class BaseUI {
     return g;
   }
 
+  // =========================================================== GARAJE (fase 19: compañeros mecánicos)
+  tab_garaje() {
+    const g = el('div', { class: 'grid3' });
+    const lvl = C.garageLvl();
+    // compañeros: equipados por agentes y en el almacén
+    const list = [];
+    for (const a of S.agents) if (a.equip.comp) list.push({ it: a.equip.comp, a });
+    for (const it of S.stash) if (ITEMS[it.b].cat === 'companion') list.push({ it, a: null });
+    if (this.selComp && !list.some((x) => x.it === this.selComp)) this.selComp = null;
+    if (!this.selComp && list.length) this.selComp = list[0].it;
+    const L = panel({ title: 'COMPAÑEROS', bodyCls: 'scroll' });
+    if (!list.length) L.body.append(el('div', { class: 'dimt', text: lvl ? 'No tenéis ningún compañero. Compradlo en la tienda del garaje.' : 'Construid el Garaje (pestaña LABORATORIO) para comprar el perro robot y los drones.' }));
+    for (const { it, a } of list) {
+      const d = ITEMS[it.b];
+      const max = C.compMaxHp(it, a), hp = C.compHp(it, a);
+      const card = el('div', { class: `mapcard ${this.selComp === it ? 'sel' : ''}` });
+      card.innerHTML = `<div class="o2" style="color:${d.kind === 'dog' ? '#5fd0ff' : '#9fe8ff'}">${esc(d.glyph)}</div><div><b>${esc(d.name)}</b><div class="dimt">${a ? `con ${esc(a.nick)}` : 'en el almacén'}${d.kind === 'dog' ? ` · ${(it.dmods || []).length}/${d.modSlots} módulos` : ''}</div></div><div class="dif">${it.broken ? '<span class="bad">ROTO</span>' : max ? `${hp}/${max}` : ''}</div>`;
+      card.addEventListener('click', () => { this.selComp = it; sfx.click(); this.render(); });
+      L.body.append(card);
+    }
+    L.body.append(el('div', { class: 'sep', text: '─'.repeat(60) }), el('div', { class: 'dimt', text: 'Se equipan en la ranura COMPAÑERO de cada agente (pestaña EQUIPO). En expedición: tecla D para lanzar drones o dar órdenes al perro.' }));
+    // detalle
+    const it = this.selComp;
+    const M = panel({ title: it ? ITEMS[it.b].name.toUpperCase() : 'TALLER', bodyCls: 'scroll' });
+    if (it) {
+      const d = ITEMS[it.b];
+      const owner = S.agents.find((a) => a.equip.comp === it) || null;
+      M.body.append(el('pre', { class: 'ascii-art', text: d.kind === 'dog' ? DOG_ART : DRONE_ART }), el('div', { class: 'msg-topolev', text: d.desc }));
+      const max = C.compMaxHp(it, owner);
+      if (max) M.body.append(el('div', { class: 'kv', html: `<span>Estado</span><span>${it.broken ? '<span class="bad">CHASIS DESTRUIDO</span>' : `${hpBar(C.compHp(it, owner), max, 16)} ${C.compHp(it, owner)}/${max}`}</span>${d.armor != null ? `<span>Blindaje</span><span>${d.armor + (it.dmods || []).reduce((n, m) => n + (ITEMS[m.b].armor || 0), 0)}</span>` : ''}${d.cargo ? `<span>Carga</span><span>${d.cargo} huecos</span>` : ''}${owner && talentFlag(owner, 'mechanic') ? '<span>Mecánico</span><span class="good">+30% salud y daño</span>' : ''}` }));
+      const rc = C.repairCost(it, owner);
+      if (rc) M.body.append(el('button', { class: 'btn primary', onclick: () => { const r = C.repairComp(it, owner); if (r.ok) { sfx.upgrade(); toast('Reparado.', 'good'); this.render(); this.pulseRes('rub'); } else { sfx.error(); toast(r.msg, 'bad'); } } }, `REPARAR · ${rc.rub} ₽${rc.parts ? ` + ${rc.parts} piezas` : ''}`));
+      if (d.kind === 'dog') {
+        M.body.append(el('div', { class: 'sep', text: '─'.repeat(80) }), el('div', { class: 'h', text: `MÓDULOS (${(it.dmods || []).length}/${d.modSlots})` }));
+        for (const m of it.dmods || []) M.body.append(el('div', { class: 'row', style: { justifyContent: 'space-between' } }, el('span', { html: `¬ <b>${esc(ITEMS[m.b].name)}</b> <span class="dimt">${esc(ITEMS[m.b].desc)}</span>` }), el('button', { class: 'btn small', onclick: () => { const r = C.removeDogMod(it, m); if (r.ok) { sfx.click(); this.render(); } else { sfx.error(); toast(r.msg, 'bad'); } } }, 'QUITAR')));
+        const mods = S.stash.filter((x) => ITEMS[x.b].cat === 'dogmod');
+        if (mods.length && (it.dmods || []).length < d.modSlots) {
+          M.body.append(el('div', { class: 'dimt', text: 'Módulos en el almacén:' }));
+          for (const m of mods) M.body.append(el('div', { class: 'row', style: { justifyContent: 'space-between' } }, el('span', { html: `¬ ${esc(ITEMS[m.b].name)}` }), el('button', { class: 'btn small', onclick: () => { const r = C.installDogMod(it, m); if (r.ok) { sfx.upgrade(); toast('Módulo instalado.', 'good'); this.render(); } else { sfx.error(); toast(r.msg, 'bad'); } } }, 'INSTALAR')));
+        }
+      }
+    } else M.body.append(el('pre', { class: 'ascii-art', text: DOG_ART }), el('div', { class: 'msg-topolev', text: '«La Academia de Ciencias nos ha prestado un prototipo. Lo llaman Laika-M. Os pido que lo traigáis de vuelta… aunque sea en piezas.» — Dr. A. Topolev' }));
+    // tienda
+    const R = panel({ title: `TIENDA DEL GARAJE · NIVEL ${lvl}`, bodyCls: 'scroll' });
+    if (!lvl) R.body.append(el('div', { class: 'warn', text: 'Sin garaje. Constrúyelo en la pestaña LABORATORIO (módulos de la base).' }));
+    for (const b of C.garageStock()) {
+      const d = ITEMS[b];
+      const row = el('div', { class: 'row', style: { justifyContent: 'space-between' } }, el('span', { html: `<span class="o2">${esc(d.glyph)}</span> ${esc(d.name)} <span class="dimt">· ${CAT_INFO[d.cat].name}</span>` }), el('button', { class: 'btn small ' + (S.rub >= d.value ? '' : 'disabled'), onclick: () => { const r = C.garageBuy(b); if (r.ok) { sfx.buy(); toast(`Comprado: ${esc(d.name)}`, 'good'); this.selComp = d.cat === 'companion' ? r.it : this.selComp; this.render(); this.pulseRes('rub'); } else { sfx.error(); toast(r.msg, 'bad'); } } }, `${d.value} ₽`));
+      tip(row, () => `<div class="tt-title">${esc(d.name)}</div><div>${esc(d.desc)}</div>`);
+      R.body.append(row);
+    }
+    const next = Object.keys(ITEMS).filter((b) => ITEMS[b].garage > lvl);
+    if (next.length) R.body.append(el('div', { class: 'dimt', style: { marginTop: '1em' }, text: `Mejorando el garaje: ${next.map((b) => ITEMS[b].name).join(', ')}.` }));
+    g.append(L, M, R);
+    return g;
+  }
+
   // =========================================================== ARCHIVO
   tab_archivo() {
     const g = el('div', { class: 'grid3' });
@@ -944,7 +1017,7 @@ export class BaseUI {
     for (const [id, d] of Object.entries(ENEMIES)) {
       const b = S.bestiary[id];
       const r = el('div', { class: 'module', style: { gridTemplateColumns: '3ch 1fr' } });
-      if (b) r.innerHTML = `<div class="mg" style="color:${enemyColor(d.hue, 7)}">${d.glyph}</div><div><b>${d.name}</b>${d.boss ? ' <span class="bad">☠</span>' : ''} <span class="dimt">· ${d.origin} · ${b.kills} abatidos</span><div class="eff">${esc(d.lore)}</div><div class="eff">${d.abil.map((a) => ABIL_TEXT[a]).join(' · ') || 'Sin habilidades especiales'} · Nv ${d.minL}–${d.maxL}</div></div>`;
+      if (b) r.innerHTML = `<div class="mg" style="color:${enemyColor(d.hue, 7)}">${d.glyph}</div><div><b>${d.name}</b>${d.boss ? ' <span class="bad">☠</span>' : ''} <span class="dimt">· ${d.origin} · ${b.kills} abatidos</span>${S.photos && S.photos[id] ? ' <span class="cyan" title="Fotografiado con la Zenit-E: +10% de daño contra su especie">📷 +10%</span>' : ''}${S.captured && S.captured[id] ? ` <span class="good" title="Ejemplares capturados vivos">#${S.captured[id]}</span>` : ''}<div class="eff">${esc(d.lore)}</div><div class="eff">${d.abil.map((a) => ABIL_TEXT[a]).join(' · ') || 'Sin habilidades especiales'} · Nv ${d.minL}–${d.maxL}</div></div>`;
       else r.innerHTML = `<div class="mg o4">?</div><div><b class="o4">??????</b><div class="eff">Especie no catalogada.</div></div>`;
       L.body.append(r);
     }

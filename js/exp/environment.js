@@ -75,7 +75,7 @@ export class EnvironmentPart {
       const a = sq.a, st = this.ast(sq), k = this.key(sq.x, sq.y);
       // radiación
       let r = this.rad[k] + this.ambient + surge * 0.45;
-      if (this.surface && this.weather === 'lluvia' && this.outdoors(sq.x, sq.y)) r += 0.25;
+      if (this.surface && this.weather === 'lluvia' && this.outdoors(sq.x, sq.y)) r += this.flag(sq, 'rainShield') ? 0.05 : 0.25;
       const tt = this.t[k];
       if ((tt === T.WATER || tt === T.DEEP) && this.flag(sq, 'waterproof')) r = Math.max(0, r - 0.5 - this.def.ambientRad * 0.5);
       for (const e of this.enemies) if (ACTORS[e.type].abil.includes('aura') && cheb(e.x, e.y, sq.x, sq.y) <= 2) r += 3 + e.lvl * 0.4;

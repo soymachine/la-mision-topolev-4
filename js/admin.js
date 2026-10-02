@@ -176,6 +176,14 @@ function consEffect(d) {
   return t.join('');
 }
 const USE = { heal: 'Curación', antirad: 'Antirradiación', buff: 'Potenciador', throw: 'Arrojadizo', trap: 'Trampa', beacon: 'Baliza', signal: 'Señal', reveal: 'Cartografía', sense: 'Detección', ammo: 'Munición' };
+sec('Objetos', 'companeros', 'Compañeros mecánicos', byCat('companion').length + byCat('dogmod').length, () => table([...byCat('companion'), ...byCat('dogmod')], [
+  { h: 'Nombre', v: (d) => `<span class="nm">${esc(d.glyph)} ${esc(d.name)}</span>`, s: (d) => d.name },
+  { h: 'Tipo', v: (d) => (d.cat === 'dogmod' ? tag('módulo', 'c') : d.kind === 'dog' ? tag('perro', 'g') : tag('dron ' + d.drone, 'b')) },
+  { h: 'Garaje', v: (d) => d.garage, s: (d) => d.garage, num: 1 },
+  { h: 'Salud', v: (d) => d.hp || '—', num: 1 },
+  { h: 'Precio', v: (d) => `${d.value} ₽`, s: (d) => d.value, num: 1 },
+  { h: 'Descripción', v: (d) => `<span class="desc">${esc(d.desc)}</span>` },
+]), 'Ranura COMPAÑERO de cada agente (fase 19). Se compran en el GARAJE (módulo de la base, niveles 1–5) y allí se instalan los módulos del perro y se reparan (rublos; un chasis destrozado pide además 2 piezas de recambio). Tecla D en expedición: órdenes del perro (seguir, quedarse, buscar, atacar), lanzar o recoger drones; clic en el radar para mandar el Strizh a un punto. Talento «Mecánico» (Zapador): +30% salud y daño, +50% batería, reparaciones −40%. Gadget «Mando a distancia»: más alcance y batería.');
 sec('Objetos', 'consumibles', 'Consumibles', byCat('consumable').length, () => table(byCat('consumable'), [
   { h: '', g: true, v: (d) => esc(d.glyph) },
   { h: 'Nombre', v: (d) => `<div class="nm">${esc(d.name)}</div><div class="desc">${esc(d.desc)}</div>`, s: (d) => d.name },

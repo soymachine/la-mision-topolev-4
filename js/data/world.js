@@ -205,6 +205,7 @@ export const MODULES = [
   { id: 'radar', name: 'Radar subterráneo', glyph: '◎', desc: 'Más extracciones temporales y más información en el minimapa.', eff: (l) => ['Nidos y extracciones', '+ extracciones temporales', '+ rareza de los alijos', '+ chebylitas errantes en el radar', '+ planos parciales del mapa', '+ extracción permanente extra'][l] },
   { id: 'barracones', name: 'Barracones', glyph: '⌂', desc: 'Más agentes en plantilla y escuadrones más grandes.', eff: (l) => `Plantilla ${4 + l * 2} · escuadrón de ${squadSize(l)}` },
   { id: 'almacen', name: 'Almacén', glyph: '▤', desc: 'Más capacidad para guardar objetos en la base.', eff: (l) => `Capacidad ${stashSize(l)} objetos` },
+  { id: 'garaje', name: 'Garaje', glyph: 'Ш', desc: 'Compra, mejora y repara compañeros mecánicos: el perro «Laika-M» y los drones.', eff: (l) => ['Sin garaje', 'Laika-M, Strizh y módulos básicos · reparaciones', '+ dron Mula, Eco y más módulos', '+ Kamikadze y Relé', 'reparaciones −25%', 'reparaciones −50%'][l] },
   { id: 'laboratorio', name: 'Laboratorio de esencia', glyph: '✦', desc: 'Extrae más esencia de cada chebylita y desbloquea la tecnología de esencia.', eff: (l) => `+${l * 10}% esencia${l >= 3 ? ' · celdas de esencia' : ''}` },
 ];
 export const MODULE_MAX = 5;
@@ -215,7 +216,7 @@ export function moduleCost(id, lvl) {
   // coste para pasar de lvl a lvl+1
   const ess = [40, 120, 300, 650, 1300][lvl];
   const rub = [150, 400, 900, 1800, 3500][lvl];
-  const f = { armeria: 1, polvorin: 0.7, blindaje: 1, enfermeria: 0.8, taller: 0.9, radar: 1.1, barracones: 1.2, almacen: 0.6, laboratorio: 1.3 }[id] || 1;
+  const f = { armeria: 1, polvorin: 0.7, blindaje: 1, enfermeria: 0.8, taller: 0.9, radar: 1.1, barracones: 1.2, almacen: 0.6, laboratorio: 1.3, garaje: 0.9 }[id] || 1;
   return { ess: Math.round(ess * f), rub: Math.round(rub * f) };
 }
 

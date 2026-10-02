@@ -18,6 +18,7 @@ export const EQUIP_SLOTS = [
   { id: 'g2', label: 'GADGET', cats: ['gadget'] },
   { id: 'pack', label: 'MOCHILA', cats: ['backpack'] },
   { id: 'case', label: 'CONTENEDOR', cats: ['case'] },
+  { id: 'comp', label: 'COMPAÑERO', cats: ['companion'] },
 ];
 export const BASE_SLOTS = 6;
 
@@ -48,7 +49,7 @@ export function createAgent(g = grng, opts = {}) {
     hp: 0, rad: 0, color: g.pick(AGENT_COLORS), flags: {},
     av: 2, attr: startAttrs(B, g), pts: 0, talents: [], offers: [], spec: null,
     wounds: [], medals: [], acquired: [],
-    equip: { w1: null, w2: null, armor: null, helmet: null, g1: null, g2: null, pack: null, case: null },
+    equip: { w1: null, w2: null, armor: null, helmet: null, g1: null, g2: null, pack: null, case: null, comp: null },
     bag: [], missions: 0, kills: 0, extractions: 0, essTotal: 0, hired: opts.day || 1,
   };
   for (let l = 2; l <= lvl; l++) { a.lvl = l; levelUp(a, g); }

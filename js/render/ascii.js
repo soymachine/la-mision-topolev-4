@@ -11,7 +11,7 @@ import { ESSENCE_COLOR } from '../exp/shared.js';
 export const FONT = '"JetBrains Mono", "DejaVu Sans Mono", Consolas, monospace';
 const hash = (x, y) => { let h = (x * 374761393 + y * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177; return (h ^ (h >>> 16)) >>> 0; };
 const OBJ_GLYPH = { vein: '✦', cache: '■', locker: '▤', crate: '□', corpse: '%', note: '?', survivor: '☺', shard: '✧', cart: 'Ш', trader: '₽', medic: '✚', board: '▦', archive: '▥', wreck: '✈', radio: '☏' };
-const OBJ_NAME = { vein: 'Veta de esencia', cache: 'Alijo de suministros', locker: 'Taquilla', crate: 'Caja de material', corpse: 'Cadáver de liquidador', note: 'Nota', survivor: 'Superviviente', shard: 'Cristal de esencia incrustado', cart: 'Vagoneta', trader: 'Comerciante', medic: 'Enfermería', board: 'Tablón de anuncios', archive: 'Archivo del KGB', wreck: 'Restos del aparato', radio: 'Radio de campaña' };
+const OBJ_NAME = { vein: 'Veta de esencia', cache: 'Alijo de suministros', locker: 'Taquilla', crate: 'Caja de material', corpse: 'Cadáver de liquidador', note: 'Nota', survivor: 'Superviviente', shard: 'Cristal de esencia incrustado', cart: 'Vagoneta', trader: 'Comerciante', medic: 'Enfermería', board: 'Tablón de anuncios', archive: 'Archivo del KGB', wreck: 'Restos del aparato', radio: 'Radio de campaña', dogcargo: 'Carga de Laika' };
 export { OBJ_NAME };
 const SOCIAL_COL = { trader: '#e6c86a', medic: '#ff6a6a', board: '#c8b48c', archive: '#e05050', wreck: '#b0b8c0', radio: '#5fd0ff' };
 
@@ -436,6 +436,7 @@ export class MapRenderer {
       if (o.kind === 'survivor') { glyph(o.x, o.y, '☺', vis ? `rgba(160,232,160,${0.75 + 0.25 * Math.sin(T_ * 2)})` : '#3a5a3a', null, 1.05, true); continue; }
       if (o.opened) col = vis ? '#6a4a2a' : '#3a2814';
       else if (o.kind === 'cache') col = vis ? (this.radar >= 2 ? rarityColor(o.best) : '#ffb02e') : '#7a5a20';
+      else if (o.sealed) col = vis ? '#9fb8d0' : '#4a5a6a';
       else col = vis ? '#d9a066' : '#6a4a2a';
       glyph(o.x, o.y, g, col, vis && o.kind !== 'corpse' ? '#140a02' : null, 1, o.kind === 'cache' && !o.opened);
     }
@@ -494,6 +495,17 @@ export class MapRenderer {
     for (const t of e.traps || []) {
       if (t.x < x0 || t.x > x1 || t.y < y0 || t.y > y1 || !e.explored[t.y * e.w + t.x]) continue;
       glyph(t.x, t.y, '×', `rgba(255,80,60,${0.55 + 0.25 * Math.sin(T_ * 3)})`);
+    }
+    // ---- minas enemigas detectadas (sonda sísmica) y focos del sensor de radiación de Laika ----
+    for (const m of e.mines || []) {
+      if (!m.known || m.x < x0 || m.x > x1 || m.y < y0 || m.y > y1) continue;
+      glyph(m.x, m.y, '¤', `rgba(255,40,40,${0.6 + 0.3 * Math.sin(T_ * 5)})`, '#200404', 1, true);
+    }
+    if (e.radKnown) for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const k = y * e.w + x;
+      if (!e.radKnown[k] || e.visible[k]) continue;
+      const [sx, sy] = S(x, y);
+      ctx.fillStyle = `rgba(150,255,40,${0.08 + 0.04 * Math.sin(T_ * 2 + x)})`; ctx.fillRect(sx, sy, cw, ch);
     }
     // ---- cargas de demolición (Zapador): parpadean más deprisa cuanto menos falta ----
     for (const c of e.charges || []) {

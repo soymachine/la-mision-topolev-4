@@ -269,6 +269,7 @@ export class ReportScreen {
       }
       B.append(box);
     }
+    if (rep.compItems && rep.compItems.length) B.append(el('div', { class: 'cyan', style: { textAlign: 'center' }, text: `§ Traído por los compañeros: ${rep.compItems.join(', ')}` }));
     if (rep.prisoners) B.append(el('div', { class: 'warn', style: { textAlign: 'center' }, text: `⚑ ${rep.prisoners} prisionero(s) entregados al KGB: +${rep.prisoners * 150} ₽` }));
     if (rep.recruits && rep.recruits.length) B.append(el('div', { class: 'good', style: { textAlign: 'center' }, text: `✚ Se unen al puesto: ${rep.recruits.join(', ')}` }));
     if (rep.unlocked) B.append(el('div', { class: 'sep', text: '─'.repeat(200) }), el('div', { class: 'good', style: { textAlign: 'center', fontWeight: 700 }, text: `☢ NUEVA ZONA ACCESIBLE: ${rep.unlocked.toUpperCase()}` }));
@@ -362,6 +363,7 @@ export class HelpScreen {
 <span>X</span><span>Cambiar de arma</span>
 <span>H</span><span>Curarse con el mejor botiquín</span>
 <span>V</span><span>Habilidad de la especialización (con objetivo: apunta y confirma)</span>
+<span>D</span><span>Compañero mecánico: órdenes del perro, lanzar o recoger drones (Eco y Kamikadze: elige destino)</span>
 <span>L</span><span>Encender / apagar la linterna</span>
 <span>B</span><span>Lanzar granada / objeto arrojadizo (o colocar trampas desde el inventario)</span>
 <span>I</span><span>Inventario (arrastrar y soltar para equipar, soltar o dar a compañeros)</span>
@@ -447,6 +449,14 @@ export class HelpScreen {
 <li>Las personas buscan cobertura, lanzan granadas, avisan por radio y, malheridas, <b>se rinden</b> (⚑): F para dejarlas ir, interrogarlas, requisar su equipo, entregarlas al KGB o algo peor.</li>
 <li>La <b>bengala roja</b> llama a los aliados de la zona; si la RDA o Cuba os aprecian, mandan una patrulla. Los sacerdotes de la Ceniza azuzan a los chebylitas: dispárales primero.</li>
 <li>En los mapas hay <b>campamentos abandonados</b> (tiendas Λ, hogueras *, radios ☏) con cajas OTAN y diarios en otros idiomas. El <b>KGB</b> paga por informes, documentos y diarios (pestaña RADIO), pero no le gusta que comerciéis con extranjeros: si desconfía, manda a un comisario.</li>
+</ul>
+
+<h2>COMPAÑEROS MECÁNICOS Y GADGETS</h2>
+<ul>
+<li>Cada agente tiene una ranura <b>COMPAÑERO</b>. Se compran y reparan en el <b>GARAJE</b> (constrúyelo en LABORATORIO).</li>
+<li><b>§ Laika-M</b>, el perro robot: le sigue, pelea y lleva 4 objetos. Con <b>D</b> (o los botones del panel de escuadra) cambias su orden: seguir, quedarse, buscar (trae el botín cercano) o atacar. <b>F</b> a su lado para coger su carga; lo que lleve vuelve a la base contigo. Admite 3 módulos (ametralladora, bengalas, detector, sensor de radiación, botiquín, mandíbula, plomo). Si cae, deja un chasis: recógelo y el Garaje lo repara.</li>
+<li><b>Drones</b> (tecla D): el <b>Strizh</b> explora solo (clic en el radar para guiarlo; D para que vuelva); la <b>Mula</b> lleva lo más valioso de la mochila a la extracción y lo envía a la base; el <b>Kamikadze</b> se estrella contra un objetivo; el <b>Eco</b> hace ruido y luz donde le digas; el <b>Relé</b> mantiene el radar en la tormenta.</li>
+<li>Gadgets: torreta <b>Gnomo</b> (F para recogerla), <b>jaula</b> (chebylitas pequeños y heridos, vivos), <b>cámara Zenit-E</b> (+10% de daño contra lo fotografiado), <b>desfibrilador</b>, <b>gancho</b> (salta simas), <b>soldadura</b> (puertas blindadas y contenedores sellados), <b>ruido blanco</b>, <b>contador de centelleo</b>, <b>grabadora</b>, <b>sonda sísmica</b> (minas ocultas ¤), <b>camuflaje</b> y <b>paraguas antirradiación</b>.</li>
 </ul>
 
 <h2>RADIACIÓN Y PELIGROS</h2>

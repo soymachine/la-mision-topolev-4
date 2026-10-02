@@ -161,7 +161,8 @@ O órdenes del escuadrón · I inventario · M mapa · Espacio esperar · ? ayud
 - Fase 16 completada: casillas con mecánica (cobertura, destructibles, puertas blindadas, terminales…), 2–3 pisos por zona, luz y oscuridad, modificadores de zona diarios.
 - Fase 17 completada: 12 zonas nuevas (6 de superficie con día/noche y clima, 6 de subsuelo), mapa ASCII de la región con progresión por requisitos, campamento social Wismut, equipo occidental y zonas de evento temporales.
 - Fase 18 completada: 12 facciones con reputación (pestaña RADIO), IA humana (cobertura, granadas, radio, rendición), encuentros y prisioneros, bengala roja, campamentos abandonados con diarios extranjeros, 31 objetos extranjeros y el KGB vigilando.
-- **Siguiente sesión:** seguir [`plan-ampliacion.md`](plan-ampliacion.md) por la fase 19 según el orden recomendado al final de ese archivo. Marcar allí las tareas al completarlas.
+- Fase 19 completada: ranura COMPAÑERO y Garaje, perro robot Laika-M con órdenes y módulos, 5 drones (tecla D) y 12 gadgets creativos (torreta, jaula, cámara, desfibrilador, gancho, soldadura, ruido blanco, centelleo, grabadora, sonda sísmica, camuflaje, paraguas).
+- **Siguiente sesión:** seguir [`plan-ampliacion.md`](plan-ampliacion.md) por la fase 20 según el orden recomendado al final de ese archivo. Marcar allí las tareas al completarlas.
 
 ## FASE 12 — Ampliación del arsenal (petición del usuario)
 - [x] 12.1 69 armas (×4) en `js/data/weapons.js`, cada una con dibujo ASCII visible en su tooltip; nuevos tipos lanzador (explosión) y 5 municiones nuevas

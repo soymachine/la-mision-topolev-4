@@ -27,7 +27,8 @@ function tierFor(cat, d) {
   if (cat === 'armor' || cat === 'helmet') return m.blindaje;
   if (cat === 'gadget' || cat === 'backpack') return m.taller;
   if (cat === 'case') return m.almacen;
-  if (cat === 'consumable') return d.use === 'throw' || d.use === 'beacon' ? m.taller : m.enfermeria;
+  if (cat === 'consumable') return ['throw', 'beacon', 'deploy', 'cage', 'photo', 'whitenoise', 'recorder', 'seismic', 'cloak'].includes(d.use) ? m.taller : m.enfermeria;
+  if (cat === 'companion' || cat === 'dogmod') return m.garaje || 0;
   if (cat === 'ammo') return d.b === 'a_cell' ? (m.laboratorio >= 3 ? 5 : -1) : Math.max(m.armeria, 1);
   return -1;
 }
@@ -53,7 +54,7 @@ export function sellPrice(it) {
 export function ensureShop() {
   if (S.shop && S.shop.day === S.day) return S.shop;
   const g = new RNG((S.created + S.day * 7919) >>> 0);
-  const pool = Object.keys(ITEMS).filter((b) => ITEMS[b].cat !== 'valuable' && ITEMS[b].cat !== 'ammo' && ITEMS[b].cat !== 'case' && !ITEMS[b].west && shopAvailable(b) && !['bandage', 'ai2', 'antirad', 'molotov', 'flare'].includes(b));
+  const pool = Object.keys(ITEMS).filter((b) => ITEMS[b].cat !== 'valuable' && ITEMS[b].cat !== 'ammo' && ITEMS[b].cat !== 'case' && !ITEMS[b].west && !ITEMS[b].garage && ITEMS[b].cat !== 'companion' && ITEMS[b].cat !== 'dogmod' && shopAvailable(b) && !['bandage', 'ai2', 'antirad', 'molotov', 'flare'].includes(b));
   const stock = [];
   const level = 1 + Math.floor(Object.values(S.modules).reduce((a, b) => a + b, 0) / 3);
   const n = 10 + Math.min(6, Math.floor(S.day / 3));
@@ -266,6 +267,8 @@ export function launchExpedition(mapIdx, agents, evId = null) {
 
 export function finalizeExpedition(exp) {
   const def = exp.def;
+  // fase 19: lo que traen el perro y la Mula
+  const compBack = exp.finishCompanions ? exp.finishCompanions() : [];
   const labBonus = 1 + S.modules.laboratorio * 0.1;
   const rep = { map: def.name, mapIdx: exp.mapIdx, turns: exp.turn, day: S.day, agents: [], ess: 0, essRaw: 0, kills: exp.tally.kills, unlocked: null, lostItems: 0 };
   let anyOut = false;
@@ -328,6 +331,11 @@ export function finalizeExpedition(exp) {
       rep.recruits.push(agentName(a));
       addMessage(`${agentName(a)}, antiguo ${rc.from === 'desertores' ? 'desertor' : 'merodeador'}, se presenta en el puesto. Habrá quien no se fíe.`);
     }
+  }
+  if (compBack.length) {
+    rep.compItems = [];
+    for (const it of compBack) { if (addToStash(it)) rep.compItems.push(itemName(it)); }
+    if (rep.compItems.length) addMessage(`Llegan a la base ${rep.compItems.length} objeto(s) traídos por los compañeros mecánicos: ${rep.compItems.join(', ')}.`);
   }
   rep.result = !anyOut ? 'fail' : rep.agents.every((r) => r.status === 'extraído') ? 'success' : 'partial';
   const msgs = {
@@ -396,6 +404,70 @@ export function kgbDeliver(it) {
   return p;
 }
 export function foreignTrade(f) { return foreignTradeS(S, f); }
+
+// ---- Garaje (fase 19): compañeros mecánicos
+export const garageLvl = () => S.modules.garaje || 0;
+export function garageStock() { return Object.keys(ITEMS).filter((b) => (ITEMS[b].cat === 'companion' || ITEMS[b].cat === 'dogmod' || (ITEMS[b].garage && ITEMS[b].cat === 'gadget')) && ITEMS[b].garage <= garageLvl()); }
+export function garageBuy(b) {
+  const d = ITEMS[b];
+  if (!d || !d.garage || d.garage > garageLvl()) return { ok: false, msg: 'El garaje no tiene nivel suficiente.' };
+  if (S.rub < d.value) return { ok: false, msg: 'Rublos insuficientes.' };
+  const it = createItem(b, 0, rng);
+  if (!addToStash(it)) return { ok: false, msg: 'El almacén está lleno.' };
+  S.rub -= d.value;
+  save();
+  return { ok: true, it };
+}
+// salud máxima de un compañero (módulos y talento Mecánico del dueño)
+export function compMaxHp(it, owner = null) {
+  const d = ITEMS[it.b];
+  let hp = d.hp || 0;
+  for (const m of it.dmods || []) hp += ITEMS[m.b].hp || 0;
+  if (owner && talentFlag(owner, 'mechanic')) hp = Math.round(hp * 1.3);
+  return hp;
+}
+export function compHp(it, owner = null) { return it.broken ? 0 : it.hp == null ? compMaxHp(it, owner) : Math.min(it.hp, compMaxHp(it, owner)); }
+export function repairCost(it, owner = null) {
+  const lvl = garageLvl();
+  const k = (lvl >= 5 ? 0.5 : lvl >= 4 ? 0.75 : 1) * (owner && talentFlag(owner, 'mechanic') ? 0.6 : 1);
+  if (it.broken) return { rub: Math.round((200 + ITEMS[it.b].tier * 80) * k), parts: 2 };
+  const miss = compMaxHp(it, owner) - compHp(it, owner);
+  return miss > 0 ? { rub: Math.round(miss * 3 * k), parts: 0 } : null;
+}
+export function repairComp(it, owner = null) {
+  if (!garageLvl()) return { ok: false, msg: 'Hace falta un Garaje.' };
+  const c = repairCost(it, owner);
+  if (!c) return { ok: false, msg: 'No necesita reparación.' };
+  const parts = S.stash.filter((x) => x.b === 'parts').reduce((n, x) => n + (x.q || 1), 0);
+  if (S.rub < c.rub) return { ok: false, msg: 'Rublos insuficientes.' };
+  if (parts < c.parts) return { ok: false, msg: `Faltan piezas de recambio (${c.parts}).` };
+  S.rub -= c.rub;
+  let need = c.parts;
+  for (const x of S.stash) { if (need <= 0) break; if (x.b !== 'parts') continue; const mv = Math.min(x.q || 1, need); x.q = (x.q || 1) - mv; need -= mv; }
+  S.stash = S.stash.filter((x) => !(x.b === 'parts' && x.q <= 0));
+  it.broken = 0; it.hp = compMaxHp(it, owner);
+  save();
+  return { ok: true, cost: c };
+}
+export function installDogMod(dog, mod) {
+  const d = ITEMS[dog.b];
+  dog.dmods = dog.dmods || [];
+  if (dog.dmods.length >= (d.modSlots || 0)) return { ok: false, msg: 'No quedan ranuras de módulo.' };
+  if (dog.dmods.some((m) => m.b === mod.b)) return { ok: false, msg: 'Ya lleva ese módulo.' };
+  const i = S.stash.indexOf(mod);
+  if (i < 0) return { ok: false, msg: 'El módulo tiene que estar en el almacén.' };
+  S.stash.splice(i, 1);
+  dog.dmods.push(mod);
+  save();
+  return { ok: true };
+}
+export function removeDogMod(dog, mod) {
+  if (stashFull()) return { ok: false, msg: 'El almacén está lleno.' };
+  dog.dmods = (dog.dmods || []).filter((m) => m !== mod);
+  S.stash.push(mod);
+  save();
+  return { ok: true };
+}
 
 export function totalCarried(a) { return Object.values(a.equip).filter(Boolean).length + a.bag.length; }
 

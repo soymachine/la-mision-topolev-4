@@ -1195,5 +1195,15 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
   // vías largas (para el «tren fantasma» de Yanov)
   const railRows = [];
   if (sp === 'tren') for (let y = 1; y < H - 1; y++) { let n = 0; for (let x = 0; x < W; x++) if (t[I(x, y)] === T.RAIL) n++; if (n > W * 0.5) railRows.push(y); }
-  return { w: W, h: H, t, sec, sectors, start, exits, pois, spawns, objects, floor, radField, anomaly, vents, lift, chasms, litSectors, indoor, antennaAt, railRows };
+  // fase 19: contenedores sellados (soldadura, soplete) y minas enemigas ocultas (sonda sísmica)
+  for (const o of objects) if ((o.kind === 'locker' || o.kind === 'crate') && !o.vault && !o.owner && !o.special && g.chance(0.12)) { o.sealed = 1; o.items.push(rollLoot(Math.min(10, lvMax + 1), g, { rarityBonus: 0.5 })); }
+  const mines = [];
+  if (tier >= 3 && g.chance(0.55)) {
+    const objAt = new Set(objects.map((o) => I(o.x, o.y)));
+    for (let n = 0; n < g.int(1, 3); n++) {
+      const spot = findSpot({ minDist: 15, poiGap: 3, tries: 120 });
+      if (spot && !objAt.has(I(spot[0], spot[1])) && !spawns.some((sp) => sp.x === spot[0] && sp.y === spot[1])) mines.push({ x: spot[0], y: spot[1] });
+    }
+  }
+  return { w: W, h: H, t, sec, sectors, start, exits, pois, spawns, objects, floor, radField, anomaly, vents, lift, chasms, litSectors, indoor, antennaAt, railRows, mines };
 }
