@@ -262,7 +262,10 @@ export class ReportScreen {
       box.append(el('div', { html: `<span style="color:${ag.color};font-weight:700">@</span> <b>${esc(ag.name)}</b> <span class="dimt">Nv ${ag.lvl}</span> — ${ag.status === 'extraído' ? '<span class="cyan">⇑ EXTRAÍDO</span>' : '<span class="bad">✝ MUERTO EN COMBATE</span>'}${ag.lvlUp > 0 ? ` <span class="warn">★ +${ag.lvlUp} nivel</span>` : ''} <span class="dimt">· ${ag.kills} bajas · ${ag.ess} ✦</span>` }));
       if (ag.status === 'extraído' && ag.items.length) {
         box.append(el('div', { style: { paddingLeft: '3ch' }, html: ag.items.map((it) => `<span style="color:${RARITIES[it.r].color}">${esc(it.name)}${it.q > 1 ? ' ×' + it.q : ''}</span>`).join('<span class="o5"> · </span>') }));
-      } else if (ag.status !== 'extraído') box.append(el('div', { class: 'dimt', style: { paddingLeft: '3ch' }, text: 'Todo su equipo y el botín recogido se han perdido.' }));
+      } else if (ag.status !== 'extraído') {
+        box.append(el('div', { class: 'dimt', style: { paddingLeft: '3ch' }, text: ag.recovered ? 'Su equipo y el botín recogido se han perdido, salvo el contenedor de seguridad.' : 'Todo su equipo y el botín recogido se han perdido.' }));
+        if (ag.recovered) box.append(el('div', { style: { paddingLeft: '3ch' }, html: `<span class="cyan">📡 Recuperado por la baliza:</span> ${ag.recovered.map((n) => esc(n)).join('<span class="o5"> · </span>')}${ag.essKept ? ` <span class="cyan">· ${ag.essKept} ✦</span>` : ''}` }));
+      }
       B.append(box);
     }
     if (rep.unlocked) B.append(el('div', { class: 'sep', text: '─'.repeat(200) }), el('div', { class: 'good', style: { textAlign: 'center', fontWeight: 700 }, text: `☢ NUEVA ZONA ACCESIBLE: ${rep.unlocked.toUpperCase()}` }));
@@ -315,6 +318,12 @@ export class HelpScreen {
 <li><b>ARCHIVO</b>: bestiario, memorial de caídos y estadísticas.</li>
 </ul>
 <p class="dimt">Cada expedición cuenta como un día: los agentes se recuperan un poco, llegan nuevos candidatos y cambia el catálogo.</p>
+
+<h2>ASCENSO DE LOS AGENTES</h2>
+<p>Al subir de nivel, cada agente gana salud y <b>1 punto de atributo</b> (Puntería, Agilidad, Fortaleza, Aguante, Percepción o Técnica). Cada <b>3 niveles</b> elige además <b>1 talento entre 3</b> al azar. Los agentes con un ascenso pendiente llevan un <span class="warn">▲</span>: abre su ficha en EQUIPO y pulsa <b>ASCENSO</b>.</p>
+
+<h2>CONTENEDOR DE SEGURIDAD</h2>
+<p>Los contenedores (<b>▣</b>, en la Intendencia a partir de Almacén 2) van en la ranura <b>CONTENEDOR</b>. Durante la expedición, arrastra un objeto sobre él para guardarlo (<b>1 turno</b>): queda <b>sellado</b> hasta volver a la base. Si el agente muere, su radiobaliza devuelve el contenedor y su contenido al almacén. Las armas ocupan 2 huecos; las pesadas no caben. En la base puedes llenarlo y vaciarlo libremente.</p>
 
 <h2>EL MUNDO SUBTERRÁNEO</h2>
 <p>Cada zona tiene un nivel de dificultad y se <b>genera de nuevo en cada expedición</b>, dividida en sectores con nombre. Se desbloquea la siguiente al extraer con éxito de la anterior.</p>

@@ -139,7 +139,7 @@ const EFF = {
   xp: (v, c) => {
     if (!c.a) return;
     const ups = giveXp(c.a, Math.round(val(v, c)));
-    if (ups) say(c, `★ ${fmt('{agent}', c)} sube a nivel ${c.a.lvl}.`, 'good');
+    if (ups) say(c, `★ ${fmt('{agent}', c)} sube a nivel ${c.a.lvl}. <span class="dimt">(▲ ascenso pendiente en la base)</span>`, 'good');
   },
   heal: (v, c) => { if (c.a) c.a.hp = Math.min(agentStats(c.a).hpMaxEff, c.a.hp + val(v, c)); },
   rad: (v, c) => { if (c.a) c.a.rad = Math.max(0, Math.min(150, c.a.rad + val(v, c))); },

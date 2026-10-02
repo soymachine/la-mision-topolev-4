@@ -11,6 +11,7 @@ import { FACTIONS, baseAttitude, ATTITUDE_TEXT } from './data/factions.js';
 import { HUMANS, scaleHuman } from './data/humans.js';
 import { EVENTS } from './data/events.js';
 import { DIALOGS } from './data/dialogs.js';
+import { ATTRS, ATTR_MAX, TALENTS, TALENT_EVERY } from './data/talents.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const byCat = (c) => Object.entries(ITEMS).filter(([, d]) => d.cat === c).map(([id, d]) => ({ id, ...d })).sort((a, b) => a.tier - b.tier || a.value - b.value);
@@ -120,6 +121,15 @@ sec('Objetos', 'mochilas', 'Mochilas', byCat('backpack').length, () => table(byC
   { h: 'Intendencia', v: (d) => shopText(d), s: (d) => d.tier },
   { h: 'Valor ₽', num: true, v: (d) => d.value, s: (d) => d.value },
 ]), 'Un agente tiene 6 huecos de mochila de base (más si tiene el rasgo Carroñero). Cada pila de objetos ocupa un hueco.');
+sec('Objetos', 'contenedores', 'Contenedores', byCat('case').length, () => table(byCat('case'), [
+  { h: '', g: true, v: (d) => `<span style="color:${R[d.rar].color}">${esc(d.glyph)}</span>` },
+  { h: 'Nombre', v: (d) => `<div class="nm" style="color:${R[d.rar].color}">${esc(d.name)}</div><div class="desc">${esc(d.desc)}</div>`, s: (d) => d.name },
+  { h: 'Huecos', num: true, v: (d) => d.caseSlots, s: (d) => d.caseSlots },
+  { h: 'Pilas', v: (d) => (d.stacks ? tag('munición y consumibles', 'g') : '—') },
+  { h: 'Especial', v: (d) => (d.keepEss ? `conserva el ${d.keepEss}% de la esencia` : '—') },
+  { h: 'Intendencia', v: (d) => `Almacén ≥ ${d.tier}`, s: (d) => d.tier },
+  { h: 'Precio', num: true, v: (d) => `${d.price} ₽${d.essCost ? ` + <span style="color:${ESS}">${d.essCost} ✦</span>` : ''}`, s: (d) => d.price },
+]), 'Ranura CONTENEDOR: lo que guardes dentro sobrevive aunque el agente muera (la radiobaliza lo devuelve al almacén). Guardar cuesta 1 turno y queda sellado hasta la base. Las armas ocupan 2 huecos; las pesadas (ametralladoras, lanzadores, lanzallamas) no caben.');
 
 const BUFFTXT = { acc: (v) => `${v > 0 ? '+' : ''}${v} puntería`, ev: (v) => `+${v} agilidad`, crit: (v) => `+${v}% crítico`, dmgPct: (v) => `+${v}% daño`, prot: (v) => `+${v} protección`, rad: (v) => `+${v}% resist. rad.`, vision: (v) => `+${v} visión`, regen: (v) => `regenera ${v}`, gasImmune: () => 'inmune al gas' };
 function consEffect(d) {
@@ -197,7 +207,18 @@ sec('Base', 'rasgos', 'Rasgos de agentes', TRAITS.length, () => table(TRAITS, [
   { h: 'Rasgo', v: (t) => `<span class="nm">${esc(t.name)}</span>`, s: (t) => t.name },
   { h: 'Efecto', v: (t) => esc(t.desc) },
   { h: 'Tipo', v: (t) => (Object.values(t.mod).some((v) => v < 0) ? tag('mixto', 'b') : tag('ventaja', 'g')) },
-]), 'Cada agente tiene un rasgo aleatorio. Al subir de nivel ganan salud y, a veces, puntería y agilidad.');
+]), 'Cada agente tiene un rasgo aleatorio. Al subir de nivel ganan salud y un punto de atributo.');
+sec('Base', 'atributos', 'Atributos', ATTRS.length, () => table(ATTRS, [
+  { h: '', g: true, v: (t) => esc(t.glyph) },
+  { h: 'Atributo', v: (t) => `<span class="nm">${esc(t.name)}</span>`, s: (t) => t.name },
+  { h: 'Por punto', v: (t) => esc(t.desc) },
+]), `Cada nivel da 1 punto que se reparte en la base (ASCENSO). Máximo ${ATTR_MAX} puntos por atributo. Los reclutas veteranos llegan con los suyos ya repartidos.`);
+sec('Base', 'talentos', 'Talentos', Object.keys(TALENTS).length, () => table(Object.entries(TALENTS).map(([id, t]) => ({ id, ...t })), [
+  { h: '', g: true, v: (t) => esc(t.glyph) },
+  { h: 'Talento', v: (t) => `<span class="nm">${esc(t.name)}</span> <span class="desc">${t.id}</span>`, s: (t) => t.name },
+  { h: 'Efecto', v: (t) => esc(t.desc) },
+  { h: 'Tipo', v: (t) => (t.flags ? tag('especial', 'c') : tag('estadística', 'g')), s: (t) => (t.flags ? 1 : 0) },
+]), `Cada ${TALENT_EVERY} niveles el agente elige 1 de 3 talentos al azar (sin repetir). Los efectos especiales son los mismos que los de los gadgets y no se acumulan con ellos: cuenta el mejor.`);
 sec('Base', 'agentes', 'Nombres de agentes', FIRST_NAMES_M.length + FIRST_NAMES_F.length + LAST_NAMES.length + NICKNAMES.length, renderAgentNames);
 
 // ----- NARRATIVA -----

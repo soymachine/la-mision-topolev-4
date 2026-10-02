@@ -88,7 +88,7 @@ Hoy existen dos tipos de actor: agentes (`squad`) y chebylitas (`enemies`). Hace
 
 ---
 
-## FASE 14 — Victorias rápidas
+## FASE 14 — Victorias rápidas ✔
 
 ### 14.1 Maleta especial «Contenedor de seguridad» (M)
 **Idea:** una ranura de equipo nueva (`case`) con muy pocos huecos cuyos objetos **sobreviven aunque el agente muera**.
@@ -100,15 +100,17 @@ Hoy existen dos tipos de actor: agentes (`squad`) y chebylitas (`enemies`). Hace
 | Cápsula de esencia «Matrioska» | 4 | 12 000 ₽ + 400 ✦ | 5 | Además conserva el 25% de la esencia del agente si muere |
 
 Reglas pensadas para evitar abusos:
-- [ ] Los objetos se **meten** en el contenedor durante la expedición (1 turno), pero **no se pueden sacar** hasta volver a la base («sellado»).
-- [ ] Si el agente muere, la radiobaliza del contenedor permite recuperarlo: los objetos vuelven al almacén y aparecen en el informe como «recuperado por la baliza».
-- [ ] Un contenedor solo por agente; los objetos legendarios/míticos de mayor tamaño (armas pesadas) no caben (`size` por categoría: armas 2 huecos, resto 1).
-- [ ] Mejora del módulo **Almacén** desbloquea los tipos superiores.
-- [ ] UI: ranura «CONTENEDOR» en EQUIPO y en el inventario de expedición, con candado ASCII `[▣]`.
+- [x] Los objetos se **meten** en el contenedor durante la expedición (1 turno), pero **no se pueden sacar** hasta volver a la base («sellado»).
+- [x] Si el agente muere, la radiobaliza del contenedor permite recuperarlo: los objetos vuelven al almacén y aparecen en el informe como «recuperado por la baliza».
+- [x] Un contenedor solo por agente; los objetos legendarios/míticos de mayor tamaño (armas pesadas) no caben (`size` por categoría: armas 2 huecos, resto 1).
+- [x] Mejora del módulo **Almacén** desbloquea los tipos superiores.
+- [x] UI: ranura «CONTENEDOR» en EQUIPO y en el inventario de expedición, con candado ASCII `[▣]`.
+  - *Hecho:* categoría `case` (`kgbcase`, `kolyma`, `matrioska`) con `it.vault`; reglas en `core/items.js` (`caseRefusal`: armas 2 huecos, sin armas pesadas, pilas solo en Kolyma/Matrioska). En expedición: arrastrar sobre la ranura → `stowItem` (1 turno), no se puede soltar ni cambiar. Al morir, `agentDies` devuelve contenedor + contenido al almacén (y el 25% de esencia con la Matrioska) y el informe lo muestra. En la base se llena y vacía libremente. Precio con esencia (`essCost`).
 
 ### 14.2 Puntos de talento al subir de nivel (M) — *adelanto de la fase 15*
-- [ ] Al subir de nivel, el agente gana **1 punto de atributo** y, cada 3 niveles, **elige 1 de 3 talentos** al azar (ver fase 15).
-- [ ] Pantalla «ASCENSO» en la base (los niveles subidos en expedición quedan pendientes de asignar).
+- [x] Al subir de nivel, el agente gana **1 punto de atributo** y, cada 3 niveles, **elige 1 de 3 talentos** al azar (ver fase 15).
+- [x] Pantalla «ASCENSO» en la base (los niveles subidos en expedición quedan pendientes de asignar).
+  - *Hecho:* `data/talents.js` con 6 atributos (puntos extra sobre la base, máx. 10) y 20 talentos generales (estadísticas o los mismos efectos especiales que los gadgets; `flag()` toma el mejor). `a.attr`, `a.pts`, `a.talents`, `a.offers` (ofertas guardadas, no se re-tiran al recargar). Los reclutas veteranos llegan con todo repartido; las partidas antiguas reciben las ofertas de talento retroactivas. Marca ▲ en la lista de agentes. En la fase 15, los talentos generales se completan con los árboles de especialización y los atributos pasan al modelo 1–10.
 
 ---
 

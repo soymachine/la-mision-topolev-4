@@ -9,7 +9,7 @@ import { generateMap } from './mapgen.js';
 import { computeFOV, hasLOS } from './fov.js';
 import { astar, dijkstra } from './path.js';
 import { itemStats, itemName, createItem, rollLoot, mergeInto, rarityColor, gadgetExtras } from '../core/items.js';
-import { agentStats, agentName, giveXp, bagCapacity } from '../core/agents.js';
+import { agentStats, agentName, giveXp, bagCapacity, talentFlag } from '../core/agents.js';
 import { S, seeEnemy, killEnemy as bestiaryKill } from '../core/state.js';
 import { esc } from '../util/dom.js';
 import { RADIO } from '../data/lore.js';
@@ -209,10 +209,14 @@ export class Expedition {
   }
   gadgets(sq) { const a = sq.a; return a && a.equip ? [a.equip.g1, a.equip.g2].filter((g) => g && ITEMS[g.b].cat === 'gadget') : []; }
   flag(sq, f) {
-    let v = 0;
-    for (const g of this.gadgets(sq)) { const fl = gadgetExtras(g).flags; if (fl && fl[f]) v = Math.max(v, fl[f]); }
-    for (const b of sq.buffs || []) if (b.flags && b.flags[f]) v = Math.max(v, b.flags[f]);
-    return v;
+    // gadgets, efectos temporales y talentos; essHeal es un umbral (cuanto menor, mejor)
+    const vals = [];
+    for (const g of this.gadgets(sq)) { const fl = gadgetExtras(g).flags; if (fl && fl[f]) vals.push(fl[f]); }
+    for (const b of sq.buffs || []) if (b.flags && b.flags[f]) vals.push(b.flags[f]);
+    const t = talentFlag(sq.a, f);
+    if (t) vals.push(t);
+    if (!vals.length) return 0;
+    return f === 'essHeal' ? Math.min(...vals) : Math.max(...vals);
   }
   condTrue(sq, when, st) {
     const others = this.team.filter((o) => o !== sq);

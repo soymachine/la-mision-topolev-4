@@ -7,7 +7,7 @@ import { ENEMIES, enemyColor, ABIL_TEXT } from '../data/enemies.js';
 import { ACTORS, actorColor, actorFaction, isHuman } from '../data/actors.js';
 import { FACTIONS, ATTITUDE_TEXT, ATTITUDE_CLASS } from '../data/factions.js';
 import { ITEMS, AMMO_NAMES } from '../data/items.js';
-import { itemName, itemStats, itemTooltip, itemHTML, rarityColor, mergeInto, sortItems } from '../core/items.js';
+import { itemName, itemStats, itemTooltip, itemHTML, rarityColor, mergeInto, sortItems, caseRefusal, caseUsed } from '../core/items.js';
 import { agentStats, agentName, EQUIP_SLOTS, canEquip, bagCapacity, traitOf } from '../core/agents.js';
 import { S, save, settings, saveSettings } from '../core/state.js';
 import { ORDERS, ESSENCE_COLOR } from '../exp/shared.js';
@@ -816,6 +816,7 @@ export class ExpeditionUI {
       eq.append(el('div', { class: 'h', text: `EQUIPO · ${a.nick}` }));
       for (const s of EQUIP_SLOTS) {
         const it = a.equip[s.id];
+        if (s.id === 'case') { eq.append(this.caseSlot(sq, render)); continue; }
         const slot = el('div', { class: 'slot' }, el('span', { class: 'sl', text: s.label }), el('div', { class: 'sv' }, it ? (() => {
           const r = el('div', { class: 'item', html: itemHTML(it) + (it.ld != null && itemStats(it).mag ? `<span class="iq">${it.ld}/${itemStats(it).mag}</span>` : '') });
           tip(r, () => itemTooltip(it, null, '<div class="dimt">Arrastra a la mochila para quitar. Clic derecho: soltar.</div>'));
@@ -883,6 +884,23 @@ export class ExpeditionUI {
     this.invRefresh = render;
     const close = modal({ title: 'INVENTARIO', body, width: 'min(124ch, 94vw)', actions: [{ label: 'CERRAR (I)' }], onClose: () => { this.invClose = null; this.invRefresh = null; this.refresh(); } });
     this.invClose = close;
+  }
+
+  // ranura del contenedor de seguridad: sellado, solo admite guardar (1 turno)
+  caseSlot(sq, render) {
+    const e = this.exp, a = sq.a, c = a.equip.case;
+    const wrap = el('div');
+    const val = el('div', { class: 'sv' });
+    if (c) {
+      const r = el('div', { class: 'item', html: `<span class="o4">[▣]</span> ` + itemHTML(c) + `<span class="iq">${caseUsed(c)}/${ITEMS[c.b].caseSlots}</span>` });
+      tip(r, () => itemTooltip(c, null, '<div class="dimt">Arrastra aquí un objeto para guardarlo (1 turno).</div>'));
+      val.append(r);
+    } else val.append(el('div', { class: 'empty', text: '— sin contenedor —' }));
+    const slot = el('div', { class: 'slot' }, el('span', { class: 'sl', text: 'CONTENEDOR' }), val);
+    if (c) dropzone(slot, { accepts: (d) => d && d.kind === 'inv' && d.it !== c && !caseRefusal(c, d.it), onDrop: (d) => { e.act((q) => e.stowItem(q, d.it)); render(); this.refresh(); } });
+    wrap.append(slot);
+    if (c && c.vault.length) wrap.append(el('div', { class: 'vault', html: c.vault.map((x) => `<div class="dimt">▣ <span style="color:${rarityColor(x.r)}">${esc(itemName(x))}${x.q > 1 ? ' ×' + x.q : ''}</span></div>`).join('') }));
+    return wrap;
   }
 
   // ------------------------------------------------------------ botín

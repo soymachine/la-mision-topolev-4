@@ -5,9 +5,10 @@ import { ITEMS, CAT_INFO } from '../data/items.js';
 import { MAPS, MODULES, MODULE_MAX, moduleCost, TRAITS } from '../data/world.js';
 import { ENEMIES, enemyColor, ABIL_TEXT } from '../data/enemies.js';
 import { RARITIES, rarityWeights } from '../data/rarity.js';
-import { itemHTML, itemTooltip, itemName, itemStats, sortItems, mergeInto, rarityColor, itemValue, forgeCost, infuse, FORGE_CATS, slotsOf, modFits, installMod, removeMod, WTYPE_NAMES } from '../core/items.js';
+import { itemHTML, itemTooltip, itemName, itemStats, sortItems, mergeInto, rarityColor, itemValue, forgeCost, infuse, FORGE_CATS, slotsOf, modFits, installMod, removeMod, WTYPE_NAMES, caseRefusal, caseUsed } from '../core/items.js';
 import { MOD_SLOTS } from '../data/mods.js';
-import { agentStats, agentName, EQUIP_SLOTS, canEquip, bagCapacity, traitOf, xpForLevel } from '../core/agents.js';
+import { agentStats, agentName, EQUIP_SLOTS, canEquip, bagCapacity, traitOf, xpForLevel, pendingAscent, pickTalent } from '../core/agents.js';
+import { ATTRS, ATTR_MAX, TALENTS, TALENT_EVERY } from '../data/talents.js';
 import * as C from '../core/campaign.js';
 import { sfx } from '../audio.js';
 import { uiBurst, uiSparkEl, uiFly, uiText } from './fx.js';
@@ -184,7 +185,8 @@ export class BaseUI {
 
   agentRow(a, extra = '', onClick = null) {
     const st = agentStats(a);
-    const row = el('div', { class: 'agent-row' + (a === this.selAgent ? ' sel' : ''), html: `<span class="ag" style="color:${a.color}">@</span><span class="an">${esc(a.first)} «${esc(a.nick)}» ${esc(a.last)}</span><span class="dimt">Nv${a.lvl}</span> ${hpBar(a.hp, st.hpMaxEff, 6)}${extra}` });
+    const up = pendingAscent(a) ? '<span class="warn ascend-mark" title="Ascenso pendiente">▲</span>' : '';
+    const row = el('div', { class: 'agent-row' + (a === this.selAgent ? ' sel' : ''), html: `<span class="ag" style="color:${a.color}">@</span><span class="an">${esc(a.first)} «${esc(a.nick)}» ${esc(a.last)}</span><span class="dimt">${up}Nv${a.lvl}</span> ${hpBar(a.hp, st.hpMaxEff, 6)}${extra}` });
     row.addEventListener('click', onClick || (() => { this.selAgent = a; sfx.click(); this.render(); }));
     tip(row, () => this.agentTip(a));
     return row;
@@ -196,7 +198,9 @@ export class BaseUI {
       <div class="tt-row"><span class="dimt">Salud</span><span>${a.hp}/${st.hpMaxEff}${st.hpMaxEff < st.hpMax ? ` <span class="bad">(máx ${st.hpMax})</span>` : ''}</span></div>
       <div class="tt-row"><span class="dimt">Radiación</span><span>${Math.round(a.rad)}</span></div>
       <div class="tt-row"><span class="dimt">Puntería</span><span>${st.acc}</span></div><div class="tt-row"><span class="dimt">Agilidad</span><span>${st.ev}</span></div>
-      <div class="tt-row"><span class="dimt">Misiones</span><span>${a.missions || 0} (${a.extractions || 0} extracciones)</span></div><div class="tt-row"><span class="dimt">Bajas</span><span>${a.kills || 0}</span></div>`;
+      <div class="tt-row"><span class="dimt">Misiones</span><span>${a.missions || 0} (${a.extractions || 0} extracciones)</span></div><div class="tt-row"><span class="dimt">Bajas</span><span>${a.kills || 0}</span></div>
+      ${(a.talents || []).length ? `<div class="tt-sep">${'─'.repeat(40)}</div>${a.talents.map((id) => `<div class="tt-aff">${esc(TALENTS[id].glyph)} ${esc(TALENTS[id].name)} <span class="dimt">— ${esc(TALENTS[id].desc)}</span></div>`).join('')}` : ''}
+      ${pendingAscent(a) ? '<div class="warn">▲ Ascenso pendiente: abre su ficha.</div>' : ''}`;
   }
 
   agentSheet(B, a) {
@@ -211,8 +215,17 @@ export class BaseUI {
       el('div', { html: `RAD ${bar(Math.min(100, a.rad), 100, 16, 'rad')} ${Math.round(a.rad)}` }),
       el('div', { class: 'kv', style: { marginTop: '4px' }, html: `<span>Puntería</span><span>${st.acc}</span><span>Agilidad</span><span>${st.ev}</span><span>Protección</span><span>${st.prot}</span><span>Resist. rad.</span><span>${st.rad}%</span><span>Visión</span><span>${st.vision}</span><span>Mochila</span><span>${a.bag.length}/${bagCapacity(a)}</span>` }),
     );
+    // atributos y talentos
+    const attrLine = ATTRS.filter((x) => a.attr && a.attr[x.id]).map((x) => `${x.glyph} ${x.name} <b>+${a.attr[x.id]}</b>`).join(' · ');
+    if (attrLine) B.append(el('div', { class: 'dimt', html: attrLine }));
+    if ((a.talents || []).length) {
+      const tl = el('div', { class: 'talent-line' });
+      for (const id of a.talents) { const t = TALENTS[id]; const c = el('span', { class: 'talent-chip', text: `${t.glyph} ${t.name}` }); tip(c, () => `<div class="tt-title">${esc(t.name)}</div><div>${esc(t.desc)}</div>`); tl.append(c); }
+      B.append(tl);
+    }
     const cost = C.treatCost(a);
     const acts = el('div', { class: 'row', style: { flexWrap: 'wrap', margin: '4px 0' } });
+    if (pendingAscent(a)) acts.append(el('button', { class: 'btn primary ascend-btn', onclick: () => this.openAscent(a) }, `▲ ASCENSO${a.pts ? ` · ${a.pts} punto${a.pts > 1 ? 's' : ''}` : ''}${a.offers.length ? ` · ${a.offers.length} talento${a.offers.length > 1 ? 's' : ''}` : ''}`));
     if (cost > 0) acts.append(el('button', { class: 'btn good', onclick: (ev) => { const r = C.treat(a); if (r.ok) { sfx.upgrade(); uiSparkEl(ev.target, { colors: ['#3ddc6b', '#fff'], chars: ['+'] }); toast(`Tratamiento completado (−${r.cost} ₽).`, 'good'); this.render(); } else { sfx.error(); toast(r.msg, 'bad'); } } }, `TRATAR (${cost} ₽)`));
     acts.append(el('button', { class: 'btn', onclick: () => this.unloadBag(a) }, 'DESCARGAR MOCHILA'));
     B.append(acts);
@@ -231,6 +244,7 @@ export class BaseUI {
       const row = el('div', { class: 'slot' }, el('span', { class: 'sl', text: s.label }), val);
       dropzone(row, { accepts: (d) => d && d.it && canEquip(d.it, s.id) && !(d.src === 'equip' && d.slot === s.id && d.a === a), onDrop: (d) => this.moveItem(d, { dst: 'equip', a, slot: s.id }) });
       B.append(row);
+      if (s.id === 'case' && it) B.append(this.vaultBox(a, it));
       // ranuras de mods del arma
       if (it && ITEMS[it.b].cat === 'weapon') {
         const slots = slotsOf(it);
@@ -288,7 +302,7 @@ export class BaseUI {
       const c = ITEMS[it.b].cat;
       if (this.stashFilter === 'all') return true;
       if (this.stashFilter === 'armor') return c === 'armor' || c === 'helmet';
-      if (this.stashFilter === 'gadget') return c === 'gadget' || c === 'backpack';
+      if (this.stashFilter === 'gadget') return c === 'gadget' || c === 'backpack' || c === 'case';
       return c === this.stashFilter;
     };
     const items = sortItems([...S.stash]).filter(filt);
@@ -319,6 +333,71 @@ export class BaseUI {
     B.append(list);
   }
 
+  // ventana de ascenso: repartir puntos de atributo y elegir talentos
+  openAscent(a) {
+    const body = el('div', { class: 'ascent' });
+    const tmp = { ...a.attr };
+    let left = a.pts || 0;
+    let close;
+    const render = () => {
+      body.innerHTML = '';
+      body.append(el('div', { class: 'spread' }, el('span', { class: 'h', html: `<span style="color:${a.color}">@</span> ${esc(agentName(a))} · Nv ${a.lvl}` }), el('span', { class: left ? 'warn' : 'dimt', text: `${left} punto${left === 1 ? '' : 's'} por repartir` })));
+      body.append(el('div', { class: 'dimt', text: `Cada nivel da 1 punto de atributo; cada ${TALENT_EVERY} niveles, un talento a elegir entre tres. Lo que asignes es permanente.` }));
+      body.append(el('div', { class: 'sep', text: '─'.repeat(80) }), el('div', { class: 'h', text: 'ATRIBUTOS' }));
+      for (const at of ATTRS) {
+        const v = tmp[at.id] || 0, base = a.attr[at.id] || 0;
+        const pips = '■'.repeat(base) + `<span class="warn">${'■'.repeat(v - base)}</span>` + `<span class="o5">${'□'.repeat(ATTR_MAX - v)}</span>`;
+        const minus = el('button', { class: 'btn small' + (v > base ? '' : ' disabled'), onclick: () => { if (v > base) { tmp[at.id]--; left++; sfx.click(); render(); } } }, '−');
+        const plus = el('button', { class: 'btn small' + (left > 0 && v < ATTR_MAX ? '' : ' disabled'), onclick: () => { if (left > 0 && v < ATTR_MAX) { tmp[at.id]++; left--; sfx.click(); render(); } } }, '+');
+        body.append(el('div', { class: 'attr-row' }, el('span', { class: 'o1', text: `${at.glyph} ${at.name}` }), el('span', { class: 'pips', html: pips }), minus, plus, el('span', { class: 'dimt', text: at.desc })));
+      }
+      const changed = ATTRS.some((x) => (tmp[x.id] || 0) !== (a.attr[x.id] || 0));
+      body.append(el('div', { class: 'row', style: { justifyContent: 'flex-end', marginTop: '4px' } }, el('button', { class: 'btn primary' + (changed ? '' : ' disabled'), onclick: (ev) => {
+        if (!changed) return;
+        a.attr = { ...tmp }; a.pts = left; save(); sfx.upgrade(); uiSparkEl(ev.target, { chars: ['▲', '+', '·'], colors: ['#ffd23f', '#ff8a1f'] }); render(); this.render();
+      } }, 'CONFIRMAR ATRIBUTOS')));
+      const offer = a.offers && a.offers[0];
+      if (offer) {
+        body.append(el('div', { class: 'sep', text: '─'.repeat(80) }), el('div', { class: 'h', text: `TALENTO${a.offers.length > 1 ? ` (${a.offers.length} pendientes)` : ''} · elige uno` }));
+        const cards = el('div', { class: 'talent-cards' });
+        for (const id of offer) {
+          const t = TALENTS[id];
+          const card = el('div', { class: 'talent-card', html: `<div class="tg">${esc(t.glyph)}</div><div class="tn">${esc(t.name)}</div><div class="td">${esc(t.desc)}</div>` });
+          card.addEventListener('click', async () => {
+            if (!(await confirmBox('TALENTO', `¿${esc(a.nick)} aprende <b>${esc(t.name)}</b>?<div class="dimt">${esc(t.desc)}</div>`, 'APRENDER'))) return;
+            pickTalent(a, id); save(); sfx.upgrade(); uiSparkEl(card, { chars: ['★', '+', '·'], colors: ['#ffd23f', '#ff8a1f'] });
+            render(); this.render();
+          });
+          cards.append(card);
+        }
+        body.append(cards);
+      }
+      if ((a.talents || []).length) {
+        body.append(el('div', { class: 'sep', text: '─'.repeat(80) }), el('div', { class: 'h', text: 'TALENTOS APRENDIDOS' }));
+        for (const id of a.talents) body.append(el('div', { html: `<span class="o1">${esc(TALENTS[id].glyph)} ${esc(TALENTS[id].name)}</span> <span class="dimt">— ${esc(TALENTS[id].desc)}</span>` }));
+      }
+    };
+    render();
+    close = modal({ title: 'ASCENSO', body, width: 'min(96ch, 94vw)', actions: [{ label: 'CERRAR' }] });
+  }
+
+  // contenido del contenedor de seguridad (en la base se puede llenar y vaciar libremente)
+  vaultBox(a, c) {
+    const d = ITEMS[c.b];
+    const box = el('div', { class: 'vault' });
+    box.append(el('div', { class: 'spread' }, el('span', { class: 'dimt', html: `[▣] contenido ${caseUsed(c)}/${d.caseSlots}` }), c.vault.length ? el('button', { class: 'btn small', onclick: () => { for (const x of [...c.vault]) this.moveItem({ src: 'vault', a, it: x }, { dst: 'stash' }); } }, 'VACIAR AL ALMACÉN') : el('span')));
+    for (const x of c.vault) {
+      const r = el('div', { class: 'item', html: '<span class="dimt">▣ </span>' + itemHTML(x) });
+      tip(r, () => itemTooltip(x, null, '<div class="dimt">Arrastra fuera para sacarlo. Doble clic: al almacén.</div>'));
+      draggable(r, { data: () => ({ src: 'vault', a, it: x }), ghost: () => itemHTML(x) });
+      r.addEventListener('dblclick', () => this.moveItem({ src: 'vault', a, it: x }, { dst: 'stash' }));
+      box.append(r);
+    }
+    if (!c.vault.length) box.append(el('div', { class: 'dimt', text: 'Arrastra aquí lo que deba volver pase lo que pase.' }));
+    dropzone(box, { accepts: (dd) => dd && dd.it && dd.src !== 'vault' && dd.src !== 'shop' && dd.it !== c && !caseRefusal(c, dd.it), onDrop: (dd) => this.moveItem(dd, { dst: 'vault', a }) });
+    return box;
+  }
+
   autoSlot(a, it) {
     const c = ITEMS[it.b].cat;
     if (c === 'weapon') return !a.equip.w1 ? 'w1' : !a.equip.w2 ? 'w2' : 'w1';
@@ -326,6 +405,7 @@ export class BaseUI {
     if (c === 'helmet') return 'helmet';
     if (c === 'backpack') return 'pack';
     if (c === 'gadget') return !a.equip.g1 ? 'g1' : !a.equip.g2 ? 'g2' : 'g1';
+    if (c === 'case') return 'case';
     return null;
   }
 
@@ -338,17 +418,23 @@ export class BaseUI {
       else if (from.src === 'bag') from.a.bag.splice(from.a.bag.indexOf(it), 1);
       else if (from.src === 'equip') from.a.equip[from.slot] = null;
       else if (from.src === 'mod') removeMod(from.a.equip[from.wslot], from.slot);
+      else if (from.src === 'vault') { const v = from.a.equip.case.vault; v.splice(v.indexOf(it), 1); }
     };
     const reattach = () => {
       if (from.src === 'stash') S.stash.push(it);
       else if (from.src === 'bag') from.a.bag.push(it);
       else if (from.src === 'equip') from.a.equip[from.slot] = it;
       else if (from.src === 'mod') installMod(from.a.equip[from.wslot], it);
+      else if (from.src === 'vault') from.a.equip.case.vault.push(it);
     };
     detach();
     let ok = true, msg = '';
     if (to.dst === 'stash') {
       if (!C.addToStash(it)) { ok = false; msg = 'El almacén está lleno.'; }
+    } else if (to.dst === 'vault') {
+      const c = to.a.equip.case;
+      msg = c ? caseRefusal(c, it) : 'No lleva contenedor.';
+      if (msg) ok = false; else c.vault.push(it);
     } else if (to.dst === 'bag') {
       const rest = mergeInto(to.a.bag, it, bagCapacity(to.a));
       if (rest) { ok = false; msg = 'La mochila está llena.'; }
@@ -534,12 +620,14 @@ export class BaseUI {
     L.body.append(el('div', { class: 'dimt', text: 'El catálogo cambia cada día. Mejora los módulos para acceder a mejor material. Clic o arrastra al almacén para comprar.' }), el('div', { class: 'sep', text: '─'.repeat(80) }));
     const addRow = (it, supply) => {
       const price = C.buyPrice(it) * (it.q || 1);
-      const can = S.rub >= price;
+      const essC = ITEMS[it.b].essCost || 0;
+      const can = S.rub >= price && S.ess >= essC;
+      const priceTxt = `${price} ₽${essC ? ` + ${essC} ✦` : ''}`;
       const r = el('div', { class: 'shop-row' });
       const chip = el('div', { class: 'item', html: itemHTML(it) });
-      tip(chip, () => itemTooltip(it, this.selAgent ? this.compareFor(this.selAgent, it) : null, `<div class="tt-sep">${'─'.repeat(40)}</div><div class="o0">Precio: ${price} ₽</div>`));
+      tip(chip, () => itemTooltip(it, this.selAgent ? this.compareFor(this.selAgent, it) : null, `<div class="tt-sep">${'─'.repeat(40)}</div><div class="o0">Precio: ${priceTxt}</div>`));
       draggable(chip, { data: () => ({ src: 'shop', it, supply }), ghost: () => itemHTML(it) });
-      r.append(chip, el('span', { class: 'price', text: `${price} ₽` }), el('button', { class: 'btn small ' + (can ? '' : 'disabled'), onclick: (ev) => this.doBuy(it, supply, ev) }, 'COMPRAR'));
+      r.append(chip, el('span', { class: 'price', text: priceTxt }), el('button', { class: 'btn small ' + (can ? '' : 'disabled'), onclick: (ev) => this.doBuy(it, supply, ev) }, 'COMPRAR'));
       return r;
     };
     L.body.append(el('div', { class: 'h', text: 'SUMINISTROS PERMANENTES' }));

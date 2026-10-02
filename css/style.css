@@ -352,3 +352,24 @@ body.no-crt #crt { display: none; }
 .dbg-out { overflow-y: auto; padding: 0 1ch; color: var(--o1); line-height: 1.45; flex: 1; min-height: 6em; word-break: break-word; }
 .dbg-in { background: #000; color: var(--o0); border: none; border-top: 1px dashed var(--o5); font: inherit; padding: .4em 1ch; outline: none; caret-color: var(--o2); }
 .dbg-in::placeholder { color: var(--o5); }
+
+/* ---------- contenedor de seguridad ---------- */
+.vault { margin: 0 0 4px 2ch; padding: 2px 1ch; border-left: 1px dashed var(--o4); background: rgba(255, 210, 63, .03); }
+.vault .item { cursor: grab; }
+
+/* ---------- ascenso: atributos y talentos ---------- */
+.attr-row { display: grid; grid-template-columns: 14ch auto auto auto 1fr; align-items: center; gap: 0 1ch; padding: 1px 0; }
+.attr-row .pips { letter-spacing: .1em; white-space: nowrap; }
+.attr-row .dimt { font-size: .9em; }
+.talent-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1ch; margin-top: 4px; }
+.talent-card { border: 1px solid var(--o5); padding: .6em 1ch; cursor: pointer; transition: border-color .12s, background .12s, transform .12s; }
+.talent-card:hover { border-color: var(--o2); background: rgba(255, 138, 31, .07); transform: translateY(-2px); }
+.talent-card .tg { font-size: 1.6em; color: var(--o2); text-align: center; }
+.talent-card .tn { color: var(--o0); font-weight: 700; text-align: center; margin: .2em 0; }
+.talent-card .td { color: var(--o3); font-size: .92em; text-align: center; }
+.talent-line { display: flex; flex-wrap: wrap; gap: .3em 1ch; margin: 2px 0; }
+.talent-chip { color: var(--o1); border: 1px dotted var(--o5); padding: 0 .6ch; cursor: help; }
+.ascend-mark { margin-right: .5ch; animation: asc-pulse 1.4s ease-in-out infinite; }
+.ascend-btn { animation: asc-pulse 1.8s ease-in-out infinite; }
+@keyframes asc-pulse { 50% { opacity: .55; } }
+@media (max-width: 700px) { .talent-cards { grid-template-columns: 1fr; } .attr-row { grid-template-columns: 12ch auto auto auto; } .attr-row .dimt { grid-column: 1 / -1; } }

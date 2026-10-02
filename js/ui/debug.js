@@ -7,7 +7,7 @@ import { FACTIONS } from '../data/factions.js';
 import { EVENTS } from '../data/events.js';
 import { DIALOGS } from '../data/dialogs.js';
 import { createItem, itemName, mergeInto, rarityColor } from '../core/items.js';
-import { agentStats, bagCapacity } from '../core/agents.js';
+import { agentStats, bagCapacity, giveXp } from '../core/agents.js';
 import { runEffects } from '../core/events.js';
 import * as C from '../core/campaign.js';
 
@@ -96,6 +96,11 @@ export function installDebug(app) {
       const k = num(n, 1); for (let i = 0; i < k; i++) C.nextDay(); C.ensureVolunteer(); save();
       print(`día ${S.day}`);
       if (app.current() === 'base') app.base.open();
+    } },
+    xp: { a: '<n>', d: 'da experiencia al agente activo (o a todos en la base)', f: ([n]) => {
+      const e = exp(); const k = num(n, 500);
+      const list = e && !e.ended ? [e.cur.a] : S.agents;
+      for (const a of list) { const ups = giveXp(a, k); print(`${esc(a.nick)}: Nv ${a.lvl}${ups ? ` (+${ups})` : ''} · ${a.pts || 0} puntos · ${a.offers.length} talentos pendientes`); }
     } },
     ess: { a: '<n>', d: 'suma esencia', f: ([n]) => { S.ess += num(n, 100); print(`esencia ${S.ess}`); } },
     rub: { a: '<n>', d: 'suma rublos', f: ([n]) => { S.rub += num(n, 500); print(`rublos ${S.rub}`); } },

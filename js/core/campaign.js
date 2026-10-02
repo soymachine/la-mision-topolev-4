@@ -14,6 +14,7 @@ function tierFor(cat, d) {
   if (cat === 'weapon' || cat === 'mod') return m.armeria;
   if (cat === 'armor' || cat === 'helmet') return m.blindaje;
   if (cat === 'gadget' || cat === 'backpack') return m.taller;
+  if (cat === 'case') return m.almacen;
   if (cat === 'consumable') return d.use === 'throw' || d.use === 'beacon' ? m.taller : m.enfermeria;
   if (cat === 'ammo') return d.b === 'a_cell' ? (m.laboratorio >= 3 ? 5 : -1) : Math.max(m.armeria, 1);
   return -1;
@@ -24,6 +25,7 @@ export function shopAvailable(b) {
 }
 export function buyPrice(it) {
   const d = ITEMS[it.b];
+  if (d.price) return d.price;
   let p = itemValue(it, true) * 1.15;
   if (d.cat === 'ammo') p *= 1 - S.modules.polvorin * 0.15;
   if (d.cat === 'consumable' && d.use !== 'throw') p *= 1 - S.modules.enfermeria * 0.06;
@@ -38,7 +40,7 @@ export function sellPrice(it) {
 export function ensureShop() {
   if (S.shop && S.shop.day === S.day) return S.shop;
   const g = new RNG((S.created + S.day * 7919) >>> 0);
-  const pool = Object.keys(ITEMS).filter((b) => ITEMS[b].cat !== 'valuable' && ITEMS[b].cat !== 'ammo' && shopAvailable(b) && !['bandage', 'ai2', 'antirad', 'molotov', 'flare'].includes(b));
+  const pool = Object.keys(ITEMS).filter((b) => ITEMS[b].cat !== 'valuable' && ITEMS[b].cat !== 'ammo' && ITEMS[b].cat !== 'case' && shopAvailable(b) && !['bandage', 'ai2', 'antirad', 'molotov', 'flare'].includes(b));
   const stock = [];
   const level = 1 + Math.floor(Object.values(S.modules).reduce((a, b) => a + b, 0) / 3);
   const n = 10 + Math.min(6, Math.floor(S.day / 3));
@@ -55,7 +57,8 @@ export function ensureShop() {
 // suministros permanentes (cantidad ilimitada)
 export function shopSupplies() {
   const list = ['bandage', 'ai2', 'antirad', 'molotov', 'flare', 'a_9x18', 'a_12', 'a_762x39', 'a_545', 'a_762', 'a_9x39', 'a_40', 'a_127', 'a_rpg', 'a_fuel', 'a_cell'];
-  return list.filter((b) => shopAvailable(b)).map((b) => createItem(b, 0, rng, ITEMS[b].pack || 1));
+  const cases = Object.keys(ITEMS).filter((b) => ITEMS[b].cat === 'case' && shopAvailable(b));
+  return [...list, ...cases].filter((b) => shopAvailable(b)).map((b) => createItem(b, 0, rng, ITEMS[b].pack || 1));
 }
 
 export const stashCap = () => stashSize(S.modules.almacen);
@@ -67,10 +70,13 @@ export function addToStash(it) {
 
 export function buy(it, supply = false) {
   const price = buyPrice(it) * (it.q || 1);
+  const essCost = ITEMS[it.b].essCost || 0;
   if (S.rub < price) return { ok: false, msg: 'Rublos insuficientes.' };
+  if (S.ess < essCost) return { ok: false, msg: `Hacen falta ${essCost} ✦ de esencia.` };
   const copy = supply ? createItem(it.b, 0, rng, it.q) : it;
   if (!addToStash(copy)) return { ok: false, msg: 'El almacén está lleno.' };
   S.rub -= price;
+  S.ess -= essCost;
   if (!supply) S.shop.stock.splice(S.shop.stock.indexOf(it), 1);
   save();
   return { ok: true, price };
@@ -234,6 +240,8 @@ export function finalizeExpedition(exp) {
     } else {
       row.lost = sq.snap ? true : false;
       rep.lostItems += sq.startItems || 0;
+      if (sq.recovered) { row.recovered = sq.recovered; rep.lostItems = Math.max(0, rep.lostItems - 1); }
+      if (sq.essKept) { row.essKept = sq.essKept; rep.essRaw += sq.essKept; }
     }
     rep.agents.push(row);
   }

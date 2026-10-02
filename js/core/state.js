@@ -1,6 +1,6 @@
 // Estado global de la partida + guardado en localStorage
 import { MODULES } from '../data/world.js';
-import { createAgent, starterKit } from './agents.js';
+import { createAgent, starterKit, blankAttrs, rollOffer } from './agents.js';
 import { createItem } from './items.js';
 import { ITEMS } from '../data/items.js';
 import { RNG } from '../util/rng.js';
@@ -111,7 +111,19 @@ export function load(n = lastSlot()) {
 function upgrade(d) {
   if (d.v < 2) { d.flags = d.flags || {}; d.rep = d.rep || {}; d.eventsDone = d.eventsDone || {}; d.v = 2; }
   d.flags = d.flags || {}; d.rep = d.rep || {}; d.eventsDone = d.eventsDone || {}; d.pendingDialogs = d.pendingDialogs || [];
-  for (const a of d.agents || []) a.flags = a.flags || {};
+  for (const a of d.agents || []) upgradeAgent(a);
+}
+// fase 14: atributos, talentos (ofertas retroactivas para los veteranos) y ranura de contenedor
+function upgradeAgent(a) {
+  a.flags = a.flags || {};
+  if (!a.attr) a.attr = blankAttrs();
+  if (a.pts == null) a.pts = 0;
+  if (!a.talents) a.talents = [];
+  if (!a.offers) {
+    a.offers = [];
+    for (let l = 3; l <= a.lvl; l += 3) a.offers.push(rollOffer(a));
+  }
+  if (!('case' in a.equip)) a.equip.case = null;
 }
 
 // Ajustes de compatibilidad con contenido retirado
@@ -124,6 +136,7 @@ function migrate(st) {
     }
     a.bag = a.bag.filter((it) => ITEMS[it.b]);
     for (const k of Object.keys(a.equip)) if (a.equip[k] && !ITEMS[a.equip[k].b]) a.equip[k] = null;
+    if (a.equip.case && a.equip.case.vault) a.equip.case.vault = a.equip.case.vault.filter((x) => ITEMS[x.b]);
   }
   st.stash = st.stash.filter((it) => ITEMS[it.b]);
   if (st.shop) st.shop.stock = st.shop.stock.filter((it) => ITEMS[it.b]);

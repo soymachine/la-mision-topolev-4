@@ -250,7 +250,7 @@ export class CombatPart {
       src.a.kills = (src.a.kills || 0) + 1;
       src.xp += es.xp;
       const ups = giveXp(src.a, es.xp);
-      if (ups) { this.say(`★ ${this.nm(src)} sube a nivel ${src.a.lvl}.`, 'good'); this.fx.push({ type: 'levelup', x: src.x, y: src.y }); }
+      if (ups) { this.say(`★ ${this.nm(src)} sube a nivel ${src.a.lvl}. <span class="dimt">(▲ ascenso pendiente en la base)</span>`, 'good'); this.fx.push({ type: 'levelup', x: src.x, y: src.y }); }
     }
     if (src && src.type) { if (this.isVisible(e.x, e.y)) this.say(`${this.enm(src)} abate a ${this.enm(e)} (Nv ${e.lvl}).`, 'dimt'); }
     else this.say(`${src && src.id ? this.nm(src) + ' elimina' : 'Muere'} ${this.enm(e)} (Nv ${e.lvl}).`, def.boss ? 'warn' : '');
@@ -308,6 +308,18 @@ export class CombatPart {
     this.occ.delete(this.key(sq.x, sq.y));
     this.fx.push({ type: 'death', x: sq.x, y: sq.y, color: a.color });
     this.say(`✝ ${this.nm(sq)} ha muerto (${cause}). Todo su equipo se pierde en las profundidades.`, 'bad');
+    // radiobaliza del contenedor de seguridad: vuelve al almacén con su contenido
+    const c = a.equip.case;
+    if (c) {
+      const cd = ITEMS[c.b];
+      sq.recovered = [itemName(c), ...c.vault.map((x) => itemName(x) + (x.q > 1 ? ' ×' + x.q : ''))];
+      for (const x of c.vault) S.stash.push(x);
+      c.vault = [];
+      S.stash.push(c);
+      a.equip.case = null;
+      if (cd.keepEss && sq.ess > 0) { sq.essKept = Math.floor(sq.ess * cd.keepEss / 100); }
+      this.say(`📡 La radiobaliza de su ${esc(cd.name)} transmite: el contenedor${sq.recovered.length > 1 ? ` y ${sq.recovered.length - 1} objeto(s)` : ''} volverán a la base${sq.essKept ? `, con ${sq.essKept} ✦` : ''}.`, 'cyan');
+    }
     const i = S.agents.indexOf(a);
     if (i >= 0) S.agents.splice(i, 1);
     S.fallen.unshift({ name: agentName(a), lvl: a.lvl, day: S.day, map: this.def.name, cause, kills: a.kills || 0, missions: a.missions || 0 });

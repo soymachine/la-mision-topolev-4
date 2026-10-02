@@ -13,6 +13,7 @@ export function createItem(b, r = 0, g = grng, q) {
   const def = ITEMS[b];
   if (!def) throw new Error('Objeto desconocido ' + b);
   const it = { uid: uid('i'), b, r };
+  if (def.cat === 'case') { it.r = def.rar || 0; it.vault = []; return it; }
   if ((def.stack || 1) > 1) {
     it.q = q != null ? q : def.pack || 1;
     // los consumibles y munición no tienen afijos (su rareza afecta poco)
@@ -196,10 +197,25 @@ export function gadgetEffectLines(it) {
 
 export function itemValue(it, unit = false) {
   const d = ITEMS[it.b];
+  if (d.cat === 'case') return d.value + (it.vault || []).reduce((n, x) => n + itemValue(x), 0);
   let v = d.value * RARITIES[it.r].value * (1 + affSum(it, 'valuePct') / 100);
   if (!unit && it.q) v *= it.q;
   if (it.mods) for (const m of Object.values(it.mods)) if (m) v += itemValue(m);
   return Math.max(1, Math.round(v));
+}
+
+// ---------- Contenedores de seguridad ----------
+export const CASE_HEAVY = ['mg', 'launcher', 'flame'];
+export const caseSize = (it) => (ITEMS[it.b].cat === 'weapon' ? 2 : 1);
+export const caseUsed = (c) => (c.vault || []).reduce((n, x) => n + caseSize(x), 0);
+// ¿cabe `it` en el contenedor `c`? → '' si cabe, o el motivo
+export function caseRefusal(c, it) {
+  const d = ITEMS[it.b], cd = ITEMS[c.b];
+  if (d.cat === 'case') return 'un contenedor no cabe en otro';
+  if (d.cat === 'weapon' && CASE_HEAVY.includes(d.wtype)) return 'las armas pesadas no caben';
+  if ((d.stack || 1) > 1 && !cd.stacks) return 'este contenedor no admite munición ni consumibles';
+  if (caseUsed(c) + caseSize(it) > cd.caseSlots) return 'no queda sitio en el contenedor';
+  return '';
 }
 
 // ---------- Botín aleatorio ----------
@@ -291,6 +307,15 @@ export function itemTooltip(it, compare = null, extra = '') {
       h += row(lab[k], k === 'gasImmune' ? 'sí' : `${s[k] > 0 && k !== 'prot' ? '+' : ''}${s[k]}${suf}${cmp(s[k], cs ? cs[k] || 0 : null)}`);
     }
     if (d.cat === 'gadget') for (const ln of gadgetEffectLines(it)) h += `<div class="tt-aff" style="color:var(--cyan)">◈ ${ln}</div>`;
+  }
+  if (d.cat === 'case') {
+    const v = it.vault || [];
+    h += row('Huecos', `${caseUsed(it)}/${d.caseSlots} <span class="dimt">(armas: 2)</span>`);
+    h += row('Pilas', d.stacks ? 'munición y consumibles' : '<span class="dimt">no admite</span>');
+    if (d.keepEss) h += row('Esencia', `conserva el ${d.keepEss}% si el agente muere`);
+    h += `<div class="tt-sep">${'─'.repeat(60)}</div>`;
+    h += v.length ? v.map((x) => `<div><span class="dimt">[▣]</span> <span style="color:${rarityColor(x.r)}">${esc(itemName(x))}${x.q > 1 ? ' ×' + x.q : ''}</span></div>`).join('') : '<div class="dimt">— vacío —</div>';
+    h += '<div class="dimt" style="margin-top:.3em">Guardar dentro cuesta 1 turno. Queda <b>sellado</b> hasta volver a la base. Si el agente muere, la radiobaliza devuelve el contenedor y su contenido al almacén. Sin armas pesadas.</div>';
   }
   if (d.essenceValue) h += row('Esencia', `${d.essenceValue} ✦`);
   if (it.aff && it.aff.length) {

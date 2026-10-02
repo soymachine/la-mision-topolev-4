@@ -12,6 +12,7 @@ export const CAT_INFO = {
   helmet: { name: 'Casco', glyph: '^' },
   gadget: { name: 'Gadget', glyph: '¤' },
   backpack: { name: 'Mochila', glyph: '(' },
+  case: { name: 'Contenedor', glyph: '▣' },
   consumable: { name: 'Consumible', glyph: '!' },
   valuable: { name: 'Botín', glyph: '$' },
 };
@@ -97,6 +98,12 @@ export const ITEMS = {
   rd54: { cat: 'backpack', name: 'Mochila RD-54', glyph: '(', tier: 1, slots: 5, value: 120, desc: '+5 huecos de mochila.' },
   taiga: { cat: 'backpack', name: 'Mochila «Taiga»', glyph: '(', tier: 3, slots: 8, value: 400, desc: '+8 huecos de mochila.' },
   hide: { cat: 'backpack', name: 'Bolsa de piel chebylita', glyph: '(', tier: 5, slots: 11, value: 1100, desc: '+11 huecos de mochila. Huele fatal.' },
+
+  // ---------- CONTENEDORES DE SEGURIDAD ---------- (ranura CONTENEDOR; su contenido sobrevive a la muerte del agente)
+  // tier = nivel de Almacén necesario · caseSlots: huecos (armas ocupan 2) · stacks: admite munición y consumibles
+  kgbcase: { cat: 'case', name: 'Maletín de plomo del KGB', glyph: '▣', tier: 2, rar: 2, caseSlots: 2, stacks: false, value: 2500, price: 2500, desc: 'Forrado de plomo y con radiobaliza. Lo que guardes dentro vuelve a la base aunque tú no vuelvas.' },
+  kolyma: { cat: 'case', name: 'Contenedor de titanio «Kolyma»', glyph: '▣', tier: 3, rar: 3, caseSlots: 3, stacks: true, value: 6000, price: 6000, desc: 'Titanio de los astilleros del Ártico. Admite pilas de munición y consumibles.' },
+  matrioska: { cat: 'case', name: 'Cápsula de esencia «Matrioska»', glyph: '▣', tier: 5, rar: 4, caseSlots: 4, stacks: true, keepEss: 25, value: 12000, price: 12000, essCost: 400, desc: 'Cápsulas dentro de cápsulas. Si su portador cae, también conserva una cuarta parte de su esencia.' },
 
   // ---------- CONSUMIBLES ----------
   // curación

@@ -8,7 +8,7 @@ import { ENEMIES, scaleEnemy, enemyColor } from '../data/enemies.js';
 import { ITEMS } from '../data/items.js';
 import { computeFOV, hasLOS } from './fov.js';
 import { astar, dijkstra } from './path.js';
-import { itemStats, itemName, createItem, rollLoot, mergeInto, rarityColor, gadgetExtras } from '../core/items.js';
+import { itemStats, itemName, createItem, rollLoot, mergeInto, rarityColor, gadgetExtras, caseRefusal, caseUsed } from '../core/items.js';
 import { agentStats, agentName, giveXp, bagCapacity } from '../core/agents.js';
 import { S, seeEnemy, killEnemy as bestiaryKill } from '../core/state.js';
 import { esc } from '../util/dom.js';
@@ -98,6 +98,7 @@ export class UsePart {
   cleanFloor() { for (const [k, v] of this.floorItems) if (!v.length) this.floorItems.delete(k); this.dirty = true; }
   dropItem(sq, it) {
     const a = sq.a;
+    if (it === a.equip.case) { if (sq === this.cur) this.say('El contenedor va sellado a tu equipo hasta volver a la base.', 'dimt'); return false; }
     let i = a.bag.indexOf(it);
     if (i >= 0) a.bag.splice(i, 1);
     else {
@@ -280,8 +281,26 @@ export class UsePart {
     return true;
   }
 
+  // guardar un objeto en el contenedor de seguridad (1 turno; queda sellado hasta la base)
+  stowItem(sq, it) {
+    const a = sq.a, c = a.equip.case;
+    if (!c) { this.say('No llevas contenedor de seguridad.', 'dimt'); return false; }
+    const why = caseRefusal(c, it);
+    if (why) { this.say(`No cabe: ${why}.`, 'bad'); return false; }
+    const bi = a.bag.indexOf(it);
+    const slot = bi < 0 ? Object.keys(a.equip).find((s) => a.equip[s] === it) : null;
+    if (bi >= 0) a.bag.splice(bi, 1);
+    else if (slot && slot !== 'case') a.equip[slot] = null;
+    else return false;
+    c.vault.push(it);
+    this.say(`${this.nm(sq)} guarda <span style="color:${rarityColor(it.r)}">${esc(itemName(it))}</span> en el contenedor y lo sella <span class="dimt">[▣ ${caseUsed(c)}/${ITEMS[c.b].caseSlots}]</span>.`, 'o1');
+    this.fx.push({ type: 'pickup', x: sq.x, y: sq.y, color: '#ffd23f' });
+    return true;
+  }
+
   equipItem(sq, it, slot) {
     const a = sq.a;
+    if (slot === 'case' || it === a.equip.case) { this.say('El contenedor solo se cambia en la base.', 'dimt'); return false; }
     const bi = a.bag.indexOf(it);
     const prev = a.equip[slot];
     const fromSlot = Object.keys(a.equip).find((s) => a.equip[s] === it);
