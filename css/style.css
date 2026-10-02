@@ -109,7 +109,7 @@ body.no-crt #crt { display: none; }
 
 /* ---------- Tooltip ---------- */
 .tooltip {
-  position: fixed; z-index: 1000; pointer-events: none; max-width: 46ch; min-width: 22ch;
+  position: fixed; z-index: 1000; pointer-events: none; max-width: 62ch; min-width: 22ch;
   background: rgba(0,0,0,.94); color: var(--txt); padding: var(--lh) 2ch;
   white-space: normal; transition: opacity .08s;
 }
@@ -121,6 +121,7 @@ body.no-crt #crt { display: none; }
 .tt-sep { color: var(--o5); overflow: hidden; white-space: nowrap; }
 .tt-aff { color: var(--good); }
 .tt-lore { color: var(--dim); font-style: italic; }
+.tt-art { font-size: 11.5px; line-height: 1.1; margin: 4px 0; opacity: .85; white-space: pre; overflow: hidden; text-shadow: 0 0 6px currentColor; }
 .tt-better { color: var(--good); }
 .tt-worse { color: var(--bad); }
 
@@ -169,6 +170,10 @@ body.no-crt #crt { display: none; }
 .slot .sl { color: var(--o4); width: 10ch; flex: none; white-space: nowrap; }
 .slot .sv { flex: 1; min-width: 0; }
 .slot .empty { color: var(--o5); padding: 0 1ch; }
+.modline { display: flex; flex-wrap: wrap; gap: 2px 1ch; padding: 0 0 4px 10ch; font-size: 12px; }
+.modslot { border: 1px dashed var(--o5); padding: 0 .6ch; white-space: nowrap; transition: background .1s; }
+.modslot.full { border-style: solid; border-color: var(--o4); cursor: grab; }
+.modslot:hover { background: var(--o6); }
 .drop-ok { background: rgba(255,138,31,.12) !important; outline: 1px dashed var(--o3); }
 .drop-hover { background: rgba(255,138,31,.28) !important; outline: 1px solid var(--o1); }
 .drag-ghost {

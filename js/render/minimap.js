@@ -131,7 +131,8 @@ export class Minimap {
     // enemigos visibles y errantes detectados por el radar
     for (const en of e.enemies) {
       const vis = e.visible[en.y * e.w + en.x] > 0;
-      if (!vis && !(opts.radar >= 3 && en.state === 'errante')) continue;
+      const sensed = e.sense > 0 && e.team.some((q) => Math.hypot(q.x - en.x, q.y - en.y) <= e.senseR);
+      if (!vis && !sensed && !(opts.radar >= 3 && en.state === 'errante')) continue;
       const [x, y] = P(en.x, en.y);
       ctx.fillStyle = enemyColor(ENEMIES[en.type].hue, en.lvl);
       ctx.globalAlpha = vis ? 1 : 0.45 + 0.2 * Math.sin(T_ * 4);

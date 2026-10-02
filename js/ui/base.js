@@ -5,7 +5,8 @@ import { ITEMS, CAT_INFO } from '../data/items.js';
 import { MAPS, MODULES, MODULE_MAX, moduleCost, TRAITS } from '../data/world.js';
 import { ENEMIES, enemyColor, ABIL_TEXT } from '../data/enemies.js';
 import { RARITIES, rarityWeights } from '../data/rarity.js';
-import { itemHTML, itemTooltip, itemName, itemStats, sortItems, mergeInto, rarityColor, itemValue, forgeCost, infuse, FORGE_CATS } from '../core/items.js';
+import { itemHTML, itemTooltip, itemName, itemStats, sortItems, mergeInto, rarityColor, itemValue, forgeCost, infuse, FORGE_CATS, slotsOf, modFits, installMod, removeMod, WTYPE_NAMES } from '../core/items.js';
+import { MOD_SLOTS } from '../data/mods.js';
 import { agentStats, agentName, EQUIP_SLOTS, canEquip, bagCapacity, traitOf, xpForLevel } from '../core/agents.js';
 import * as C from '../core/campaign.js';
 import { sfx } from '../audio.js';
@@ -209,6 +210,24 @@ export class BaseUI {
       const row = el('div', { class: 'slot' }, el('span', { class: 'sl', text: s.label }), val);
       dropzone(row, { accepts: (d) => d && d.it && canEquip(d.it, s.id) && !(d.src === 'equip' && d.slot === s.id && d.a === a), onDrop: (d) => this.moveItem(d, { dst: 'equip', a, slot: s.id }) });
       B.append(row);
+      // ranuras de mods del arma
+      if (it && ITEMS[it.b].cat === 'weapon') {
+        const slots = slotsOf(it);
+        const line = el('div', { class: 'modline' });
+        if (!slots.length) line.append(el('span', { class: 'dimt', text: ITEMS[it.b].wtype === 'melee' ? '' : 'sin ranuras de mod' }));
+        for (const sl of slots) {
+          const mo = it.mods && it.mods[sl];
+          const chip = el('span', { class: 'modslot' + (mo ? ' full' : ''), html: `${MOD_SLOTS[sl].glyph} ${mo ? `<span style="color:${rarityColor(mo.r)}">${esc(itemName(mo))}</span>` : `<span class="dimt">${MOD_SLOTS[sl].name}</span>`}` });
+          if (mo) {
+            tip(chip, () => itemTooltip(mo, null, '<div class="dimt">Arrastra al almacén o a la mochila para desmontarlo.</div>'));
+            draggable(chip, { data: () => ({ src: 'mod', a, wslot: s.id, slot: sl, it: mo }), ghost: () => itemHTML(mo) });
+            chip.addEventListener('dblclick', () => this.moveItem({ src: 'mod', a, wslot: s.id, slot: sl, it: mo }, { dst: 'stash' }));
+          } else tip(chip, () => `<div class="tt-title">${MOD_SLOTS[sl].glyph} ${MOD_SLOTS[sl].name}</div><div class="dimt">Ranura libre. Arrastra aquí un mod compatible con ${esc(WTYPE_NAMES[ITEMS[it.b].wtype])}.</div>`);
+          dropzone(chip, { accepts: (d) => d && d.it && modFits(d.it, it, sl) && d.it !== mo, onDrop: (d) => this.moveItem(d, { dst: 'mod', a, wslot: s.id, slot: sl }) });
+          line.append(chip);
+        }
+        B.append(line);
+      }
     }
     B.append(el('div', { class: 'sep', text: '─'.repeat(80) }), el('div', { class: 'h', text: `MOCHILA ${a.bag.length}/${bagCapacity(a)}` }));
     const bag = el('div', { style: { minHeight: '6em' } });
@@ -235,7 +254,7 @@ export class BaseUI {
   }
 
   stashView(B, mode) {
-    const cats = [['all', 'TODO'], ['weapon', 'ARMAS'], ['armor', 'PROT.'], ['gadget', 'GADGETS'], ['consumable', 'CONSUM.'], ['ammo', 'MUNIC.'], ['valuable', 'BOTÍN']];
+    const cats = [['all', 'TODO'], ['weapon', 'ARMAS'], ['mod', 'MODS'], ['armor', 'PROT.'], ['gadget', 'GADGETS'], ['consumable', 'CONSUM.'], ['ammo', 'MUNIC.'], ['valuable', 'BOTÍN']];
     const f = el('div', { class: 'filters' });
     for (const [id, lb] of cats) {
       const b = el('span', { class: 'filter' + (this.stashFilter === id ? ' active' : ''), text: lb });
@@ -262,7 +281,15 @@ export class BaseUI {
         r.addEventListener('dblclick', (ev) => this.doSell(it, ev));
         r.addEventListener('contextmenu', (ev) => { ev.preventDefault(); if (ITEMS[it.b].essenceValue) this.doConvert(it, ev); });
       } else {
-        r.addEventListener('dblclick', () => { if (!a) return; const slot = this.autoSlot(a, it); this.moveItem({ src: 'stash', it }, slot ? { dst: 'equip', a, slot } : { dst: 'bag', a }); });
+        r.addEventListener('dblclick', () => {
+          if (!a) return;
+          if (ITEMS[it.b].cat === 'mod') {
+            const ws = ['w1', 'w2'].find((k) => a.equip[k] && modFits(it, a.equip[k]));
+            if (ws) this.moveItem({ src: 'stash', it }, { dst: 'mod', a, wslot: ws, slot: ITEMS[it.b].slot });
+            else { sfx.error(); toast('Ninguna arma del agente admite este mod.', 'bad'); }
+            return;
+          }
+          const slot = this.autoSlot(a, it); this.moveItem({ src: 'stash', it }, slot ? { dst: 'equip', a, slot } : { dst: 'bag', a }); });
       }
       list.append(r);
     }
@@ -289,11 +316,13 @@ export class BaseUI {
       if (from.src === 'stash') S.stash.splice(S.stash.indexOf(it), 1);
       else if (from.src === 'bag') from.a.bag.splice(from.a.bag.indexOf(it), 1);
       else if (from.src === 'equip') from.a.equip[from.slot] = null;
+      else if (from.src === 'mod') removeMod(from.a.equip[from.wslot], from.slot);
     };
     const reattach = () => {
       if (from.src === 'stash') S.stash.push(it);
       else if (from.src === 'bag') from.a.bag.push(it);
       else if (from.src === 'equip') from.a.equip[from.slot] = it;
+      else if (from.src === 'mod') installMod(from.a.equip[from.wslot], it);
     };
     detach();
     let ok = true, msg = '';
@@ -302,6 +331,15 @@ export class BaseUI {
     } else if (to.dst === 'bag') {
       const rest = mergeInto(to.a.bag, it, bagCapacity(to.a));
       if (rest) { ok = false; msg = 'La mochila está llena.'; }
+    } else if (to.dst === 'mod') {
+      const w = to.a.equip[to.wslot];
+      const prev = installMod(w, it);
+      if (prev) {
+        if (from.src === 'mod' && modFits(prev, from.a.equip[from.wslot], from.slot)) installMod(from.a.equip[from.wslot], prev);
+        else if (from.src === 'bag') from.a.bag.push(prev);
+        else if (!C.addToStash(prev)) { installMod(w, prev); ok = false; msg = 'El almacén está lleno.'; }
+      }
+      if (ok) toast(`Montado: ${esc(itemName(it))}`, 'good');
     } else if (to.dst === 'equip') {
       const prev = to.a.equip[to.slot];
       to.a.equip[to.slot] = it;

@@ -7,7 +7,7 @@ import { ITEMS } from '../data/items.js';
 import { generateMap } from './mapgen.js';
 import { computeFOV, hasLOS } from './fov.js';
 import { astar, dijkstra } from './path.js';
-import { itemStats, itemName, createItem, rollLoot, mergeInto, rarityColor } from '../core/items.js';
+import { itemStats, itemName, createItem, rollLoot, mergeInto, rarityColor, gadgetExtras } from '../core/items.js';
 import { agentStats, agentName, giveXp, bagCapacity } from '../core/agents.js';
 import { S, seeEnemy, killEnemy as bestiaryKill } from '../core/state.js';
 import { esc } from '../util/dom.js';
@@ -46,7 +46,8 @@ export class Expedition {
     e.floorItems = new Map();
     for (const f of m.floor) e.addFloor(f.x, f.y, f.item);
     e.essence = new Map();
-    e.gas = new Uint8Array(e.w * e.h); e.fire = new Uint8Array(e.w * e.h);
+    e.gas = new Uint8Array(e.w * e.h); e.fire = new Uint8Array(e.w * e.h); e.smoke = new Uint8Array(e.w * e.h);
+    e.traps = []; e.sense = 0; e.senseR = 0;
     e.explored = new Uint8Array(e.w * e.h);
     e.turn = 1;
     e.log = [];
@@ -63,7 +64,7 @@ export class Expedition {
     const startCells = [[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]];
     agents.forEach((a, i) => {
       const [dx, dy] = startCells[i];
-      e.squad.push({ id: a.id, a, x: e.start[0] + dx, y: e.start[1] + dy, alive: true, out: false, ess: 0, order: 'seguir', poison: 0, burn: 0, stim: 0, regenT: 0, cur: a.equip.w1 ? 'w1' : 'w2', kills: 0, xp: 0, lvl0: a.lvl, startItems: countItems(a) });
+      e.squad.push({ id: a.id, a, x: e.start[0] + dx, y: e.start[1] + dy, alive: true, out: false, ess: 0, order: 'seguir', poison: 0, burn: 0, buffs: [], lastMove: -9, autoUsed: false, regenT: 0, cur: a.equip.w1 ? 'w1' : 'w2', kills: 0, xp: 0, lvl0: a.lvl, startItems: countItems(a) });
     });
     e.active = 0;
     // enemigos
@@ -89,6 +90,9 @@ export class Expedition {
     e.anomaly = new Uint8Array(N); for (const k of d.anomaly) e.anomaly[k] = 1;
     e.gas = new Uint8Array(N); for (const [k, v] of d.gas) e.gas[k] = v;
     e.fire = new Uint8Array(N); for (const [k, v] of d.fire) e.fire[k] = v;
+    e.smoke = new Uint8Array(N); for (const [k, v] of d.smoke || []) e.smoke[k] = v;
+    e.traps = d.traps || []; e.sense = d.sense || 0; e.senseR = d.senseR || 0;
+    for (const sq of e.squad) { sq.buffs = sq.buffs || []; if (sq.lastMove == null) sq.lastMove = -9; }
     e.floorItems = new Map(d.floorItems);
     e.essence = new Map(d.essence);
     for (const sq of e.squad) sq.a = S.agents.find((a) => a.id === sq.id) || sq.snap || null;
@@ -103,7 +107,8 @@ export class Expedition {
     return {
       mapIdx: this.mapIdx, seed: this.seed, w: this.w, h: this.h, t: b64(this.t), sec: b64(this.sec), explored: b64(this.explored),
       sectors: this.sectors, exits: this.exits, pois: this.pois, objects: this.objects, vents: this.vents, start: this.start,
-      rad: sparse(this.rad, 100), anomaly: an, gas: sparse(this.gas), fire: sparse(this.fire),
+      rad: sparse(this.rad, 100), anomaly: an, gas: sparse(this.gas), fire: sparse(this.fire), smoke: sparse(this.smoke),
+      traps: this.traps, sense: this.sense, senseR: this.senseR,
       floorItems: [...this.floorItems.entries()], essence: [...this.essence.entries()],
       turn: this.turn, log: this.log.slice(-60), evac: this.evac, pending: this.pending, flares: this.flares, tally: this.tally,
       surgeAt: this.surgeAt, nextTemp: this.nextTemp, nextRadio: this.nextRadio, active: this.active,
@@ -136,7 +141,11 @@ export class Expedition {
   key(x, y) { return y * this.w + x; }
   inb(x, y) { return x >= 0 && y >= 0 && x < this.w && y < this.h; }
   tile(x, y) { return this.t[this.key(x, y)]; }
-  opaque(x, y) { return !this.inb(x, y) || TILES[this.t[this.key(x, y)]].opaque === 1; }
+  opaque(x, y) {
+    if (!this.inb(x, y)) return true;
+    const k = this.key(x, y);
+    return TILES[this.t[k]].opaque === 1 || this.smoke[k] > 0;
+  }
   walkTile(x, y) { return this.inb(x, y) && TILES[this.t[this.key(x, y)]].walk === 1; }
   blockedObj(x, y) { const o = this.objMap.get(this.key(x, y)); return o && BLOCKING_OBJ[o.kind] ? o : null; }
   passable(x, y) { return this.walkTile(x, y) && !this.blockedObj(x, y); }
@@ -168,7 +177,50 @@ export class Expedition {
   }
   floorAt(x, y) { return this.floorItems.get(this.key(x, y)) || []; }
   objAt(x, y) { return this.objMap.get(this.key(x, y)); }
-  ast(sq) { return agentStats(sq.a); }
+  // estadísticas del agente en la expedición: estáticas + efectos temporales + sinergias de gadgets
+  ast(sq) {
+    const st = agentStats(sq.a);
+    if (!sq.alive || sq.out || !this.squad) return st;
+    const add = (mods) => { for (const [k, v] of Object.entries(mods || {})) st[k] = (st[k] || 0) + v; };
+    for (const b of sq.buffs || []) add(b.mods);
+    const team = this.team;
+    for (const g of this.gadgets(sq)) {
+      const x = gadgetExtras(g);
+      if (x.cond && this.condTrue(sq, x.cond.when, st)) add(x.cond.mods);
+      if (x.team && team.filter((o) => this.gadgets(o).some((h) => h.b === g.b)).length >= x.team.min) add(x.team.mods);
+    }
+    for (const o of team) for (const g of this.gadgets(o)) {
+      const d = ITEMS[g.b];
+      if (d.aura && cheb(o.x, o.y, sq.x, sq.y) <= d.aura.r) add(gadgetExtras(g).aura.mods);
+    }
+    st.rad = Math.min(90, st.rad);
+    st.vision = Math.min(16, st.vision);
+    return st;
+  }
+  gadgets(sq) { const a = sq.a; return a && a.equip ? [a.equip.g1, a.equip.g2].filter((g) => g && ITEMS[g.b].cat === 'gadget') : []; }
+  flag(sq, f) {
+    let v = 0;
+    for (const g of this.gadgets(sq)) { const fl = gadgetExtras(g).flags; if (fl && fl[f]) v = Math.max(v, fl[f]); }
+    for (const b of sq.buffs || []) if (b.flags && b.flags[f]) v = Math.max(v, b.flags[f]);
+    return v;
+  }
+  condTrue(sq, when, st) {
+    const others = this.team.filter((o) => o !== sq);
+    if (when === 'near') return others.some((o) => cheb(o.x, o.y, sq.x, sq.y) <= 3);
+    if (when === 'alone') return !others.some((o) => cheb(o.x, o.y, sq.x, sq.y) <= 6);
+    if (when === 'still') return (sq.lastMove ?? -9) < this.turn - 1;
+    if (when === 'hurt') return sq.a.hp < st.hpMaxEff * 0.5;
+    if (when === 'lowhp') return sq.a.hp < st.hpMaxEff * 0.3;
+    return false;
+  }
+  addBuff(sq, b) {
+    sq.buffs = (sq.buffs || []).filter((x) => x.name !== b.name);
+    sq.buffs.push({ name: b.name, turns: b.turns, mods: b.mods || null, flags: b.flags || null, after: b.after || null });
+  }
+  addPoison(sq, n) {
+    if (this.flag(sq, 'poisonImmune')) return;
+    sq.poison = Math.min(12, (sq.poison || 0) + n);
+  }
   weapon(sq) { return sq.a.equip[sq.cur] || null; }
   weaponStats(sq) { const w = this.weapon(sq); return w ? itemStats(w) : FISTS; }
 
@@ -244,6 +296,7 @@ export class Expedition {
       this.occ.delete(this.key(sq.x, sq.y)); this.occ.delete(this.key(ent.x, ent.y));
       [sq.x, ent.x] = [ent.x, sq.x]; [sq.y, ent.y] = [ent.y, sq.y];
       this.occ.set(this.key(sq.x, sq.y), sq); this.occ.set(this.key(ent.x, ent.y), ent);
+      sq.lastMove = ent.lastMove = this.turn;
       return true;
     }
     const obj = this.blockedObj(nx, ny);
@@ -264,18 +317,12 @@ export class Expedition {
     ent.px = ent.x; ent.py = ent.y;
     ent.x = nx; ent.y = ny;
     this.occ.set(this.key(nx, ny), ent);
+    if (ent.id && !ent.type) ent.lastMove = this.turn;
   }
 
   onAgentEnter(sq) {
     const k = this.key(sq.x, sq.y);
-    const ess = this.essence.get(k);
-    if (ess) {
-      const gain = Math.max(1, Math.round(ess * (1 + this.ast(sq).essence / 100)));
-      sq.ess += gain; this.tally.essence += gain;
-      this.essence.delete(k);
-      this.fx.push({ type: 'essence', x: sq.x, y: sq.y, n: gain });
-      this.say(`${this.nm(sq)} recoge <span class="cyan">${gain} ✦ esencia</span>.`);
-    }
+    this.pickupEssence(sq, k);
     const items = this.floorItems.get(k);
     if (items && items.length && sq === this.cur) {
       this.say(`En el suelo: ${items.map((it) => `<span style="color:${rarityColor(it.r)}">${esc(itemName(it))}${it.q > 1 ? ' ×' + it.q : ''}</span>`).join(', ')}. <b>G</b> para recoger.`);
@@ -286,6 +333,22 @@ export class Expedition {
     if (this.exitAt(sq.x, sq.y) && sq === this.cur && !this.evac) this.say('Estás en un punto de extracción. Pulsa <b>F</b> para solicitar evacuación.', 'cyan');
   }
 
+  pickupEssence(sq, k) {
+    const ess = this.essence.get(k);
+    if (!ess) return;
+    const gain = Math.max(1, Math.round(ess * (1 + this.ast(sq).essence / 100)));
+    sq.ess += gain; this.tally.essence += gain;
+    this.essence.delete(k);
+    this.fx.push({ type: 'essence', x: k % this.w, y: (k / this.w) | 0, n: gain });
+    this.say(`${this.nm(sq)} recoge <span class="cyan">${gain} ✦ esencia</span>.`);
+    const eh = this.flag(sq, 'essHeal');
+    if (eh && gain >= eh) {
+      const st = this.ast(sq);
+      sq.a.hp = Math.min(st.hpMaxEff, sq.a.hp + Math.floor(gain / eh));
+      this.fx.push({ type: 'heal', x: sq.x, y: sq.y, color: ESSENCE_COLOR });
+    }
+  }
+
   nm(sq) { return `<span style="color:${sq.a.color}">${esc(sq.a.nick)}</span>`; }
 
   // ---------------------------------------------------------------- combate
@@ -293,10 +356,13 @@ export class Expedition {
     const st = this.ast(sq);
     const es = this.est(e);
     const d = Math.hypot(e.x - sq.x, e.y - sq.y);
-    let h = ws.acc + st.acc * 2 + (sq.stim > 0 ? 10 : 0) - es.ev;
+    let h = ws.acc + st.acc * 2 - es.ev;
+    if (e.stun > 0) h += 15;
     if (ws.wtype !== 'melee') {
-      if (d > ws.range) h -= (d - ws.range) * 7;
-      if (ws.wtype === 'sniper' && d < 2) h -= 20;
+      const rg = ws.range + (st.range || 0);
+      if (d > rg) h -= (d - rg) * 7;
+      if (ws.scope && d < 2) h -= 20;
+      if (ws.stillAcc && this.condTrue(sq, 'still', st)) h += ws.stillAcc;
     }
     return clamp(Math.round(h), 5, 97);
   }
@@ -306,7 +372,7 @@ export class Expedition {
     if (ws.wtype === 'melee') return cheb(sq.x, sq.y, e.x, e.y) <= 1 ? 'ok' : 'melee';
     const w = this.weapon(sq);
     if (!w || w.ld <= 0) return cheb(sq.x, sq.y, e.x, e.y) <= 1 ? 'ok' : 'empty';
-    if (d > ws.range * 2 + 0.5) return 'range';
+    if (d > (ws.range + (this.ast(sq).range || 0)) * 2 + 0.5) return 'range';
     if (!this.los(sq.x, sq.y, e.x, e.y, true) && !this.fovSees(sq.x, sq.y, e.x, e.y)) return 'los';
     return 'ok';
   }
@@ -322,13 +388,15 @@ export class Expedition {
     }
     const w = this.weapon(sq);
     let ws = this.weaponStats(sq);
-    // sin munición a quemarropa: culatazo
-    if (ws.wtype !== 'melee' && (!w || w.ld <= 0)) ws = { ...FISTS, dmg: [2, 4] };
+    const real = ws;
+    // sin munición a quemarropa: culatazo (o bayoneta)
+    if (ws.wtype !== 'melee' && (!w || w.ld <= 0)) ws = { ...FISTS, dmg: real.bayonet ? [5, 9] : [2, 4] };
     const st = this.ast(sq);
     this.flash(sq);
     if (ws.wtype === 'flame') return this.flameAttack(sq, e, w, ws, st);
+    if (ws.wtype === 'launcher') return this.launcherAttack(sq, e, w, ws, st);
     if (ws.wtype === 'melee') {
-      this.resolveHit(sq, e, ws, st, true);
+      for (let i = 0; i < (ws.burst || 1); i++) { if (e.hp <= 0) break; this.resolveHit(sq, e, ws, st, true, i); }
       this.noise(sq.x, sq.y, ws.noise);
       return true;
     }
@@ -339,8 +407,29 @@ export class Expedition {
       if (ws.pierce >= 99) { this.pierceShot(sq, e, ws, st, i); continue; }
       this.resolveHit(sq, e, ws, st, false, i);
     }
+    // bayoneta acoplada: puñalada extra a quemarropa
+    if (ws.bayonet && e.hp > 0 && cheb(sq.x, sq.y, e.x, e.y) <= 1) {
+      const dmg = Math.max(1, Math.round(rng.int(4, 8) * (1 + (st.dmgPct || 0) / 100)) - this.est(e).armor);
+      this.fx.push({ type: 'slash', x0: sq.x, y0: sq.y, x1: e.x, y1: e.y, delay: 160 });
+      this.damageEnemy(e, dmg, sq, false, 200);
+    }
     this.noise(sq.x, sq.y, ws.noise);
     if (w.ld === 0 && sq === this.cur) this.say('Cargador vacío.', 'warn');
+    return true;
+  }
+
+  launcherAttack(sq, e, w, ws, st) {
+    w.ld--;
+    let tx = e.x, ty = e.y;
+    if (rng.int(1, 100) > this.hitChance(sq, e, ws)) {
+      const opts = D8.map(([dx, dy]) => [e.x + dx * rng.int(1, 2), e.y + dy * rng.int(1, 2)]).filter(([x, y]) => this.walkTile(x, y));
+      if (opts.length) [tx, ty] = rng.pick(opts);
+      if (sq === this.cur) this.say('El proyectil se desvía.', 'dimt');
+    }
+    this.fx.push({ type: 'throw', x0: sq.x, y0: sq.y, x1: tx, y1: ty, glyph: '*' });
+    const k = 1 + (st.dmgPct || 0) / 100;
+    this.explode(tx, ty, ws.blast, [Math.round(ws.dmg[0] * k), Math.round(ws.dmg[1] * k)], sq, ws.fire ? 2 : 0, 220, { pierce: ws.pierce });
+    this.noise(sq.x, sq.y, ws.noise);
     return true;
   }
 
@@ -349,7 +438,7 @@ export class Expedition {
   rollDmg(ws, st, sq, e, melee, d) {
     let dmg = rng.int(ws.dmg[0], ws.dmg[1]);
     if (melee) dmg *= 1 + (st.meleePct || 0) / 100;
-    if (sq.stim > 0) dmg *= 1.3;
+    dmg *= 1 + (st.dmgPct || 0) / 100;
     if (ws.wtype === 'shotgun' && d > ws.range) dmg *= Math.max(0.35, 1 - 0.18 * (d - ws.range));
     const crit = rng.chance((ws.crit + (st.crit || 0)) / 100);
     if (crit) dmg *= 1.8;
@@ -457,6 +546,7 @@ export class Expedition {
     // esencia
     let ess = rng.int(es.ess[0], es.ess[1]);
     if (e.spawned) ess = Math.ceil(ess * 0.3);
+    if (this._essBoost) ess = Math.round(ess * (1 + this._essBoost / 100));
     const k = this.key(e.x, e.y);
     this.essence.set(k, (this.essence.get(k) || 0) + ess);
     // botín
@@ -469,6 +559,12 @@ export class Expedition {
     this.tally.kills++;
     S.stats.kills++;
     bestiaryKill(e.type);
+    if (src && src.id && this.inMap(src)) {
+      const kh = this.flag(src, 'killHeal');
+      if (kh) { const st = this.ast(src); src.a.hp = Math.min(st.hpMaxEff, src.a.hp + kh); this.fx.push({ type: 'heal', x: src.x, y: src.y }); }
+      const kf = this.flag(src, 'killFrenzy');
+      if (kf) this.addBuff(src, { name: 'Frenesí', turns: 3, mods: { dmgPct: kf } });
+    }
     if (src && src.id) {
       src.kills++;
       src.a.kills = (src.a.kills || 0) + 1;
@@ -508,6 +604,16 @@ export class Expedition {
     this.fx.push({ type: 'dmg', x: sq.x, y: sq.y, n: dmg, delay, color: '#ff3b30', agent: true });
     this.fx.push({ type: 'hurt', x: sq.x, y: sq.y, delay });
     this.interrupt = true;
+    if (sq.a.hp > 0 && !sq.autoUsed) {
+      const ai = this.flag(sq, 'autoInject');
+      const st = this.ast(sq);
+      if (ai && sq.a.hp < st.hpMaxEff * 0.25) {
+        sq.autoUsed = true;
+        sq.a.hp = Math.min(st.hpMaxEff, sq.a.hp + ai);
+        this.say(`💉 El autoinyector de ${this.nm(sq)} se dispara (+${ai} salud).`, 'good');
+        this.fx.push({ type: 'heal', x: sq.x, y: sq.y });
+      }
+    }
     if (sq.a.hp <= 0) this.agentDies(sq, cause);
   }
 
@@ -684,8 +790,9 @@ export class Expedition {
     if (!got) { if (!silent) this.say(`Sin munición de ${ITEMS[ws.ammo].name.replace('Munición ', '')} en la mochila.`, 'bad'); return false; }
     w.ld += got;
     this.fx.push({ type: 'reload', x: sq.x, y: sq.y });
-    if (!silent || sq === this.cur) this.say(`${this.nm(sq)} recarga (${w.ld}/${ws.mag}).`, 'dimt');
-    return true;
+    const quick = this.flag(sq, 'quickReload');
+    if (!silent || sq === this.cur) this.say(`${this.nm(sq)} recarga (${w.ld}/${ws.mag})${quick ? ' al instante' : ''}.`, 'dimt');
+    return !quick;
   }
   ammoFor(sq, w = this.weapon(sq)) {
     if (!w) return 0;
@@ -709,26 +816,66 @@ export class Expedition {
     if (d.cat !== 'consumable') return false;
     const a = sq.a;
     const st = this.ast(sq);
-    if (d.use === 'heal') {
-      const heal = d.heal >= 999 ? 999 : Math.round(d.heal * (1 + st.healPct / 100));
-      const before = a.hp;
-      a.hp = Math.min(st.hpMaxEff, a.hp + heal);
-      if (d.cure) sq.poison = 0;
-      if (d.radHeal) a.rad = Math.max(0, a.rad - d.radHeal);
-      this.say(`${this.nm(sq)} usa ${d.name} (+${a.hp - before} salud).`, 'good');
-      this.fx.push({ type: 'heal', x: sq.x, y: sq.y });
-    } else if (d.use === 'antirad') {
-      a.rad = Math.max(0, a.rad - d.radHeal);
-      this.say(`${this.nm(sq)} toma ${d.name} (−${d.radHeal} rad).`, 'good');
-      this.fx.push({ type: 'heal', x: sq.x, y: sq.y, color: '#b8f53d' });
-    } else if (d.use === 'stim') {
-      sq.stim = d.turns;
-      this.say(`${this.nm(sq)} se inyecta ${d.name}. ¡Furia!`, 'warn');
-      this.fx.push({ type: 'heal', x: sq.x, y: sq.y, color: '#ff5050' });
-    } else if (d.use === 'beacon') {
-      this.pending.push({ x: sq.x, y: sq.y, at: this.turn + 6 });
-      this.say('Baliza activada. Extracción de emergencia en 6 turnos en esta posición.', 'cyan');
-    } else return false;
+    const parts = [];
+    switch (d.use) {
+      case 'heal': case 'antirad': case 'buff': {
+        if (d.heal) {
+          const heal = d.heal >= 999 ? 999 : Math.round(d.heal * (1 + st.healPct / 100));
+          const before = a.hp;
+          a.hp = Math.min(st.hpMaxEff, a.hp + heal);
+          parts.push(`+${a.hp - before} salud`);
+        }
+        if (d.cure && sq.poison) { sq.poison = 0; parts.push('sin veneno'); }
+        if (d.cureBurn && sq.burn) { sq.burn = 0; parts.push('sin quemaduras'); }
+        if (d.radHeal) { a.rad = Math.max(0, a.rad - d.radHeal); parts.push(`−${d.radHeal} rad`); }
+        if (d.buff) { this.addBuff(sq, d.buff); parts.push(`${d.buff.name} ${d.buff.turns}t`); }
+        this.fx.push({ type: 'heal', x: sq.x, y: sq.y, color: d.use === 'antirad' ? '#b8f53d' : d.use === 'buff' ? '#ffb02e' : null });
+        this.say(`${this.nm(sq)} usa ${d.name}${parts.length ? ` (${parts.join(', ')})` : ''}.`, 'good');
+        break;
+      }
+      case 'beacon':
+        this.pending.push({ x: sq.x, y: sq.y, at: this.turn + 6 });
+        this.say('Baliza activada. Extracción de emergencia en 6 turnos en esta posición.', 'cyan');
+        break;
+      case 'signal':
+        this.nextTemp = this.turn;
+        this.say(`${this.nm(sq)} dispara un cohete de señales. La base responde por radio...`, 'cyan');
+        this.fx.push({ type: 'flare', x: sq.x, y: sq.y });
+        break;
+      case 'reveal': {
+        let n = 0;
+        for (let y = sq.y - d.radius; y <= sq.y + d.radius; y++) for (let x = sq.x - d.radius; x <= sq.x + d.radius; x++) {
+          if (!this.inb(x, y) || Math.hypot(x - sq.x, (y - sq.y) * 1.3) > d.radius) continue;
+          const k = this.key(x, y);
+          const tt = this.t[k];
+          if (TILES[tt].walk || tt === T.WALL || tt === T.MACHINE) { if (!this.explored[k]) n++; this.explored[k] = 1; }
+        }
+        this.dirty = true;
+        this.say(`${this.nm(sq)} consulta el plano: ${n} casillas cartografiadas.`, 'o1');
+        break;
+      }
+      case 'sense':
+        this.sense = Math.max(this.sense, d.turns); this.senseR = d.radius;
+        this.say(`${this.nm(sq)} enciende el detector de movimiento: ${d.turns} turnos.`, 'cyan');
+        break;
+      case 'ammo': {
+        let n = 0;
+        for (const slot of ['w1', 'w2']) {
+          const w = a.equip[slot];
+          if (!w || !ITEMS[w.b].ammo) continue;
+          const ws = itemStats(w);
+          const ammo = createItem(ws.ammo, 0, rng, ws.mag * d.mags);
+          n += ammo.q;
+          const rest = mergeInto(a.bag, ammo, this.ast(sq).slots);
+          if (rest) this.addFloor(sq.x, sq.y, rest);
+        }
+        if (!n) { this.say('Ninguna arma equipada usa munición.', 'bad'); return false; }
+        this.say(`${this.nm(sq)} abre la caja: +${n} balas.`, 'good');
+        this.fx.push({ type: 'reload', x: sq.x, y: sq.y });
+        break;
+      }
+      default: return false;
+    }
     this.consume(sq, it);
     return true;
   }
@@ -737,38 +884,87 @@ export class Expedition {
     if (it.q <= 0) sq.a.bag.splice(sq.a.bag.indexOf(it), 1);
   }
 
+  trapAt(x, y) { return this.traps.find((t) => t.x === x && t.y === y); }
   throwAt(sq, it, tx, ty) {
     const d = ITEMS[it.b];
+    if (d.use === 'trap') {
+      if (cheb(sq.x, sq.y, tx, ty) !== 1 || !this.passable(tx, ty) || this.entityAt(tx, ty) || this.trapAt(tx, ty)) { this.say('Coloca la trampa en una casilla libre adyacente.', 'bad'); return false; }
+      this.consume(sq, it);
+      this.traps.push({ x: tx, y: ty, b: it.b, dmg: d.trap.dmg, blast: d.trap.blast || 0, stun: d.trap.stun || 0 });
+      this.say(`${this.nm(sq)} coloca ${d.name}.`, 'o1');
+      this.fx.push({ type: 'open', x: tx, y: ty });
+      return true;
+    }
     if (Math.hypot(tx - sq.x, ty - sq.y) > d.range + 0.5) { this.say('Demasiado lejos.', 'bad'); return false; }
     if (!this.los(sq.x, sq.y, tx, ty)) { this.say('No hay línea de lanzamiento.', 'bad'); return false; }
     this.consume(sq, it);
     this.fx.push({ type: 'throw', x0: sq.x, y0: sq.y, x1: tx, y1: ty, glyph: d.glyph });
+    const cells = (r) => {
+      const out = [];
+      for (let y = ty - r; y <= ty + r; y++) for (let x = tx - r; x <= tx + r; x++) if (this.walkTile(x, y) && Math.hypot(x - tx, y - ty) <= r + 0.5) out.push(this.key(x, y));
+      return out;
+    };
     if (d.lure) {
-      this.flares.push({ x: tx, y: ty, t: 20 });
-      for (const e of this.enemies) if (Math.hypot(e.x - tx, e.y - ty) <= 14 && !ENEMIES[e.type].abil.includes('stationary')) { e.lure = { x: tx, y: ty, t: 10 }; if (e.state === 'dormido') e.state = 'errante'; }
-      this.say(`${this.nm(sq)} lanza una bengala. La luz atrae a los chebylitas.`, 'o1');
-      this.fx.push({ type: 'flare', x: tx, y: ty, delay: 250 });
-      this.computeVisibility();
+      if (d.light) this.flares.push({ x: tx, y: ty, t: 20 });
+      let n = 0;
+      for (const e of this.enemies) if (Math.hypot(e.x - tx, e.y - ty) <= d.lure && !ENEMIES[e.type].abil.includes('stationary')) { e.lure = { x: tx, y: ty, t: 10 }; if (e.state === 'dormido') e.state = 'errante'; n++; }
+      this.say(`${this.nm(sq)} lanza ${d.name}. ${n ? 'Algo se mueve hacia allí...' : 'Nada parece reaccionar.'}`, 'o1');
+      if (d.light) { this.fx.push({ type: 'flare', x: tx, y: ty, delay: 250 }); this.computeVisibility(); }
+      return true;
+    }
+    if (d.smoke) {
+      for (const k of cells(d.smoke)) this.smoke[k] = 10;
+      this.say(`${this.nm(sq)} lanza ${d.name}. Una cortina de humo lo cubre todo.`, 'o1');
+      this.fx.push({ type: 'smoke', x: tx, y: ty, r: d.smoke, delay: 250 });
+      this.noise(tx, ty, 4);
+      this.computeVisibility(true);
+      return true;
+    }
+    if (d.gas) {
+      for (const k of cells(d.gas)) this.gas[k] = Math.max(this.gas[k], 8);
+      this.say(`${this.nm(sq)} lanza ${d.name}. Una nube tóxica se extiende.`, 'o1');
+      this.fx.push({ type: 'spores', x: tx, y: ty, delay: 250 });
+      this.noise(tx, ty, 6);
+      return true;
+    }
+    if (d.stun) {
+      let n = 0;
+      for (const e of this.enemies) if (Math.hypot(e.x - tx, e.y - ty) <= d.blast + 0.5 && this.los(tx, ty, e.x, e.y)) { e.stun = Math.max(e.stun || 0, ENEMIES[e.type].boss ? 1 : d.stun); if (e.state === 'dormido') e.state = 'alerta'; e.mem = 15; n++; }
+      this.say(`${this.nm(sq)} lanza ${d.name}: ${n} chebylita(s) aturdido(s).`, 'o1');
+      this.fx.push({ type: 'flash', x: tx, y: ty, r: d.blast, delay: 250 });
+      this.noise(tx, ty, 12);
       return true;
     }
     this.say(`${this.nm(sq)} lanza ${d.name}.`, 'o1');
-    this.explode(tx, ty, d.blast, d.dmg, sq, !!d.fire, 260);
+    this.explode(tx, ty, d.blast, d.dmg, sq, d.fire || 0, 260, { pierce: d.pierce || 0, essBoost: d.essBoost || 0, noise: d.noise || 14 });
     return true;
   }
 
-  explode(x, y, r, dmgR, src, fire = false, delay = 0) {
-    this.fx.push({ type: 'explosion', x, y, r, delay, fire });
+  explode(x, y, r, dmgR, src, fire = 0, delay = 0, opts = {}) {
+    this.fx.push({ type: 'explosion', x, y, r, delay, fire: !!fire });
+    this._essBoost = opts.essBoost || 0;
     for (let yy = y - r; yy <= y + r; yy++) for (let xx = x - r; xx <= x + r; xx++) {
       if (!this.inb(xx, yy) || Math.hypot(xx - x, yy - y) > r + 0.5) continue;
       if (!hasLOS(x, y, xx, yy, (a, b) => this.opaque(a, b))) continue;
-      if (fire) this.igniteCell(xx, yy, 6);
+      if (fire) this.igniteCell(xx, yy, fire >= 2 ? 9 : 6);
       const ent = this.entityAt(xx, yy);
       if (!ent) continue;
       const dmg = rng.int(dmgR[0], dmgR[1]);
-      if (ent.type) { this.damageEnemy(ent, Math.max(1, dmg - this.est(ent).armor), src, false, delay + 60); if (fire && ent.hp > 0) ent.burn = 3; }
+      if (ent.type) { this.damageEnemy(ent, Math.max(1, dmg - Math.max(0, this.est(ent).armor - (opts.pierce || 0))), src, false, delay + 60); if (fire && ent.hp > 0) ent.burn = 3; }
       else if (ent.id) this.damageAgent(ent, Math.max(1, dmg - this.ast(ent).prot), 'explosión', null, delay + 60);
     }
-    this.noise(x, y, 14);
+    this._essBoost = 0;
+    this.noise(x, y, opts.noise || 14);
+  }
+
+  checkTrap(e) {
+    const i = this.traps.findIndex((t) => t.x === e.x && t.y === e.y);
+    if (i < 0) return;
+    const t = this.traps.splice(i, 1)[0];
+    if (this.isVisible(e.x, e.y)) this.say(`¡${this.enm(e)} pisa ${ITEMS[t.b].name}!`, 'o1');
+    if (t.blast) this.explode(e.x, e.y, t.blast, t.dmg, null, 0, 0);
+    else { this.fx.push({ type: 'slash', x0: e.x, y0: e.y, x1: e.x, y1: e.y }); this.damageEnemy(e, rng.int(t.dmg[0], t.dmg[1]), null); }
+    if (t.stun && e.hp > 0) e.stun = Math.max(e.stun || 0, ENEMIES[e.type].boss ? 1 : t.stun);
   }
 
   equipItem(sq, it, slot) {
@@ -858,6 +1054,7 @@ export class Expedition {
     this.dmap = null;
     for (const e of [...this.enemies]) {
       if (e.hp <= 0) continue;
+      if (e.stun > 0) { e.stun--; e.energy = 0; continue; }
       e.energy += ENEMIES[e.type].speed;
       while (e.energy >= 100 && e.hp > 0 && !this.ended) {
         e.energy -= 100;
@@ -946,6 +1143,7 @@ export class Expedition {
   enemyStepTo(e, x, y) {
     if (this.tile(x, y) === T.DOOR) { this.t[this.key(x, y)] = T.DOOR_OPEN; this.dirty = true; }
     this.moveEntity(e, x, y);
+    if (this.traps.length) this.checkTrap(e);
   }
   enemyLOS(e, sq) { return this.los(e.x, e.y, sq.x, sq.y); }
 
@@ -958,7 +1156,8 @@ export class Expedition {
     const sight = e.state === 'dormido' ? 4 + Math.floor(e.lvl / 3) : 11;
     for (const sq of this.team) {
       const d = Math.hypot(sq.x - e.x, sq.y - e.y);
-      if (d <= sight && d < td && this.enemyLOS(e, sq)) { tgt = sq; td = d; }
+      const sg = e.state === 'dormido' ? Math.max(1, sight - this.flag(sq, 'stealth')) : sight;
+      if (d <= sg && d < td && this.enemyLOS(e, sq)) { tgt = sq; td = d; }
     }
     if (e.state === 'dormido') {
       if (tgt) { e.state = 'alerta'; e.mem = 15; this.alertNest(e); this.fx.push({ type: 'wake', x: e.x, y: e.y }); }
@@ -1016,7 +1215,8 @@ export class Expedition {
         e.cd2 = 4;
         const sx = Math.sign(dx), sy = Math.sign(dy);
         let moved = 0;
-        while (cheb(e.x, e.y, tgt.x, tgt.y) > 1 && this.canEnemyStep(e, e.x + sx, e.y + sy)) { this.enemyStepTo(e, e.x + sx, e.y + sy); moved++; }
+        while (e.hp > 0 && cheb(e.x, e.y, tgt.x, tgt.y) > 1 && this.canEnemyStep(e, e.x + sx, e.y + sy)) { this.enemyStepTo(e, e.x + sx, e.y + sy); moved++; }
+        if (e.hp <= 0) return;
         this.fx.push({ type: 'charge', x: e.x, y: e.y });
         if (cheb(e.x, e.y, tgt.x, tgt.y) <= 1) { this.enemyMelee(e, tgt, 1.6, 'embestida'); return; }
         if (moved) return;
@@ -1083,7 +1283,9 @@ export class Expedition {
     if (sq === this.cur || def.boss) this.say(`${this.enm(e)} ${verb ? 'te golpea con una ' + verb : 'ataca a'} ${this.nm(sq)}: <span class="bad">−${dmg}</span>.`);
     this.damageAgent(sq, dmg, `${def.name} Nv ${e.lvl}`, e, 80);
     if (!this.inMap(sq)) return;
-    if (def.abil.includes('poison')) { sq.poison = Math.min(12, sq.poison + 2 + Math.floor(e.lvl / 3)); }
+    const th = this.flag(sq, 'thorns');
+    if (th && e.hp > 0) this.damageEnemy(e, th, sq, false, 120);
+    if (def.abil.includes('poison')) this.addPoison(sq, 2 + Math.floor(e.lvl / 3));
     if (def.abil.includes('radbite')) sq.a.rad += (2 + e.lvl) * (1 - ast.rad / 100);
   }
   enemyRanged(e, sq) {
@@ -1147,6 +1349,9 @@ export class Expedition {
         this.igniteCell(x + dx, y + dy, f - 2);
       }
     }
+    // humo y detector
+    for (let k = 0; k < N; k++) if (this.smoke[k]) this.smoke[k]--;
+    if (this.sense > 0) this.sense--;
     // bengalas
     for (const f of this.flares) f.t--;
     this.flares = this.flares.filter((f) => f.t > 0);
@@ -1160,25 +1365,40 @@ export class Expedition {
       const a = sq.a, st = this.ast(sq), k = this.key(sq.x, sq.y);
       // radiación
       let r = this.rad[k] + this.ambient + surge * 0.45;
+      const tt = this.t[k];
+      if ((tt === T.WATER || tt === T.DEEP) && this.flag(sq, 'waterproof')) r = Math.max(0, r - 0.5 - this.def.ambientRad * 0.5);
       for (const e of this.enemies) if (ENEMIES[e.type].abil.includes('aura') && cheb(e.x, e.y, sq.x, sq.y) <= 2) r += 3 + e.lvl * 0.4;
       for (const it of a.bag) if (ITEMS[it.b].radioactive) r += 0.6;
       a.rad = Math.min(150, a.rad + r * (1 - st.rad / 100));
       if (a.rad >= 100) this.damageAgent(sq, 1, 'envenenamiento por radiación');
       if (!this.inMap(sq)) continue;
-      if (this.gas[k] && !st.gasImmune) { sq.poison = Math.min(12, sq.poison + 1); this.damageAgent(sq, 1, 'gas de esporas'); }
+      if (this.gas[k] && !st.gasImmune) { this.addPoison(sq, 1); this.damageAgent(sq, 1, 'gas tóxico'); }
       if (!this.inMap(sq)) continue;
       if (this.fire[k]) { sq.burn = 2; this.damageAgent(sq, rng.int(2, 5), 'quemaduras'); }
       if (!this.inMap(sq)) continue;
-      if (this.anomaly[k] && rng.chance(0.5)) { this.fx.push({ type: 'zap', x: sq.x, y: sq.y }); this.damageAgent(sq, rng.int(4, 9), 'anomalía eléctrica'); if (sq === this.cur) this.say('¡Descarga eléctrica!', 'bad'); }
+      if (this.anomaly[k] && !this.flag(sq, 'antiAnomaly') && rng.chance(0.5)) { this.fx.push({ type: 'zap', x: sq.x, y: sq.y }); this.damageAgent(sq, rng.int(4, 9), 'anomalía eléctrica'); if (sq === this.cur) this.say('¡Descarga eléctrica!', 'bad'); }
       if (!this.inMap(sq)) continue;
       if (sq.poison > 0) { sq.poison--; this.damageAgent(sq, 1, 'veneno'); }
       if (!this.inMap(sq)) continue;
       if (sq.burn > 0) { sq.burn--; this.damageAgent(sq, 2, 'quemaduras'); }
       if (!this.inMap(sq)) continue;
-      if (sq.stim > 0) sq.stim--;
+      // efectos temporales
+      if (sq.buffs && sq.buffs.length) {
+        for (const b of sq.buffs) b.turns--;
+        for (const b of sq.buffs.filter((x) => x.turns <= 0)) {
+          if (sq === this.cur) this.say(`Se acaba el efecto «${b.name}».`, 'dimt');
+          if (b.after && b.after.poison) this.addPoison(sq, b.after.poison);
+        }
+        sq.buffs = sq.buffs.filter((x) => x.turns > 0);
+      }
+      // imán de esencia
+      const mag = this.flag(sq, 'essMagnet');
+      if (mag && this.essence.size) {
+        for (let y = sq.y - mag; y <= sq.y + mag; y++) for (let x = sq.x - mag; x <= sq.x + mag; x++) if (this.inb(x, y) && this.essence.has(this.key(x, y))) this.pickupEssence(sq, this.key(x, y));
+      }
       if (st.regen > 0) {
         sq.regenT++;
-        if (sq.regenT >= Math.max(1, 6 - st.regen * 2)) { sq.regenT = 0; a.hp = Math.min(st.hpMaxEff, a.hp + 1); }
+        if (sq.regenT >= Math.max(1, 6 - st.regen * 2)) { sq.regenT = 0; a.hp = Math.min(st.hpMaxEff, a.hp + Math.max(1, st.regen - 2)); }
       }
       if (a.hp > st.hpMaxEff) a.hp = st.hpMaxEff;
     }
@@ -1188,7 +1408,7 @@ export class Expedition {
       const k = this.key(e.x, e.y);
       const def = ENEMIES[e.type];
       if (this.fire[k]) e.burn = Math.max(e.burn, 2);
-      if (this.gas[k] && def.origin !== 'Hongo' && def.origin !== 'Planta' && def.origin !== 'Mineral') this.damageEnemy(e, 1, null);
+      if (this.gas[k] && def.origin !== 'Hongo' && def.origin !== 'Planta' && def.origin !== 'Mineral') this.damageEnemy(e, Math.max(1, Math.floor(this.gas[k] / 3)), null);
       if (e.hp > 0 && this.anomaly[k] && rng.chance(0.4)) { this.fx.push({ type: 'zap', x: e.x, y: e.y }); this.damageEnemy(e, rng.int(4, 9), null); }
       if (e.hp > 0 && e.burn > 0) { e.burn--; this.damageEnemy(e, rng.int(2, 4), null); }
     }

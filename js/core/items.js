@@ -1,5 +1,6 @@
 // Instancias de objetos: generación, estadísticas, nombres, valor, tooltips
-import { ITEMS, CAT_INFO, AFFIXES, MYTHIC_NAMES, EPITHETS, UNCOMMON_SUFFIX, RARE_SUFFIX, AMMO_NAMES } from '../data/items.js';
+import { ITEMS, CAT_INFO, AFFIXES, MYTHIC_NAMES, EPITHETS, UNCOMMON_SUFFIX, RARE_SUFFIX, AMMO_NAMES, GADGET_SETS } from '../data/items.js';
+import { MOD_SLOTS, weaponSlots } from '../data/mods.js';
 import { RARITIES, rarityWeights } from '../data/rarity.js';
 import { rng as grng, uid } from '../util/rng.js';
 import { esc } from '../util/dom.js';
@@ -69,28 +70,82 @@ function affSum(it, stat) {
   return s;
 }
 
+export const WTYPE_NAMES = { melee: 'cuerpo a cuerpo', pistol: 'pistola', smg: 'subfusil', shotgun: 'escopeta', rifle: 'fusil', sniper: 'fusil de tirador', mg: 'ametralladora', flame: 'lanzallamas', launcher: 'lanzador', energy: 'arma de esencia' };
+
+// ---------- Mods de armas ----------
+const MOD_KEYS = ['acc', 'range', 'crit', 'noise', 'magPct', 'dmgPct', 'pierce', 'scope', 'still', 'vision', 'bayonet'];
+const MOD_SCALED = ['acc', 'crit', 'dmgPct', 'magPct', 'still'];
+export function modEffects(mod) {
+  const d = ITEMS[mod.b];
+  const m = RARITIES[mod.r].mult;
+  const e = {};
+  for (const k of MOD_KEYS) {
+    let v = d[k];
+    if (!v) continue;
+    if (MOD_SCALED.includes(k) && v > 0) v = Math.round(v * m);
+    e[k] = v;
+  }
+  return e;
+}
+export function slotsOf(it) { const d = ITEMS[it.b]; return d.cat === 'weapon' ? weaponSlots(it.b, d.wtype) : []; }
+export function modFits(mod, weapon, slot = null) {
+  const md = ITEMS[mod.b], wd = ITEMS[weapon.b];
+  if (md.cat !== 'mod' || wd.cat !== 'weapon') return false;
+  if (slot && md.slot !== slot) return false;
+  return md.fits.includes(wd.wtype) && slotsOf(weapon).includes(md.slot);
+}
+// instala un mod: devuelve el mod que había antes en esa ranura (o null)
+export function installMod(weapon, mod) {
+  const slot = ITEMS[mod.b].slot;
+  weapon.mods = weapon.mods || {};
+  const prev = weapon.mods[slot] || null;
+  weapon.mods[slot] = mod;
+  clampLoaded(weapon);
+  return prev;
+}
+export function removeMod(weapon, slot) {
+  const m = weapon.mods && weapon.mods[slot];
+  if (!m) return null;
+  weapon.mods[slot] = null;
+  clampLoaded(weapon);
+  return m;
+}
+function clampLoaded(w) { const st = itemStats(w); if (st.mag && w.ld > st.mag) w.ld = st.mag; }
+const modSig = (it) => (it.mods ? Object.entries(it.mods).map(([k, v]) => (v ? k + v.uid + v.r : '')).join('|') : '');
+
 const statCache = new WeakMap();
 export function itemStats(it) {
+  const sig = modSig(it);
   const c = statCache.get(it);
-  if (c && c.r === it.r) return c.s;
+  if (c && c.r === it.r && c.sig === sig) return c.s;
   const d = ITEMS[it.b];
   const m = RARITIES[it.r].mult;
   const s = { cat: d.cat };
   if (d.cat === 'weapon') {
-    const dp = 1 + affSum(it, 'dmgPct') / 100;
+    const md = { acc: 0, range: 0, crit: 0, noise: 0, magPct: 0, dmgPct: 0, pierce: 0, still: 0, vision: 0, scope: 0, bayonet: 0 };
+    if (it.mods) for (const mo of Object.values(it.mods)) if (mo) { const e = modEffects(mo); for (const k in e) md[k] += e[k]; }
+    const dp = 1 + (affSum(it, 'dmgPct') + md.dmgPct) / 100;
     s.dmg = [Math.max(1, Math.round(d.dmg[0] * m * dp)), Math.max(1, Math.round(d.dmg[1] * m * dp))];
-    s.acc = d.acc + affSum(it, 'acc') + (it.r >= 2 ? it.r : 0);
-    s.range = d.range + affSum(it, 'range');
-    s.crit = d.crit + affSum(it, 'crit');
-    s.pierce = (d.pierce || 0) + affSum(it, 'pierce');
+    s.acc = d.acc + affSum(it, 'acc') + (it.r >= 2 ? it.r : 0) + md.acc;
+    s.range = Math.max(1, d.range + affSum(it, 'range') + (d.wtype === 'melee' ? 0 : md.range));
+    s.crit = d.crit + affSum(it, 'crit') + md.crit;
+    s.pierce = (d.pierce || 0) + affSum(it, 'pierce') + md.pierce;
     s.burst = d.burst || 1;
-    s.noise = d.noise;
+    s.noise = Math.max(1, d.noise + md.noise);
     s.wtype = d.wtype;
     s.ammo = d.ammo;
     s.chain = d.chain || 0;
-    if (d.mag) s.mag = Math.round(d.mag * (1 + affSum(it, 'magPct') / 100));
+    s.blast = d.blast || 0;
+    s.fire = d.fire || 0;
+    s.scope = d.wtype === 'sniper' || md.scope > 0;
+    s.stillAcc = md.still;
+    s.vision = md.vision;
+    s.bayonet = md.bayonet > 0;
+    if (d.mag) s.mag = Math.max(1, Math.round(d.mag * (1 + (affSum(it, 'magPct') + md.magPct) / 100)));
+  } else if (d.cat === 'mod') {
+    Object.assign(s, modEffects(it));
   } else {
-    for (const k of ['prot', 'rad', 'ev', 'hp', 'vision', 'essence', 'acc', 'crit', 'regen', 'slots', 'gasImmune']) {
+    for (const k of ['prot', 'rad', 'ev', 'hp', 'vision', 'essence', 'acc', 'crit', 'regen', 'slots', 'gasImmune', 'range', 'dmgPct']) {
       let v = d[k] || 0;
       if (v > 0 && (k === 'prot' || k === 'rad' || k === 'hp' || k === 'essence' || k === 'acc')) v = Math.round(v * (k === 'prot' ? 1 + (m - 1) * 0.8 : m));
       v += affSum(it, k);
@@ -98,19 +153,57 @@ export function itemStats(it) {
     }
     if (s.rad) s.rad = Math.min(90, s.rad);
   }
-  statCache.set(it, { r: it.r, s });
+  statCache.set(it, { r: it.r, sig, s });
   return s;
+}
+
+// efectos condicionales / de aura / de equipo de un gadget, escalados por rareza
+export function gadgetExtras(it) {
+  const d = ITEMS[it.b];
+  const m = RARITIES[it.r].mult;
+  const sc = (mods) => { const o = {}; for (const [k, v] of Object.entries(mods || {})) o[k] = v > 1 && k !== 'gasImmune' ? Math.round(v * m) : v; return o; };
+  const out = {};
+  if (d.cond) out.cond = { when: d.cond.when, mods: sc(d.cond.mods) };
+  if (d.aura) out.aura = { r: d.aura.r, mods: sc(d.aura.mods) };
+  if (d.team) out.team = { min: d.team.min, mods: sc(d.team.mods) };
+  if (d.flags) { out.flags = { ...d.flags }; for (const k of ['killHeal', 'killFrenzy', 'thorns', 'autoInject', 'essHeal']) if (out.flags[k] && k !== 'essHeal') out.flags[k] = Math.round(out.flags[k] * m); }
+  return out;
+}
+const MOD_LABEL = { acc: (v) => `${v > 0 ? '+' : ''}${v} puntería`, prot: (v) => `+${v} protección`, ev: (v) => `${v > 0 ? '+' : ''}${v} agilidad`, crit: (v) => `+${v}% crítico`, dmgPct: (v) => `+${v}% daño`, vision: (v) => `+${v} visión`, rad: (v) => `+${v}% resist. radiación`, regen: (v) => `regeneración +${v}`, essence: (v) => `+${v}% esencia`, gasImmune: () => 'inmune al gas', range: (v) => `+${v} alcance` };
+export const modsText = (mods) => Object.entries(mods || {}).map(([k, v]) => (MOD_LABEL[k] ? MOD_LABEL[k](v) : `${k} ${v}`)).join(', ');
+export const COND_TEXT = { near: 'Juntos (aliado a ≤3 casillas)', alone: 'Separado (ningún aliado a ≤6)', still: 'Quieto (no te moviste el turno anterior)', hurt: 'Herido (<50% salud)', lowhp: 'Último aliento (<30% salud)' };
+export function gadgetEffectLines(it) {
+  const d = ITEMS[it.b];
+  const x = gadgetExtras(it);
+  const L = [];
+  if (x.cond) L.push(`<b>${COND_TEXT[x.cond.when]}:</b> ${modsText(x.cond.mods)}`);
+  if (x.aura) L.push(`<b>Aura ${x.aura.r} casillas</b> (tú y aliados): ${modsText(x.aura.mods)}`);
+  if (x.team) L.push(`<b>Equipo</b> (${x.team.min}+ agentes lo llevan): ${modsText(x.team.mods)}`);
+  const f = x.flags || {};
+  if (f.killHeal) L.push(`<b>Al matar:</b> cura ${f.killHeal}`);
+  if (f.killFrenzy) L.push(`<b>Al matar:</b> +${f.killFrenzy}% daño 3 turnos`);
+  if (f.thorns) L.push(`<b>Espinas:</b> ${f.thorns} de daño a quien te ataque cuerpo a cuerpo`);
+  if (f.essMagnet) L.push(`<b>Imán:</b> recoge esencia a ${f.essMagnet} casillas`);
+  if (f.essHeal) L.push(`<b>Condensador:</b> 1 de salud por cada ${f.essHeal} de esencia`);
+  if (f.quickReload) L.push('<b>Recarga rápida:</b> recargar no gasta turno');
+  if (f.stealth) L.push(`<b>Sigilo:</b> los nidos te detectan a ${f.stealth} casillas menos`);
+  if (f.antiAnomaly) L.push('<b>Aislante:</b> inmune a anomalías eléctricas');
+  if (f.waterproof) L.push('<b>Estanco:</b> el agua no te irradia');
+  if (f.autoInject) L.push(`<b>Autoinyección:</b> cura ${f.autoInject} al bajar del 25% (una vez)`);
+  if (d.set) { const st = GADGET_SETS[d.set]; L.push(`<b>Conjunto ${st.name}</b> (${st.pieces.map((p) => ITEMS[p].name).join(' + ')}): ${st.desc}`); }
+  return L;
 }
 
 export function itemValue(it, unit = false) {
   const d = ITEMS[it.b];
   let v = d.value * RARITIES[it.r].value * (1 + affSum(it, 'valuePct') / 100);
   if (!unit && it.q) v *= it.q;
+  if (it.mods) for (const m of Object.values(it.mods)) if (m) v += itemValue(m);
   return Math.max(1, Math.round(v));
 }
 
 // ---------- Botín aleatorio ----------
-const CAT_W = { weapon: 12, ammo: 20, armor: 6, helmet: 6, gadget: 7, backpack: 3, consumable: 24, valuable: 22 };
+const CAT_W = { weapon: 12, mod: 6, ammo: 20, armor: 6, helmet: 6, gadget: 8, backpack: 3, consumable: 26, valuable: 20 };
 export function tierCap(level) { return Math.max(0, Math.min(5, Math.floor((level + 1) / 2))); }
 
 export function rollRarity(level, g = grng, bonus = 0) {
@@ -127,7 +220,7 @@ export function rollLoot(level, g = grng, opts = {}) {
   const r = rollRarity(level, g, opts.rarityBonus || 0);
   let q;
   if (d.cat === 'ammo') q = Math.max(1, Math.round((d.pack || 10) * g.float(0.5, 1.3)));
-  else if (d.cat === 'consumable') q = d.use === 'beacon' ? 1 : g.int(1, d.heal > 30 ? 1 : 2);
+  else if (d.cat === 'consumable') q = ['beacon', 'signal', 'trap'].includes(d.use) ? 1 : g.int(1, d.heal > 30 ? 1 : 2);
   return createItem(b, r, g, q);
 }
 
@@ -138,7 +231,8 @@ export function itemTooltip(it, compare = null, extra = '') {
   const rr = RARITIES[it.r];
   const col = rr.color;
   let h = `<div class="tt-title" style="color:${col}">${esc(itemName(it))}${it.q > 1 ? ` <span class="dimt">×${it.q}</span>` : ''}</div>`;
-  h += `<div class="tt-sub">${CAT_INFO[d.cat].name}${d.cat !== 'ammo' ? ` · <span style="color:${col}">${rr.name}</span>` : ''} · Nv ${d.tier}</div>`;
+  h += `<div class="tt-sub">${CAT_INFO[d.cat].name}${d.cat === 'weapon' ? ' · ' + WTYPE_NAMES[d.wtype] : ''}${d.cat !== 'ammo' ? ` · <span style="color:${col}">${rr.name}</span>` : ''} · Nv ${d.tier}</div>`;
+  if (d.art) h += `<pre class="tt-art" style="color:${col}">${esc(d.art)}</pre>`;
   h += `<div class="tt-sep">${'─'.repeat(60)}</div>`;
   const cs = compare ? itemStats(compare) : null;
   const cmp = (v, o, lowerBetter = false) => {
@@ -158,18 +252,45 @@ export function itemTooltip(it, compare = null, extra = '') {
     h += row('Crítico', `${s.crit}%`);
     if (s.pierce) h += row('Perforación', s.pierce >= 99 ? 'total' : s.pierce);
     h += row('Ruido', s.noise >= 14 ? 'muy alto' : s.noise >= 10 ? 'alto' : s.noise >= 5 ? 'medio' : 'bajo');
+    if (s.blast) h += row('Explosión', `radio ${s.blast}${s.fire ? ' · incendia' : ''}`);
+    if (s.chain) h += row('Encadena', `${s.chain} objetivos`);
+    const tags = [];
+    if (s.scope) tags.push('mira: −20% a quemarropa');
+    if (s.stillAcc) tags.push(`+${s.stillAcc}% quieto`);
+    if (s.bayonet) tags.push('bayoneta');
+    if (s.vision) tags.push(`+${s.vision} visión`);
+    if (d.wtype === 'shotgun') tags.push('pierde daño lejos');
+    if (s.blast) tags.push('¡cuidado con tus aliados!');
+    if (tags.length) h += `<div class="dimt">${tags.join(' · ')}</div>`;
+    const slots = slotsOf(it);
+    if (slots.length) {
+      h += `<div class="tt-sep">${'─'.repeat(60)}</div>`;
+      for (const sl of slots) {
+        const mo = it.mods && it.mods[sl];
+        h += `<div class="tt-row"><span class="dimt">${MOD_SLOTS[sl].glyph} ${MOD_SLOTS[sl].name}</span><span>${mo ? `<span style="color:${rarityColor(mo.r)}">${esc(itemName(mo))}</span>` : '<span class="dimt">— libre —</span>'}</span></div>`;
+      }
+    } else if (d.wtype !== 'melee') h += '<div class="dimt">No admite mods.</div>';
+  } else if (d.cat === 'mod') {
+    h += row('Ranura', `${MOD_SLOTS[d.slot].glyph} ${MOD_SLOTS[d.slot].name}`);
+    h += row('Para', d.fits.map((w) => WTYPE_NAMES[w]).join(', '));
+    const L = { acc: (v) => `${v > 0 ? '+' : ''}${v}% precisión`, range: (v) => `${v > 0 ? '+' : ''}${v} alcance`, crit: (v) => `+${v}% crítico`, noise: (v) => `${v} ruido`, magPct: (v) => `${v > 0 ? '+' : ''}${v}% cargador`, dmgPct: (v) => `${v > 0 ? '+' : ''}${v}% daño`, pierce: (v) => `+${v} perforación`, scope: () => 'mira de tirador (−20% a quemarropa)', still: (v) => `+${v}% precisión si estás quieto`, vision: (v) => `+${v} visión del agente`, bayonet: () => 'puñalada extra a enemigos adyacentes' };
+    for (const [k, v] of Object.entries(s)) if (L[k]) h += `<div class="tt-aff">◆ ${L[k](v)}</div>`;
+    h += '<div class="dimt">Se instala en la base: arrástralo a una ranura de mod en EQUIPO.</div>';
   } else if (d.cat === 'consumable') {
     if (d.heal) h += row('Cura', d.heal >= 999 ? 'total' : d.heal);
     if (d.radHeal) h += row('Radiación', '−' + d.radHeal);
-    if (d.dmg) h += row('Daño', `${d.dmg[0]}–${d.dmg[1]} (radio ${d.blast})`);
-    if (d.range) h += row('Alcance', d.range);
+    if (d.buff) h += row('Efecto', `${modsText(d.buff.mods)}${d.buff.flags && d.buff.flags.poisonImmune ? 'inmune al veneno' : ''} · ${d.buff.turns} turnos`);
+    if (d.dmg) h += row('Daño', `${d.dmg[0]}–${d.dmg[1]} (radio ${d.blast || (d.trap && d.trap.blast) || 0})`);
+    if (d.trap) h += row('Trampa', `${d.trap.dmg[0]}–${d.trap.dmg[1]} daño${d.trap.blast ? ` · radio ${d.trap.blast}` : ''}${d.trap.stun ? ` · inmoviliza ${d.trap.stun}t` : ''}`);
+    if (d.range) h += row('Alcance', d.use === 'trap' ? 'adyacente' : d.range);
   } else if (d.cat !== 'ammo' && d.cat !== 'valuable') {
-    const lab = { prot: 'Protección', rad: 'Resist. radiación', ev: 'Agilidad', hp: 'Salud máx.', vision: 'Visión', essence: 'Esencia', acc: 'Puntería', crit: 'Crítico', regen: 'Regeneración', slots: 'Huecos', gasImmune: 'Inmune al gas' };
+    const lab = { prot: 'Protección', rad: 'Resist. radiación', ev: 'Agilidad', hp: 'Salud máx.', vision: 'Visión', essence: 'Esencia', acc: 'Puntería', crit: 'Crítico', regen: 'Regeneración', slots: 'Huecos', gasImmune: 'Inmune al gas', range: 'Alcance de armas', dmgPct: 'Daño' };
     for (const k of Object.keys(lab)) {
       if (s[k] == null) continue;
-      const suf = k === 'rad' || k === 'essence' || k === 'crit' ? '%' : '';
+      const suf = k === 'rad' || k === 'essence' || k === 'crit' || k === 'dmgPct' ? '%' : '';
       h += row(lab[k], k === 'gasImmune' ? 'sí' : `${s[k] > 0 && k !== 'prot' ? '+' : ''}${s[k]}${suf}${cmp(s[k], cs ? cs[k] || 0 : null)}`);
     }
+    if (d.cat === 'gadget') for (const ln of gadgetEffectLines(it)) h += `<div class="tt-aff" style="color:var(--cyan)">◈ ${ln}</div>`;
   }
   if (d.essenceValue) h += row('Esencia', `${d.essenceValue} ✦`);
   if (it.aff && it.aff.length) {
@@ -208,6 +329,6 @@ export function mergeInto(list, it, maxSlots = Infinity) {
 }
 
 export function sortItems(list) {
-  const order = ['weapon', 'armor', 'helmet', 'gadget', 'backpack', 'consumable', 'ammo', 'valuable'];
+  const order = ['weapon', 'mod', 'armor', 'helmet', 'gadget', 'backpack', 'consumable', 'ammo', 'valuable'];
   return list.sort((a, b) => order.indexOf(ITEMS[a.b].cat) - order.indexOf(ITEMS[b.b].cat) || b.r - a.r || itemName(a).localeCompare(itemName(b)));
 }

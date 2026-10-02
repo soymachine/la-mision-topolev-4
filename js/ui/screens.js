@@ -283,7 +283,7 @@ export class HelpScreen {
 <span>R</span><span>Recargar</span>
 <span>X</span><span>Cambiar de arma</span>
 <span>H</span><span>Curarse con el mejor botiquín</span>
-<span>B</span><span>Lanzar granada / objeto arrojadizo</span>
+<span>B</span><span>Lanzar granada / objeto arrojadizo (o colocar trampas desde el inventario)</span>
 <span>I</span><span>Inventario (arrastrar y soltar para equipar, soltar o dar a compañeros)</span>
 <span>Tab · 1-4</span><span>Cambiar de agente controlado</span>
 <span>O</span><span>Órdenes del escuadrón: seguir / mantener / no disparar</span>
@@ -300,6 +300,29 @@ export class HelpScreen {
 <li>El % de impacto depende del arma, la puntería del agente, la distancia respecto al alcance del arma y la esquiva del objetivo. Las escopetas pierden daño a distancia; los fusiles de tirador odian la corta distancia.</li>
 <li>Los disparos hacen <b>ruido</b> y despiertan a los nidos cercanos. Las armas cuerpo a cuerpo son silenciosas.</li>
 <li>La armadura resta daño a cada golpe. La agilidad hace que te fallen más.</li>
+</ul>
+
+<h2>MODS DE ARMAS</h2>
+<p>Las armas de fuego tienen <b>ranuras</b> según su tipo: ⌖ óptica, » boca, ╤ empuñadura, ▮ cargador, ◣ culata y ┬ bajo cañón. En <b>EQUIPO</b>, bajo cada arma del agente aparecen sus ranuras: arrastra un mod compatible encima para montarlo, y arrástralo al almacén para desmontarlo. Cada mod solo encaja en ciertos tipos de arma (una mira no cabe en una escopeta).</p>
+<ul>
+<li>Las <b>miras de tirador</b> (PU, PSO…) convierten un fusil o carabina en arma de tirador: más alcance y crítico, pero −20% a quemarropa.</li>
+<li>Los <b>silenciadores</b> reducen el ruido (menos nidos despiertos). El <b>bípode</b> da mucha precisión si no te moviste el turno anterior. La <b>bayoneta</b> añade una puñalada al disparar a un enemigo adyacente.</li>
+</ul>
+
+<h2>GADGETS Y SINERGIAS</h2>
+<ul>
+<li><b>Juntos / separado</b>: algunos gadgets solo funcionan con un aliado cerca (≤3 casillas) o lejos de todos (≥7).</li>
+<li><b>Quieto, herido, último aliento</b>: otros se activan si no te mueves, o si tu salud baja del 50% / 30%.</li>
+<li><b>Auras</b>: benefician a los aliados cercanos. <b>Equipo</b>: mejoran si varios agentes llevan el mismo. <b>Conjuntos</b>: dos piezas concretas en el mismo agente dan un bonus extra.</li>
+<li><b>Especiales</b>: curarte al matar, frenesí, espinas, imán de esencia, recarga instantánea, sigilo, autoinyector…</li>
+</ul>
+
+<h2>CONSUMIBLES ESPECIALES</h2>
+<ul>
+<li><b>Potenciadores</b> (té, cafeína, adrenalina…): efectos temporales que aparecen en la tarjeta del agente.</li>
+<li><b>Granadas</b> de fragmentación, impacto, antitanque, incendiarias, químicas, aturdidoras y de <b>humo</b> (bloquea la visión de todos: ideal para huir).</li>
+<li><b>Trampas</b> (cepos y minas): pulsa B o haz clic en ellas y elige una casilla adyacente; saltan cuando un chebylita las pisa.</li>
+<li><b>Utilidad</b>: planos, detectores de movimiento, cajas de munición, cohetes de señales y balizas de extracción.</li>
 </ul>
 
 <h2>CHEBYLITAS Y NIVELES</h2>

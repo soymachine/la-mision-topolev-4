@@ -10,7 +10,7 @@ import { Expedition } from '../exp/expedition.js';
 // ---------------- Intendencia ----------------
 function tierFor(cat, d) {
   const m = S.modules;
-  if (cat === 'weapon') return m.armeria;
+  if (cat === 'weapon' || cat === 'mod') return m.armeria;
   if (cat === 'armor' || cat === 'helmet') return m.blindaje;
   if (cat === 'gadget' || cat === 'backpack') return m.taller;
   if (cat === 'consumable') return d.use === 'throw' || d.use === 'beacon' ? m.taller : m.enfermeria;
@@ -53,7 +53,7 @@ export function ensureShop() {
 }
 // suministros permanentes (cantidad ilimitada)
 export function shopSupplies() {
-  const list = ['bandage', 'ai2', 'antirad', 'molotov', 'flare', 'a_9x18', 'a_12', 'a_545', 'a_762', 'a_fuel', 'a_cell'];
+  const list = ['bandage', 'ai2', 'antirad', 'molotov', 'flare', 'a_9x18', 'a_12', 'a_762x39', 'a_545', 'a_762', 'a_9x39', 'a_40', 'a_127', 'a_rpg', 'a_fuel', 'a_cell'];
   return list.filter((b) => shopAvailable(b)).map((b) => createItem(b, 0, rng, ITEMS[b].pack || 1));
 }
 

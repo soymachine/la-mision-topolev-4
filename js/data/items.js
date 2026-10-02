@@ -1,9 +1,12 @@
 // Definiciones base de objetos
-// cat: weapon | ammo | armor | helmet | gadget | backpack | consumable | valuable
+// cat: weapon | mod | ammo | armor | helmet | gadget | backpack | consumable | valuable
 // tier: 0..5 (disponibilidad en la intendencia y nivel de aparición)
+import { WEAPONS, NEW_AMMO } from './weapons.js';
+import { MODS } from './mods.js';
 
 export const CAT_INFO = {
   weapon: { name: 'Arma', glyph: '/' },
+  mod: { name: 'Mod de arma', glyph: '¬' },
   ammo: { name: 'Munición', glyph: '"' },
   armor: { name: 'Armadura', glyph: '[' },
   helmet: { name: 'Casco', glyph: '^' },
@@ -15,29 +18,13 @@ export const CAT_INFO = {
 
 export const AMMO_NAMES = {
   a_9x18: '9×18 mm', a_545: '5,45×39 mm', a_12: 'cal. 12', a_762: '7,62×54R', a_fuel: 'combustible', a_cell: 'celda de esencia',
+  a_762x39: '7,62×39 mm', a_9x39: '9×39 mm', a_127: '12,7×108 mm', a_40: 'VOG-25 40 mm', a_rpg: 'cohete PG-7',
 };
 
-const W = (o) => ({ cat: 'weapon', glyph: o.glyph || (o.wtype === 'melee' ? '†' : '/'), stack: 1, burst: 1, crit: 5, noise: 0, ...o });
-
 export const ITEMS = {
-  // ---------- ARMAS ----------
-  knife: W({ name: 'Cuchillo NR-40', wtype: 'melee', tier: 0, dmg: [3, 6], acc: 90, range: 1, crit: 12, noise: 1, value: 30, desc: 'Cuchillo de explorador. Silencioso y fiable.' }),
-  shovel: W({ name: 'Pala de zapador MPL-50', wtype: 'melee', tier: 0, dmg: [4, 8], acc: 84, range: 1, crit: 8, noise: 2, value: 35, desc: 'Cava trincheras. Parte cráneos de chebylita.' }),
-  makarov: W({ name: 'Pistola Makarov PM', wtype: 'pistol', tier: 0, dmg: [5, 8], acc: 76, range: 6, mag: 8, ammo: 'a_9x18', noise: 9, value: 80, desc: 'La pistola reglamentaria. Ocho balas de esperanza.' }),
-  axe: W({ name: 'Hacha de bombero', wtype: 'melee', tier: 1, dmg: [6, 12], acc: 78, range: 1, crit: 10, noise: 2, value: 70, desc: 'Pintada de rojo. Recuerdo del 26 de abril.' }),
-  stechkin: W({ name: 'Pistola Stechkin APS', wtype: 'pistol', tier: 1, dmg: [3, 6], acc: 66, range: 6, mag: 20, burst: 2, ammo: 'a_9x18', noise: 10, value: 150, desc: 'Automática. Ráfagas cortas de 9×18.' }),
-  toz: W({ name: 'Escopeta TOZ-34', wtype: 'shotgun', tier: 1, dmg: [9, 15], acc: 80, range: 3, mag: 2, ammo: 'a_12', noise: 12, value: 160, desc: 'Escopeta de caza de dos cañones. Devastadora a corta distancia.' }),
-  aks74u: W({ name: 'AKS-74U «Krinkov»', wtype: 'smg', tier: 2, dmg: [5, 8], acc: 66, range: 6, mag: 30, burst: 2, ammo: 'a_545', noise: 12, value: 320, desc: 'Carabina compacta para espacios cerrados.' }),
-  ak74: W({ name: 'Fusil AK-74', wtype: 'rifle', tier: 2, dmg: [6, 10], acc: 72, range: 9, mag: 30, ammo: 'a_545', noise: 13, value: 380, desc: 'El fusil del pueblo soviético. No falla nunca.' }),
-  saiga: W({ name: 'Escopeta Saiga-12', wtype: 'shotgun', tier: 2, dmg: [8, 14], acc: 74, range: 4, mag: 8, ammo: 'a_12', noise: 13, value: 400, desc: 'Escopeta semiautomática con cargador.' }),
-  svd: W({ name: 'Fusil SVD Dragunov', wtype: 'sniper', tier: 3, dmg: [14, 22], acc: 86, range: 14, mag: 10, crit: 20, ammo: 'a_762', noise: 15, value: 700, desc: 'Fusil de tirador. Precisión a larga distancia.' }),
-  rpk: W({ name: 'Ametralladora RPK-74', wtype: 'mg', tier: 3, dmg: [5, 9], acc: 62, range: 9, mag: 45, burst: 3, ammo: 'a_545', noise: 15, value: 650, desc: 'Ametralladora ligera. Muro de plomo.' }),
-  ks23: W({ name: 'Escopeta KS-23', wtype: 'shotgun', tier: 3, dmg: [14, 24], acc: 76, range: 4, mag: 3, ammo: 'a_12', noise: 15, value: 620, desc: 'Escopeta antidisturbios de calibre 23 mm.' }),
-  pkm: W({ name: 'Ametralladora PKM', wtype: 'mg', tier: 4, dmg: [9, 14], acc: 58, range: 10, mag: 100, burst: 4, ammo: 'a_762', noise: 18, value: 1200, desc: 'La reina del frente. Pesada y furiosa.' }),
-  lpo: W({ name: 'Lanzallamas LPO-50', wtype: 'flame', tier: 4, dmg: [10, 16], acc: 95, range: 5, mag: 3, ammo: 'a_fuel', noise: 8, value: 1100, desc: 'Abrasa todo en línea recta. Prende fuego al suelo.' }),
-  vss: W({ name: 'Fusil VSS Vintorez', wtype: 'sniper', tier: 4, dmg: [11, 17], acc: 85, range: 11, mag: 10, crit: 18, ammo: 'a_762', noise: 3, value: 1300, desc: 'Fusil de francotirador silenciado. Los chebylitas no lo oyen venir.' }),
-  gauss: W({ name: 'Rifle Gauss «Topolev-M»', wtype: 'energy', tier: 5, dmg: [24, 38], acc: 90, range: 16, mag: 5, crit: 15, ammo: 'a_cell', noise: 6, pierce: 99, value: 2600, glyph: '¥', desc: 'Prototipo del Dr. Topolev. Atraviesa a todo lo que encuentre en su línea.' }),
-  prometeo: W({ name: 'Proyector de esencia «Prometeo»', wtype: 'energy', tier: 5, dmg: [12, 20], acc: 88, range: 8, mag: 12, ammo: 'a_cell', noise: 5, chain: 2, value: 2400, glyph: '¥', desc: 'Arco de esencia que salta entre chebylitas cercanos.' }),
+  ...WEAPONS,
+  ...MODS,
+  ...NEW_AMMO,
 
   // ---------- MUNICIÓN ----------
   a_9x18: { cat: 'ammo', name: 'Munición 9×18 mm', glyph: '"', tier: 0, stack: 120, value: 1, pack: 24, desc: 'Para Makarov y Stechkin.' },
@@ -68,14 +55,40 @@ export const ITEMS = {
   vityaz: { cat: 'helmet', name: 'Casco «Vityaz» con visor', glyph: '^', tier: 4, prot: 3, rad: 15, vision: 2, value: 800, desc: 'Visor de intensificación de luz.' },
   corona: { cat: 'helmet', name: 'Corona de corium', glyph: '^', tier: 5, prot: 4, rad: 30, vision: 2, gasImmune: 1, value: 1800, desc: 'Lava solidificada del reactor. Brilla en la oscuridad.' },
 
-  // ---------- GADGETS (pasivos) ----------
+  // ---------- GADGETS ----------
+  // Estáticos: vision, rad, essence, regen, ev, crit, hp, acc, slots, range.
+  // cond: efectos solo en una situación (near: aliado a ≤3 · alone: ningún aliado a ≤6 · still: no te moviste · hurt: <50% salud · lowhp: <30%)
+  // aura: efectos para ti y tus aliados a r casillas · team: si varios agentes del escuadrón llevan el mismo gadget
+  // set: conjunto con otra pieza en el mismo agente (ver GADGET_SETS) · flags: efectos especiales
   torch: { cat: 'gadget', name: 'Linterna KSF', glyph: '¤', tier: 0, vision: 1, value: 40, desc: 'Amplía el campo de visión.' },
-  geiger: { cat: 'gadget', name: 'Contador Geiger DP-5', glyph: '¤', tier: 1, rad: 15, value: 120, desc: 'Reduce la radiación absorbida. Clic, clic, clic.' },
+  kerosene: { cat: 'gadget', name: 'Lámpara de queroseno', glyph: '¤', tier: 0, aura: { r: 3, mods: { vision: 1 } }, value: 50, desc: 'Ilumina a todo el grupo: +1 visión a ti y a los aliados cercanos.' },
+  waders: { cat: 'gadget', name: 'Botas de goma de liquidador', glyph: '¤', tier: 0, rad: 5, flags: { waterproof: 1 }, value: 45, desc: 'El agua contaminada no te irradia.' },
+  dosimeter: { cat: 'gadget', name: 'Dosímetro de solapa ID-11', glyph: '¤', tier: 0, rad: 8, set: 'dosimetria', value: 60, desc: 'Pieza del conjunto Dosimetría (con el Contador Geiger DP-5).' },
+  talisman: { cat: 'gadget', name: 'Talismán de babushka', glyph: '¤', tier: 0, rad: 5, cond: { when: 'lowhp', mods: { ev: 4 } }, value: 40, desc: 'Un nudo de lana roja. Cuando todo va mal, esquivas mejor.' },
+  geiger: { cat: 'gadget', name: 'Contador Geiger DP-5', glyph: '¤', tier: 1, rad: 15, set: 'dosimetria', value: 120, desc: 'Reduce la radiación absorbida. Clic, clic, clic.' },
   compass: { cat: 'gadget', name: 'Brújula de esencia', glyph: '¤', tier: 1, essence: 10, value: 130, desc: 'La aguja apunta a la esencia. Más esencia recogida.' },
+  radio: { cat: 'gadget', name: 'Radio de campaña R-126', glyph: '¤', tier: 1, cond: { when: 'near', mods: { acc: 3, ev: 2 } }, value: 140, desc: 'Coordinación: más puntería y agilidad cuando tienes un aliado cerca.' },
+  medband: { cat: 'gadget', name: 'Brazalete de sanitario', glyph: '¤', tier: 1, aura: { r: 1, mods: { regen: 1 } }, value: 150, desc: 'Tú y los aliados adyacentes regeneráis salud.' },
+  binoc: { cat: 'gadget', name: 'Prismáticos BPC-2', glyph: '¤', tier: 1, cond: { when: 'still', mods: { vision: 3, acc: 4 } }, value: 130, desc: 'Quieto, observas: más visión y puntería si no te moviste el turno anterior.' },
+  dielboots: { cat: 'gadget', name: 'Botas dieléctricas', glyph: '¤', tier: 1, flags: { antiAnomaly: 1 }, value: 140, desc: 'Inmune a las anomalías eléctricas.' },
+  thornneck: { cat: 'gadget', name: 'Collar de púas de rata', glyph: '¤', tier: 1, flags: { thorns: 3 }, value: 120, desc: 'Quien te muerde cuerpo a cuerpo recibe daño.' },
+  harness: { cat: 'gadget', name: 'Arnés de carga', glyph: '¤', tier: 1, slots: 3, ev: -1, value: 110, desc: '+3 huecos de mochila, algo más torpe.' },
   arclamp: { cat: 'gadget', name: 'Linterna de arco', glyph: '¤', tier: 2, vision: 2, value: 220, desc: 'Luz cegadora. Gran campo de visión.' },
   kolba: { cat: 'gadget', name: 'Detector de esencia «Kolba»', glyph: '¤', tier: 2, essence: 20, value: 260, desc: 'Más esencia de cada chebylita y veta.' },
-  pso: { cat: 'gadget', name: 'Mira óptica PSO-1', glyph: '¤', tier: 3, acc: 8, value: 400, desc: 'Mejora la puntería con cualquier arma de fuego.' },
+  wolfmedal: { cat: 'gadget', name: 'Medalla del lobo solitario', glyph: '¤', tier: 2, cond: { when: 'alone', mods: { dmgPct: 25, crit: 10 } }, value: 280, desc: 'Separado del grupo (ningún aliado a 6 casillas): +25% daño y +10% crítico.' },
+  banner: { cat: 'gadget', name: 'Banderín del regimiento', glyph: '¤', tier: 2, aura: { r: 4, mods: { acc: 3 } }, value: 300, desc: 'Moral alta: tú y los aliados a 4 casillas ganáis puntería.' },
+  fang: { cat: 'gadget', name: 'Colmillo de lobo de grafito', glyph: '¤', tier: 2, flags: { killHeal: 3 }, set: 'cazador', value: 240, desc: 'Cada baja te cura. Conjunto Cazador (con la Garra de jabalí).' },
+  plate: { cat: 'gadget', name: 'Placa reactiva de pecho', glyph: '¤', tier: 2, cond: { when: 'hurt', mods: { prot: 3 } }, value: 260, desc: 'Herido (<50% salud): +3 protección.' },
+  bandolier: { cat: 'gadget', name: 'Bandolera de recarga rápida', glyph: '¤', tier: 2, flags: { quickReload: 1 }, value: 250, desc: 'Recargar no consume turno.' },
+  rangefinder: { cat: 'gadget', name: 'Telémetro DS-1', glyph: '¤', tier: 2, range: 2, value: 240, desc: '+2 de alcance a cualquier arma a distancia.' },
+  komandirskie: { cat: 'gadget', name: 'Reloj «Komandirskie»', glyph: '¤', tier: 2, team: { min: 2, mods: { dmgPct: 10, acc: 2 } }, value: 200, desc: 'Sincronizados: si 2 o más agentes del escuadrón lo llevan, todos ellos ganan daño y puntería.' },
   rtg: { cat: 'gadget', name: 'Pila de radioisótopo', glyph: '¤', tier: 3, regen: 1, value: 450, desc: 'Calor constante. Regenera salud poco a poco.' },
+  magnet: { cat: 'gadget', name: 'Imán de esencia', glyph: '¤', tier: 3, flags: { essMagnet: 2 }, value: 420, desc: 'Atrae la esencia del suelo a 2 casillas de distancia.' },
+  condenser: { cat: 'gadget', name: 'Condensador de esencia', glyph: '¤', tier: 3, flags: { essHeal: 5 }, value: 430, desc: 'Cada 5 de esencia recogida te cura 1 de salud.' },
+  claw: { cat: 'gadget', name: 'Garra de jabalí de óxido', glyph: '¤', tier: 3, flags: { killFrenzy: 30 }, set: 'cazador', value: 450, desc: 'Tras cada baja: +30% daño durante 3 turnos. Conjunto Cazador.' },
+  stgeorge: { cat: 'gadget', name: 'Cruz de San Jorge', glyph: '¤', tier: 3, cond: { when: 'lowhp', mods: { crit: 25, ev: 5 } }, value: 480, desc: 'Último aliento (<30% salud): +25% crítico y +5 agilidad.' },
+  ashcloak: { cat: 'gadget', name: 'Capa de ceniza', glyph: '¤', tier: 3, flags: { stealth: 3 }, cond: { when: 'alone', mods: { ev: 3 } }, value: 500, desc: 'Los nidos dormidos te detectan a 3 casillas menos. Separado: +3 agilidad.' },
+  autoinj: { cat: 'gadget', name: 'Autoinyector de emergencia', glyph: '¤', tier: 3, flags: { autoInject: 25 }, value: 460, desc: 'Una vez por expedición, al bajar del 25% de salud, cura 25 automáticamente.' },
   amulet: { cat: 'gadget', name: 'Amuleto chebylita', glyph: '¤', tier: 4, ev: 5, crit: 5, value: 700, desc: 'Un ojo petrificado. Los chebylitas parecen dudar.' },
   heart: { cat: 'gadget', name: 'Corazón de Raíz-madre', glyph: '¤', tier: 5, regen: 2, rad: 20, hp: 10, value: 1600, desc: 'Late todavía. Cura heridas y radiación.' },
 
@@ -86,16 +99,61 @@ export const ITEMS = {
   hide: { cat: 'backpack', name: 'Bolsa de piel chebylita', glyph: '(', tier: 5, slots: 11, value: 1100, desc: '+11 huecos de mochila. Huele fatal.' },
 
   // ---------- CONSUMIBLES ----------
+  // curación
+  iodine: { cat: 'consumable', name: 'Tintura de yodo', glyph: '!', tier: 0, stack: 10, use: 'heal', heal: 4, value: 5, desc: 'Escuece, pero desinfecta.' },
   bandage: { cat: 'consumable', name: 'Venda', glyph: '!', tier: 0, stack: 10, use: 'heal', heal: 7, value: 8, desc: 'Cura 7 de salud.' },
+  ipp: { cat: 'consumable', name: 'Paquete de curas IPP', glyph: '!', tier: 0, stack: 8, use: 'heal', heal: 12, value: 15, desc: 'Paquete individual de primeros auxilios del soldado.' },
+  ration: { cat: 'consumable', name: 'Ración seca IRP', glyph: '!', tier: 0, stack: 5, use: 'heal', heal: 5, buff: { name: 'Bien comido', turns: 20, mods: { regen: 1 } }, value: 18, desc: 'Cura 5 y regenera durante 20 turnos.' },
   ai2: { cat: 'consumable', name: 'Botiquín AI-2', glyph: '!', tier: 0, stack: 5, use: 'heal', heal: 22, cure: 1, value: 35, desc: 'Cura 22 de salud y elimina el veneno.' },
-  antirad: { cat: 'consumable', name: 'Antirrad (yoduro potásico)', glyph: '!', tier: 0, stack: 8, use: 'antirad', radHeal: 35, value: 25, desc: 'Reduce 35 de radiación acumulada.' },
-  stim: { cat: 'consumable', name: 'Estimulante «Sangre de Oso»', glyph: '!', tier: 2, stack: 5, use: 'stim', turns: 15, value: 90, desc: '+30% daño y +10 puntería durante 15 turnos.' },
+  morphine: { cat: 'consumable', name: 'Ampolla de morfina', glyph: '!', tier: 1, stack: 5, use: 'heal', heal: 10, buff: { name: 'Sin dolor', turns: 8, mods: { prot: 2 } }, value: 45, desc: 'Cura 10 y +2 protección durante 8 turnos.' },
+  salve: { cat: 'consumable', name: 'Pomada de grafito', glyph: '!', tier: 2, stack: 5, use: 'heal', heal: 4, buff: { name: 'Pomada', turns: 15, mods: { regen: 2 } }, value: 60, desc: 'Regeneración rápida durante 15 turnos.' },
+  plasma: { cat: 'consumable', name: 'Bolsa de plasma', glyph: '!', tier: 2, stack: 3, use: 'heal', heal: 35, value: 90, desc: 'Cura 35 de salud.' },
   surgkit: { cat: 'consumable', name: 'Kit quirúrgico', glyph: '!', tier: 3, stack: 3, use: 'heal', heal: 50, cure: 1, value: 160, desc: 'Cura 50 de salud y elimina el veneno.' },
+  essamp: { cat: 'consumable', name: 'Ampolla de esencia', glyph: '!', tier: 4, stack: 3, use: 'heal', heal: 40, radHeal: 25, cure: 1, value: 260, desc: 'Cura 40, quita 25 de radiación y el veneno.' },
   serum: { cat: 'consumable', name: 'Suero Topolev', glyph: '!', tier: 5, stack: 3, use: 'heal', heal: 999, cure: 1, radHeal: 60, value: 500, desc: 'Restaura toda la salud y 60 de radiación.' },
-  rgd5: { cat: 'consumable', name: 'Granada RGD-5', glyph: '•', tier: 1, stack: 6, use: 'throw', blast: 1, dmg: [10, 18], range: 6, value: 45, desc: 'Explosión en radio 1. Alcance 6.' },
-  f1: { cat: 'consumable', name: 'Granada F-1', glyph: '•', tier: 2, stack: 5, use: 'throw', blast: 2, dmg: [16, 28], range: 6, value: 80, desc: 'Explosión de fragmentación en radio 2.' },
+  // radiación
+  flask: { cat: 'consumable', name: 'Petaca de vodka', glyph: '!', tier: 0, stack: 5, use: 'antirad', radHeal: 12, buff: { name: 'Valor líquido', turns: 10, mods: { acc: -3, ev: 1, crit: 5 } }, value: 15, desc: '−12 radiación. Peor puntería, más valor.' },
+  antirad: { cat: 'consumable', name: 'Antirrad (yoduro potásico)', glyph: '!', tier: 0, stack: 8, use: 'antirad', radHeal: 35, value: 25, desc: 'Reduce 35 de radiación acumulada.' },
+  cystamine: { cat: 'consumable', name: 'Cistamina B-190', glyph: '!', tier: 1, stack: 5, use: 'buff', buff: { name: 'Radioprotector', turns: 20, mods: { rad: 40 } }, value: 40, desc: '+40% resistencia a la radiación durante 20 turnos.' },
+  prussian: { cat: 'consumable', name: 'Azul de Prusia', glyph: '!', tier: 3, stack: 5, use: 'antirad', radHeal: 70, value: 110, desc: 'Reduce 70 de radiación acumulada.' },
+  // curas especiales
+  antidote: { cat: 'consumable', name: 'Antídoto de esporas', glyph: '!', tier: 1, stack: 5, use: 'buff', cure: 1, buff: { name: 'Inmune al veneno', turns: 15, flags: { poisonImmune: 1 } }, value: 35, desc: 'Elimina el veneno y protege de él durante 15 turnos.' },
+  burngel: { cat: 'consumable', name: 'Gel antiquemaduras', glyph: '!', tier: 1, stack: 5, use: 'heal', heal: 6, cureBurn: 1, value: 25, desc: 'Apaga las quemaduras y cura 6.' },
+  filter: { cat: 'consumable', name: 'Filtro de recambio GP', glyph: '!', tier: 1, stack: 5, use: 'buff', buff: { name: 'Filtro nuevo', turns: 30, mods: { gasImmune: 1 } }, value: 30, desc: 'Inmune al gas durante 30 turnos.' },
+  // potenciadores
+  tea: { cat: 'consumable', name: 'Té fuerte con azúcar', glyph: '!', tier: 0, stack: 5, use: 'buff', buff: { name: 'Té', turns: 15, mods: { acc: 3 } }, value: 12, desc: '+3 puntería durante 15 turnos.' },
+  caffeine: { cat: 'consumable', name: 'Cafeína en pastillas', glyph: '!', tier: 1, stack: 6, use: 'buff', buff: { name: 'Cafeína', turns: 8, mods: { acc: 6 } }, value: 30, desc: '+6 puntería durante 8 turnos.' },
+  valerian: { cat: 'consumable', name: 'Gotas de valeriana', glyph: '!', tier: 1, stack: 6, use: 'buff', buff: { name: 'Calma', turns: 12, mods: { crit: 10, ev: 2 } }, value: 30, desc: '+10% crítico y +2 agilidad durante 12 turnos.' },
+  belladona: { cat: 'consumable', name: 'Colirio de belladona', glyph: '!', tier: 1, stack: 5, use: 'buff', buff: { name: 'Pupilas dilatadas', turns: 20, mods: { vision: 3 } }, value: 35, desc: '+3 visión durante 20 turnos.' },
+  stim: { cat: 'consumable', name: 'Estimulante «Sangre de Oso»', glyph: '!', tier: 2, stack: 5, use: 'buff', buff: { name: 'Sangre de Oso', turns: 15, mods: { dmgPct: 30, acc: 5 } }, value: 90, desc: '+30% daño y +5 puntería durante 15 turnos.' },
+  fenamina: { cat: 'consumable', name: 'Fenamina', glyph: '!', tier: 2, stack: 5, use: 'buff', buff: { name: 'Fenamina', turns: 10, mods: { acc: 4, ev: 4 }, after: { poison: 3 } }, value: 60, desc: '+4 puntería y +4 agilidad 10 turnos. Luego, bajón (veneno).' },
+  leadpaste: { cat: 'consumable', name: 'Pasta de plomo', glyph: '!', tier: 2, stack: 5, use: 'buff', buff: { name: 'Pasta de plomo', turns: 20, mods: { prot: 2, rad: 20 } }, value: 70, desc: '+2 protección y +20% resist. radiación durante 20 turnos.' },
+  adrenaline: { cat: 'consumable', name: 'Adrenalina', glyph: '!', tier: 3, stack: 4, use: 'buff', buff: { name: 'Adrenalina', turns: 6, mods: { crit: 20, dmgPct: 15 } }, value: 110, desc: '+20% crítico y +15% daño durante 6 turnos.' },
+  // arrojadizos
+  rg42: { cat: 'consumable', name: 'Granada RG-42', glyph: '•', tier: 0, stack: 6, use: 'throw', blast: 1, dmg: [8, 14], range: 6, value: 30, desc: 'Granada vieja de lata. Radio 1.' },
   molotov: { cat: 'consumable', name: 'Cóctel Molotov', glyph: '•', tier: 0, stack: 6, use: 'throw', blast: 1, fire: 1, dmg: [4, 7], range: 6, value: 30, desc: 'Incendia una zona de radio 1.' },
-  flare: { cat: 'consumable', name: 'Bengala', glyph: '•', tier: 0, stack: 6, use: 'throw', lure: 1, range: 8, value: 20, desc: 'Ilumina la zona y atrae a los chebylitas cercanos.' },
+  flare: { cat: 'consumable', name: 'Bengala', glyph: '•', tier: 0, stack: 6, use: 'throw', lure: 14, light: 1, range: 8, value: 20, desc: 'Ilumina la zona y atrae a los chebylitas cercanos.' },
+  bait: { cat: 'consumable', name: 'Carne de cebo', glyph: '•', tier: 0, stack: 5, use: 'throw', lure: 10, range: 6, value: 15, desc: 'Atrae a los chebylitas en silencio, sin iluminar.' },
+  rgd5: { cat: 'consumable', name: 'Granada RGD-5', glyph: '•', tier: 1, stack: 6, use: 'throw', blast: 1, dmg: [10, 18], range: 6, value: 45, desc: 'Explosión en radio 1. Alcance 6.' },
+  smoke: { cat: 'consumable', name: 'Granada de humo RDG-2', glyph: '•', tier: 1, stack: 5, use: 'throw', smoke: 2, range: 7, value: 35, desc: 'Cortina de humo de radio 2 durante 10 turnos: bloquea la visión de todos.' },
+  dynamite: { cat: 'consumable', name: 'Cartucho de dinamita', glyph: '•', tier: 1, stack: 5, use: 'throw', blast: 2, dmg: [14, 26], range: 5, noise: 22, value: 60, desc: 'Radio 2. Se oye en toda la central.' },
+  noisemaker: { cat: 'consumable', name: 'Radio señuelo', glyph: '•', tier: 1, stack: 4, use: 'throw', lure: 20, range: 7, value: 50, desc: 'Una radio a todo volumen: atrae a todo lo que esté a 20 casillas.' },
+  f1: { cat: 'consumable', name: 'Granada F-1', glyph: '•', tier: 2, stack: 5, use: 'throw', blast: 2, dmg: [16, 28], range: 6, value: 80, desc: 'Explosión de fragmentación en radio 2.' },
+  rgo: { cat: 'consumable', name: 'Granada de impacto RGO', glyph: '•', tier: 2, stack: 5, use: 'throw', blast: 2, dmg: [14, 24], range: 7, value: 85, desc: 'Explota al tocar el suelo. Radio 2, alcance 7.' },
+  gasgren: { cat: 'consumable', name: 'Granada química K-51', glyph: '•', tier: 2, stack: 4, use: 'throw', gas: 2, range: 6, value: 70, desc: 'Nube tóxica de radio 2. Daña a animales e insectos (y a ti sin máscara).' },
+  flash: { cat: 'consumable', name: 'Granada aturdidora «Zarya»', glyph: '•', tier: 2, stack: 4, use: 'throw', stun: 2, blast: 2, range: 7, value: 90, desc: 'Aturde 2 turnos a los chebylitas en radio 2 (los jefes, 1).' },
+  rkg3: { cat: 'consumable', name: 'Granada antitanque RKG-3', glyph: '•', tier: 3, stack: 3, use: 'throw', blast: 1, dmg: [30, 45], pierce: 8, range: 5, value: 150, desc: 'Carga hueca: ignora el blindaje. Radio 1.' },
+  thermite: { cat: 'consumable', name: 'Granada de termita', glyph: '•', tier: 3, stack: 3, use: 'throw', blast: 2, fire: 2, dmg: [8, 12], range: 6, value: 130, desc: 'Incendio feroz de radio 2.' },
+  essgren: { cat: 'consumable', name: 'Granada de esencia', glyph: '•', tier: 5, stack: 3, use: 'throw', blast: 2, dmg: [30, 45], essBoost: 50, range: 7, value: 400, desc: 'Radio 2. Lo que mata suelta un 50% más de esencia.' },
+  // trampas (se colocan en una casilla adyacente)
+  snare: { cat: 'consumable', name: 'Cepo de cazador', glyph: '×', tier: 0, stack: 4, use: 'trap', trap: { dmg: [6, 10], stun: 4, blast: 0 }, range: 1.5, value: 30, desc: 'Atrapa al primer chebylita que lo pise: daño y 4 turnos inmovilizado.' },
+  pmn: { cat: 'consumable', name: 'Mina antipersona PMN', glyph: '×', tier: 2, stack: 4, use: 'trap', trap: { dmg: [20, 30], blast: 1 }, range: 1.5, value: 90, desc: 'Explota (radio 1) cuando un chebylita la pisa.' },
+  ozm: { cat: 'consumable', name: 'Mina saltarina OZM-72', glyph: '×', tier: 3, stack: 3, use: 'trap', trap: { dmg: [22, 36], blast: 2 }, range: 1.5, value: 160, desc: 'Salta y explota en radio 2 cuando un chebylita la pisa.' },
+  // utilidad
+  mapcase: { cat: 'consumable', name: 'Plano del sector', glyph: '?', tier: 0, stack: 3, use: 'reveal', radius: 35, value: 40, desc: 'Cartografía el entorno en un radio de 35 casillas.' },
+  ammobox: { cat: 'consumable', name: 'Caja de munición', glyph: '=', tier: 1, stack: 3, use: 'ammo', mags: 2, value: 70, desc: 'Dos cargadores de munición para cada arma equipada.' },
+  detector: { cat: 'consumable', name: 'Detector de movimiento «Svetlyachok»', glyph: '¤', tier: 2, stack: 3, use: 'sense', turns: 15, radius: 25, value: 90, desc: 'Muestra a todos los chebylitas a 25 casillas durante 15 turnos, aunque no los veas.' },
+  rocket: { cat: 'consumable', name: 'Cohete de señales', glyph: '•', tier: 2, stack: 2, use: 'signal', value: 120, desc: 'Pide una extracción temporal ahora mismo (aparecerá en el radar).' },
   beacon: { cat: 'consumable', name: 'Baliza de extracción', glyph: '•', tier: 3, stack: 2, use: 'beacon', value: 350, desc: 'Abre una extracción temporal donde estés en 6 turnos.' },
 
   // ---------- BOTÍN (valiosos para vender) ----------
@@ -124,6 +182,11 @@ export const EPITHETS = [
   '«Plomo»', '«Isótopo»', '«Grafito»', '«Ceniza»', '«Abedul»', '«Baba Yaga»', '«Koschei»', '«Volga»',
   '«Dnipró»', '«Estepa»', '«Proletario»', '«Gagarin»', '«Ushanka»', '«Matrioska»',
 ];
+// Conjuntos de gadgets: bonificación si un agente lleva las dos piezas
+export const GADGET_SETS = {
+  dosimetria: { name: 'Dosimetría', pieces: ['geiger', 'dosimeter'], mods: { rad: 20, essence: 15 }, desc: '+20% resist. radiación y +15% esencia' },
+  cazador: { name: 'Cazador de la taiga', pieces: ['fang', 'claw'], mods: { crit: 10, dmgPct: 10 }, desc: '+10% crítico y +10% daño' },
+};
 export const UNCOMMON_SUFFIX = ['mejorado', 'de campaña', 'revisado', 'ajustado'];
 export const RARE_SUFFIX = ['de élite', 'reforzado', 'de precisión', 'del Spetsnaz'];
 

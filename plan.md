@@ -157,6 +157,14 @@ O órdenes del escuadrón · I inventario · M mapa · Espacio esperar · ? ayud
 - Juego completo y jugable (fases 1–10). Probado con Playwright (bot automático en las 5 zonas, guardado/carga a mitad de expedición, drag & drop, compras).
 - Siguiente sesión: continuar con la fase 11 (opcional) o con ajustes de balance según el feedback.
 
+## FASE 12 — Ampliación del arsenal (petición del usuario)
+- [x] 12.1 69 armas (×4) en `js/data/weapons.js`, cada una con dibujo ASCII visible en su tooltip; nuevos tipos lanzador (explosión) y 5 municiones nuevas
+- [x] 12.2 Mods de armas (`js/data/mods.js`): 31 mods en 6 ranuras (óptica, boca, empuñadura, cargador, culata, bajo cañón) compatibles por tipo de arma, con excepciones por arma; montaje por drag & drop en EQUIPO
+- [x] 12.3 49 consumibles (×4): potenciadores temporales, curas, granadas (impacto, antitanque, química, aturdidora, humo, termita, esencia), trampas, detector, planos, cajas de munición, cohetes de señales
+- [x] 12.4 31 gadgets (×3, sin la mira PSO, que pasa a ser mod) con sinergias: juntos/separado/quieto/herido/último aliento, auras, equipo, conjuntos y disparadores (al matar, espinas, imán, autoinyector…)
+- [x] 12.5 Catálogo admin.html actualizado (mods, dibujos, sinergias) e instrucciones del juego
+- [x] 12.6 Migración de partidas antiguas (gadget PSO → mod)
+
 ## FASE 11 — Ideas futuras (opcional)
 - [x] 11.1 Eventos narrativos aleatorios en expedición (radio, supervivientes)
 - [x] 11.2 Crafteo con esencia (objetos míticos)

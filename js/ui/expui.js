@@ -27,7 +27,7 @@ const KEYDIR = {
   w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0], q: [-1, -1], e: [1, -1], z: [-1, 1], c: [1, 1],
   Numpad8: [0, -1], Numpad2: [0, 1], Numpad4: [-1, 0], Numpad6: [1, 0], Numpad7: [-1, -1], Numpad9: [1, -1], Numpad1: [-1, 1], Numpad3: [1, 1],
 };
-const STATE_TXT = { dormido: 'dormido', alerta: '¡alerta!', errante: 'merodeando' };
+const STATE_TXT = { dormido: 'dormido', alerta: '¡alerta!', errante: 'merodeando', aturdido: 'aturdido' };
 
 export class ExpeditionUI {
   constructor(root, hooks) {
@@ -245,14 +245,15 @@ export class ExpeditionUI {
     e.squad.forEach((sq, i) => {
       const a = sq.a;
       if (!a) return;
-      const st = agentStats(a);
+      const st = e.inMap(sq) ? e.ast(sq) : agentStats(a);
       const w = a.equip[sq.cur];
       const ws = w ? itemStats(w) : null;
       const status = !sq.alive ? '<span class="bad">✝ CAÍDO</span>' : sq.out ? '<span class="cyan">⇑ EXTRAÍDO</span>' : '';
       const chips = [];
       if (sq.poison) chips.push(`<span class="status-chip good">VEN ${sq.poison}</span>`);
       if (sq.burn) chips.push('<span class="status-chip bad">FUEGO</span>');
-      if (sq.stim) chips.push(`<span class="status-chip warn">ESTIM ${sq.stim}</span>`);
+      for (const b of sq.buffs || []) chips.push(`<span class="status-chip warn" title="${esc(b.name)}">${esc(b.name.toUpperCase().slice(0, 12))} ${b.turns}</span>`);
+      if (sq.autoUsed === false && e.flag && e.inMap(sq) && e.flag(sq, 'autoInject')) chips.push('<span class="status-chip cyan">💉</span>');
       if (a.rad >= 100) chips.push('<span class="status-chip bad pulse-red">RAD!</span>');
       const card = el('div', { class: `agent-card ${sq === e.cur ? 'active' : ''} ${!sq.alive ? 'dead' : sq.out ? 'gone' : ''}` });
       card.innerHTML = `
@@ -288,7 +289,7 @@ export class ExpeditionUI {
     b.innerHTML = '';
     if (!sq || !sq.a) return;
     const a = sq.a;
-    const st = agentStats(a);
+    const st = e.ast(sq);
     const wrow = (slot) => {
       const w = a.equip[slot];
       const ws = w ? itemStats(w) : null;
@@ -330,7 +331,8 @@ export class ExpeditionUI {
 
   defaultActionText(it) {
     const d = ITEMS[it.b];
-    if (d.cat === 'consumable') return d.use === 'throw' ? 'Clic: lanzar (elige destino)' : 'Clic: usar (1 turno)';
+    if (d.cat === 'consumable') return d.use === 'throw' ? 'Clic: lanzar (elige destino)' : d.use === 'trap' ? 'Clic: colocar en una casilla adyacente' : 'Clic: usar (1 turno)';
+    if (d.cat === 'mod') return 'Mod de arma: se instala en la base (EQUIPO).';
     if (['weapon', 'armor', 'helmet', 'gadget', 'backpack'].includes(d.cat)) return 'Clic: equipar (1 turno)';
     return 'Botín: llévalo a la base para venderlo.';
   }
@@ -338,7 +340,7 @@ export class ExpeditionUI {
     const e = this.exp;
     const d = ITEMS[it.b];
     if (d.cat === 'consumable') {
-      if (d.use === 'throw') { this.enterThrow(it); return; }
+      if (d.use === 'throw' || d.use === 'trap') { this.enterThrow(it); return; }
       e.act((sq) => e.useItem(sq, it));
       return;
     }
@@ -479,7 +481,7 @@ export class ExpeditionUI {
   }
   quickGrenade() {
     const e = this.exp;
-    const g = e.cur.a.bag.find((it) => ITEMS[it.b].use === 'throw' && !ITEMS[it.b].lure) || e.cur.a.bag.find((it) => ITEMS[it.b].use === 'throw');
+    const g = e.cur.a.bag.find((it) => ITEMS[it.b].use === 'throw' && ITEMS[it.b].dmg) || e.cur.a.bag.find((it) => ITEMS[it.b].use === 'throw');
     if (!g) { e.say('No llevas granadas ni objetos arrojadizos.', 'bad'); return; }
     this.enterThrow(g);
   }
@@ -499,8 +501,8 @@ export class ExpeditionUI {
   }
   enterThrow(it) {
     const c = this.exp.cur;
-    const list = this.visibleEnemies();
-    this.mode = { type: 'throw', it, list, i: 0, cx: list[0] ? list[0].x : c.x, cy: list[0] ? list[0].y : c.y };
+    const list = ITEMS[it.b].use === 'trap' ? [] : this.visibleEnemies();
+    this.mode = { type: 'throw', it, list, i: 0, cx: list[0] ? list[0].x : c.x + 1, cy: list[0] ? list[0].y : c.y };
     if (this.invClose) this.invClose();
     this.showBanner();
     this.updateTargetOverlay();
@@ -510,6 +512,7 @@ export class ExpeditionUI {
     this.banner.classList.remove('hidden');
     this.banner.innerHTML = m.type === 'fire'
       ? 'APUNTANDO — clic / F / Enter: disparar · Tab: siguiente objetivo · Esc: cancelar'
+      : ITEMS[m.it.b].use === 'trap' ? `COLOCAR ${esc(ITEMS[m.it.b].name.toUpperCase())} — clic en una casilla adyacente · Esc: cancelar`
       : `LANZAR ${esc(ITEMS[m.it.b].name.toUpperCase())} — clic / F: lanzar · flechas: mover · Esc: cancelar`;
   }
   cancelMode() { this.mode = null; this.banner.classList.add('hidden'); this.clearOverlay(); }
@@ -560,7 +563,8 @@ export class ExpeditionUI {
       const d = ITEMS[m.it.b];
       const inRange = Math.hypot(m.cx - c.x, m.cy - c.y) <= d.range + 0.5;
       ov.line = [c.x, c.y, m.cx, m.cy, inRange];
-      if (d.blast) ov.blast = { x: m.cx, y: m.cy, r: d.blast };
+      const br = d.blast || d.smoke || d.gas || (d.trap && d.trap.blast) || 0;
+      if (br) ov.blast = { x: m.cx, y: m.cy, r: br };
     }
     this.r.overlay = ov;
   }
@@ -678,7 +682,7 @@ export class ExpeditionUI {
       const col = enemyColor(def.hue, en.lvl);
       const es = e.est(en);
       parts.push(`<div class="tt-title" style="color:${col}">${def.glyph} ${def.name}${def.boss ? ' ☠' : ''}</div>`);
-      parts.push(`<div class="tt-sub">Nivel <b style="color:${col}">${en.lvl}</b> · ${def.origin} · <span class="${en.state === 'alerta' ? 'bad' : 'dimt'}">${STATE_TXT[en.state]}</span></div>`);
+      parts.push(`<div class="tt-sub">Nivel <b style="color:${col}">${en.lvl}</b> · ${def.origin} · <span class="${en.state === 'alerta' ? 'bad' : 'dimt'}">${en.stun > 0 ? `aturdido (${en.stun})` : STATE_TXT[en.state]}</span></div>`);
       parts.push(`<div class="tt-row"><span>Salud</span><span>${hpBar(en.hp, en.hpMax, 12)} ${en.hp}/${en.hpMax}</span></div>`);
       parts.push(`<div class="tt-row"><span class="dimt">Daño</span><span>${es.dmg[0]}–${es.dmg[1]}</span></div><div class="tt-row"><span class="dimt">Blindaje</span><span>${es.armor}</span></div><div class="tt-row"><span class="dimt">Esquiva</span><span>${es.ev}</span></div>`);
       if (def.abil.length) parts.push(`<div class="tt-aff">◆ ${def.abil.map((a) => ABIL_TEXT[a]).join(' · ')}</div>`);
@@ -703,6 +707,8 @@ export class ExpeditionUI {
     if (vis && e.essence.get(k)) parts.push(`<div class="cyan">✦ ${e.essence.get(k)} de esencia</div>`);
     const fl = e.floorItems.get(k);
     if (fl && fl.length && (vis || e.explored[k])) parts.push(fl.map((it) => `<div style="color:${rarityColor(it.r)}">${esc(itemName(it))}${it.q > 1 ? ' ×' + it.q : ''}</div>`).join(''));
+    const trap = e.trapAt(x, y);
+    if (trap) parts.push(`<div class="bad">× ${esc(ITEMS[trap.b].name)} (tuya)</div>`);
     const td = TILES[e.t[k]];
     const sec = e.sectorAt(x, y);
     parts.push(`<div class="tt-sep">${'─'.repeat(40)}</div><div class="dimt">${td.name}${sec ? ` · ${sec.code} ${esc(sec.name)}` : ''}${vis ? '' : ' (recordado)'}</div>`);
@@ -713,6 +719,7 @@ export class ExpeditionUI {
       if (e.gas[k]) hz.push('<span style="color:#c06cff">gas tóxico</span>');
       if (e.fire[k]) hz.push('<span class="bad">fuego</span>');
       if (e.anomaly[k]) hz.push('<span style="color:#7fb8ff">anomalía eléctrica</span>');
+      if (e.smoke[k]) hz.push('<span class="dimt">humo</span>');
       if (hz.length) parts.push(`<div>${hz.join(' · ')}</div>`);
     }
     return parts.join('');
@@ -802,7 +809,7 @@ export class ExpeditionUI {
         });
         eq.append(slot);
       }
-      const st = agentStats(a);
+      const st = e.ast(sq);
       eq.append(el('div', { class: 'sep', text: '─'.repeat(60) }), el('div', { class: 'kv', html: `<span>Salud</span><span>${a.hp}/${st.hpMaxEff}</span><span>Radiación</span><span>${Math.round(a.rad)}</span><span>Protección</span><span>${st.prot}</span><span>Resist. rad.</span><span>${st.rad}%</span><span>Agilidad</span><span>${st.ev}</span><span>Puntería</span><span>${st.acc}</span><span>Visión</span><span>${st.vision}</span><span>Esencia</span><span class="cyan">${sq.ess} ✦</span>` }));
       // mochila
       const bag = el('div', { style: { minHeight: '20em' } });

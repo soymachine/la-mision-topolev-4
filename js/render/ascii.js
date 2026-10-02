@@ -231,6 +231,13 @@ export class MapRenderer {
           }, d);
           break;
         }
+        case 'smoke': setTimeout(() => P.burst(f.x + 0.5, f.y + 0.5, 30, { chars: ['░', '▒', '·', 'o'], colors: ['#8a8078', '#b0a89e', '#605850'], speed: 3, life: 1.5, drag: 1.5 }), d); break;
+        case 'flash':
+          setTimeout(() => {
+            this.flashScreen = { color: 'rgba(255,250,220,', t: performance.now(), dur: 350 };
+            P.burst(f.x + 0.5, f.y + 0.5, 24, { chars: ['*', '+', '✶', '·'], colors: ['#fff', '#ffe9a0'], speed: 8, life: 0.5, glow: 16 });
+          }, d);
+          break;
         case 'spores': P.burst(f.x + 0.5, f.y + 0.5, 30, { chars: ['°', 'o', '·', '░'], colors: ['#c06cff', '#9a4adf', '#e0a0ff'], speed: 4, life: 1.2, drag: 2 }); break;
         case 'zap': P.burst(f.x + 0.5, f.y + 0.5, 8, { chars: ['*', '+', '\\', '/', '|'], colors: ['#bfe8ff', '#5fb0ff', '#fff'], speed: 5, life: 0.25, glow: 14 }); this.flashes.set('h' + f.x + ',' + f.y, performance.now() + 120); break;
         case 'open': P.burst(f.x + 0.5, f.y + 0.5, 6, { chars: ['·', '\'', ','], colors: ['#c97a2c', '#ffb35c'], speed: 2.5, life: 0.4 }); break;
@@ -358,6 +365,12 @@ export class MapRenderer {
           ctx.fillStyle = `rgba(160,70,220,${a * 0.5})`; ctx.fillRect(sx, sy, cw, ch);
           glyph(x, y, Math.sin(T_ * 2 + x + y * 2) > 0 ? '░' : '▒', `rgba(200,120,255,${a})`);
         }
+        if (e.smoke[k]) {
+          const a = Math.min(0.8, e.smoke[k] / 10 + 0.2);
+          const [sx, sy] = S(x, y);
+          ctx.fillStyle = `rgba(90,85,80,${a * 0.6})`; ctx.fillRect(sx, sy, cw, ch);
+          glyph(x, y, Math.sin(T_ * 1.5 + x * 0.7 + y) > 0 ? '▒' : '░', `rgba(170,160,150,${a})`);
+        }
         if (e.fire[k]) {
           const f = Math.sin(T_ * 17 + x * 5 + y * 3);
           glyph(x, y, f > 0.3 ? '▲' : f > -0.4 ? '^' : '*', f > 0.3 ? '#ffd23f' : f > -0.4 ? '#ff8a1f' : '#ff3b1f', 'rgba(80,10,0,.6)');
@@ -438,6 +451,23 @@ export class MapRenderer {
       glyph(p.x, p.y, '◊', `rgba(95,247,255,${0.5 + 0.5 * Math.sin(T_ * 8)})`);
     }
 
+    // ---- trampas propias ----
+    for (const t of e.traps || []) {
+      if (t.x < x0 || t.x > x1 || t.y < y0 || t.y > y1 || !e.explored[t.y * e.w + t.x]) continue;
+      glyph(t.x, t.y, '×', `rgba(255,80,60,${0.55 + 0.25 * Math.sin(T_ * 3)})`);
+    }
+    // ---- enemigos detectados por el detector de movimiento ----
+    if (e.sense > 0) {
+      for (const en of e.enemies) {
+        if (e.visible[en.y * e.w + en.x]) continue;
+        if (!e.team.some((q) => Math.hypot(q.x - en.x, q.y - en.y) <= e.senseR)) continue;
+        if (en.x < x0 || en.x > x1 || en.y < y0 || en.y > y1) continue;
+        const def = ENEMIES[en.type];
+        ctx.globalAlpha = 0.35 + 0.2 * Math.sin(T_ * 4 + en.x);
+        glyph(en.x, en.y, def.glyph, enemyColor(def.hue, en.lvl), null, 1, true);
+        ctx.globalAlpha = 1;
+      }
+    }
     // ---- enemigos ----
     const lunge = this.lunge;
     for (const en of e.enemies) {
@@ -469,6 +499,7 @@ export class MapRenderer {
         ctx.fillStyle = f > 0.5 ? '#3ddc6b' : f > 0.25 ? '#ffd23f' : '#ff3b30';
         ctx.fillRect(sx + 1, sy + ch - 2, w * f, 2);
       }
+      if (en.stun > 0) { ctx.font = `${Math.round(this.fs * 0.6)}px ${FONT}`; ctx.fillStyle = '#ffe9a0'; ctx.fillText(['✶', '*', '·', '*'][Math.floor(T_ * 8) % 4], sx + cw / 2 + Math.sin(T_ * 6) * cw * 0.4, sy - ch * 0.15); ctx.font = font; }
       if (en.state === 'dormido' && Math.sin(T_ * 1.3 + en.x * 2) > 0.985) this.parts.add({ x: en.x + 0.8, y: en.y, vy: -0.8, vx: 0.3, life: 1.4, ch: 'z', color: col, scale: 0.6 });
     }
     // ---- agentes ----

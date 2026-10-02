@@ -2,6 +2,7 @@
 import { MODULES } from '../data/world.js';
 import { createAgent, starterKit } from './agents.js';
 import { createItem } from './items.js';
+import { ITEMS } from '../data/items.js';
 import { RNG } from '../util/rng.js';
 
 const KEY = 'topolev_save_v1';
@@ -54,11 +55,27 @@ export function load() {
     const d = JSON.parse(raw);
     if (!d || d.v !== SAVE_VERSION) return null;
     S = d;
+    migrate(S);
     return S;
   } catch (e) {
     console.error('Error al cargar', e);
     return null;
   }
+}
+
+// Ajustes de compatibilidad con partidas antiguas
+function migrate(st) {
+  const all = [...st.agents];
+  for (const a of all) {
+    for (const k of ['g1', 'g2']) {
+      const it = a.equip[k];
+      if (it && (!ITEMS[it.b] || ITEMS[it.b].cat !== 'gadget')) { a.equip[k] = null; if (ITEMS[it.b]) a.bag.push(it); }
+    }
+    a.bag = a.bag.filter((it) => ITEMS[it.b]);
+    for (const k of Object.keys(a.equip)) if (a.equip[k] && !ITEMS[a.equip[k].b]) a.equip[k] = null;
+  }
+  st.stash = st.stash.filter((it) => ITEMS[it.b]);
+  if (st.shop) st.shop.stock = st.shop.stock.filter((it) => ITEMS[it.b]);
 }
 
 let saveTimer = null;

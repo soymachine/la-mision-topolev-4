@@ -1,6 +1,6 @@
 // Agentes: generación, estadísticas derivadas, experiencia
 import { FIRST_NAMES_M, FIRST_NAMES_F, LAST_NAMES, NICKNAMES, TRAITS } from '../data/world.js';
-import { ITEMS } from '../data/items.js';
+import { ITEMS, GADGET_SETS } from '../data/items.js';
 import { itemStats, createItem } from './items.js';
 import { rng as grng, uid } from '../util/rng.js';
 
@@ -58,16 +58,29 @@ export function agentStats(a) {
     hpMax: a.baseHp + (a.lvl - 1) * 4 + (tm.hp || 0), acc: a.acc + (tm.acc || 0), ev: a.ev + (tm.ev || 0),
     prot: 0, rad: tm.rad || 0, vision: 7 + (tm.vision || 0), essence: tm.essence || 0, crit: tm.crit || 0, regen: 0,
     slots: BASE_SLOTS + (tm.slots || 0), gasImmune: 0, healPct: tm.healPct || 0, mining: tm.mining || 0, meleePct: tm.meleePct || 0,
+    dmgPct: 0, range: 0, sets: [],
   };
   for (const k of ['armor', 'helmet', 'g1', 'g2', 'pack']) {
     const it = a.equip[k];
-    if (!it) continue;
+    if (!it || (k[0] === 'g' && ITEMS[it.b].cat !== 'gadget')) continue;
     const st = itemStats(it);
-    for (const key of ['prot', 'rad', 'ev', 'vision', 'essence', 'acc', 'crit', 'regen', 'slots', 'gasImmune']) if (st[key]) s[key] += st[key];
+    for (const key of ['prot', 'rad', 'ev', 'vision', 'essence', 'acc', 'crit', 'regen', 'slots', 'gasImmune', 'dmgPct', 'range']) if (st[key]) s[key] += st[key];
     if (st.hp) s.hpMax += st.hp;
   }
+  // conjuntos de gadgets
+  const gids = [a.equip.g1, a.equip.g2].filter(Boolean).map((it) => it.b);
+  for (const [id, set] of Object.entries(GADGET_SETS)) {
+    if (set.pieces.every((p) => gids.includes(p))) {
+      s.sets.push(id);
+      for (const [k, v] of Object.entries(set.mods)) s[k] = (s[k] || 0) + v;
+    }
+  }
+  // visión extra de mods (miras nocturnas, linternas tácticas)
+  let mv = 0;
+  for (const k of ['w1', 'w2']) if (a.equip[k]) mv = Math.max(mv, itemStats(a.equip[k]).vision || 0);
+  s.vision += mv;
   s.rad = Math.min(90, s.rad);
-  s.vision = Math.min(13, s.vision);
+  s.vision = Math.min(14, s.vision);
   // la radiación acumulada reduce la salud máxima
   s.hpMaxEff = Math.max(5, Math.round(s.hpMax * (1 - Math.min(100, a.rad) / 250)));
   return s;

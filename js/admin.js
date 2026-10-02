@@ -4,6 +4,8 @@ import { RARITIES, rarityWeights } from './data/rarity.js';
 import { ENEMIES, ABIL_TEXT, enemyColor, scaleEnemy } from './data/enemies.js';
 import { MAPS, MODULES, MODULE_MAX, moduleCost, squadSize, rosterSize, stashSize, TRAITS, SECTOR_NAMES, FIRST_NAMES_M, FIRST_NAMES_F, LAST_NAMES, NICKNAMES } from './data/world.js';
 import { TILES } from './data/tiles.js';
+import { MOD_SLOTS, weaponSlots } from './data/mods.js';
+import { gadgetExtras, gadgetEffectLines, WTYPE_NAMES } from './core/items.js';
 import { NOTES, RADIO, SURVIVOR_LINES } from './data/lore.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -12,9 +14,9 @@ const tag = (t, cls = '') => `<span class="tag ${cls}">${esc(t)}</span>`;
 const R = RARITIES;
 const ESS = '#5ff7ff';
 
-const WTYPE = { melee: 'Cuerpo a cuerpo', pistol: 'Pistola', smg: 'Subfusil', shotgun: 'Escopeta', rifle: 'Fusil', sniper: 'Tirador', mg: 'Ametralladora', flame: 'Lanzallamas', energy: 'Esencia' };
+const WTYPE = { melee: 'Cuerpo a cuerpo', pistol: 'Pistola', smg: 'Subfusil', shotgun: 'Escopeta', rifle: 'Fusil', sniper: 'Tirador', mg: 'Ametralladora', flame: 'Lanzallamas', launcher: 'Lanzador', energy: 'Esencia' };
 const ZONE_TYPE = { industrial: 'Industrial', ruinas: 'Ruinas', caverna: 'Caverna', inundado: 'Inundado' };
-const SHOP_MODULE = { weapon: 'Armería', armor: 'Blindaje', helmet: 'Blindaje', gadget: 'Taller', backpack: 'Taller' };
+const SHOP_MODULE = { weapon: 'Armería', mod: 'Armería', armor: 'Blindaje', helmet: 'Blindaje', gadget: 'Taller', backpack: 'Taller' };
 const minZone = (tier) => Math.max(1, tier * 2 - 1);
 function shopText(d, id) {
   if (d.cat === 'valuable') return '<span class="desc">solo botín</span>';
@@ -33,8 +35,9 @@ sec('General', 'resumen', 'Resumen', null, renderSummary);
 // ----- OBJETOS -----
 sec('Objetos', 'armas', 'Armas', byCat('weapon').length, () => table(byCat('weapon'), [
   { h: '', g: true, v: (d) => `<span style="color:${R[Math.min(5, d.tier)].color}">${esc(d.glyph)}</span>` },
-  { h: 'Nombre', v: (d) => `<div class="nm">${esc(d.name)}</div><div class="desc">${esc(d.desc)}</div>`, s: (d) => d.name },
+  { h: 'Nombre', v: (d) => `<div class="nm">${esc(d.name)}</div><div class="desc">${esc(d.desc)}</div>${d.art ? `<pre class="art" style="color:${R[Math.min(5, d.tier)].color}">${esc(d.art)}</pre>` : ''}`, s: (d) => d.name },
   { h: 'Tipo', v: (d) => WTYPE[d.wtype], s: (d) => d.wtype },
+  { h: 'Mods', v: (d) => weaponSlots(d.id, d.wtype).map((sl) => `<span title="${MOD_SLOTS[sl].name}">${MOD_SLOTS[sl].glyph}</span>`).join(' ') || '—', s: (d) => weaponSlots(d.id, d.wtype).length },
   { h: 'Nv', num: true, v: (d) => d.tier, s: (d) => d.tier },
   { h: 'Daño', num: true, v: (d) => `${d.dmg[0]}–${d.dmg[1]}${d.burst > 1 ? ` ×${d.burst}` : ''}`, s: (d) => (d.dmg[0] + d.dmg[1]) / 2 * d.burst },
   { h: 'Daño/turno', num: true, v: (d) => ((d.dmg[0] + d.dmg[1]) / 2 * d.burst).toFixed(1), s: (d) => (d.dmg[0] + d.dmg[1]) / 2 * d.burst },
@@ -45,10 +48,22 @@ sec('Objetos', 'armas', 'Armas', byCat('weapon').length, () => table(byCat('weap
   { h: 'Munición', v: (d) => (d.ammo ? AMMO_NAMES[d.ammo] : '—'), s: (d) => d.ammo || '' },
   { h: 'Crít.', num: true, v: (d) => d.crit + '%', s: (d) => d.crit },
   { h: 'Ruido', num: true, v: (d) => d.noise, s: (d) => d.noise },
-  { h: 'Especial', v: (d) => [d.pierce ? tag('perfora todo', 'c') : '', d.chain ? tag(`salta a ${d.chain}`, 'c') : '', d.wtype === 'flame' ? tag('incendia', 'b') : '', d.wtype === 'shotgun' ? tag('pierde daño lejos') : '', d.wtype === 'sniper' ? tag('−20% adyacente') : '', d.noise <= 3 ? tag('silenciosa', 'g') : ''].join('') },
+  { h: 'Especial', v: (d) => [d.blast ? tag(`explosión radio ${d.blast}`, 'b') : '', d.fire ? tag('incendia', 'b') : '', d.pierce >= 99 ? tag('perfora todo', 'c') : d.pierce ? tag(`perfora ${d.pierce}`, 'c') : '', d.chain ? tag(`salta a ${d.chain}`, 'c') : '', d.wtype === 'flame' ? tag('incendia', 'b') : '', d.wtype === 'shotgun' ? tag('pierde daño lejos') : '', d.wtype === 'sniper' ? tag('−20% adyacente') : '', d.noise <= 3 ? tag('silenciosa', 'g') : ''].join('') },
   { h: 'Intendencia', v: (d) => shopText(d), s: (d) => d.tier },
   { h: 'Valor ₽', num: true, v: (d) => d.value, s: (d) => d.value },
-]), 'Daño/turno = daño medio × ráfaga. «Por rareza» muestra ese daño con el multiplicador de cada rareza (sin contar propiedades extra). La precisión final suma la puntería del agente ×2 y resta la esquiva del enemigo y 7 puntos por casilla más allá del alcance.');
+]), 'Cada arma muestra su dibujo ASCII, el mismo que aparece en su ficha dentro del juego. Columna Mods: ranuras disponibles (⌖ óptica · » boca · ╤ empuñadura · ▮ cargador · ◣ culata · ┬ bajo cañón). Daño/turno = daño medio × ráfaga. «Por rareza» muestra ese daño con el multiplicador de cada rareza (sin contar propiedades extra). La precisión final suma la puntería del agente ×2 y resta la esquiva del enemigo y 7 puntos por casilla más allá del alcance.');
+
+sec('Objetos', 'mods', 'Mods de armas', byCat('mod').length, () => table(byCat('mod'), [
+  { h: '', g: true, v: (d) => `<span title="${MOD_SLOTS[d.slot].name}">${MOD_SLOTS[d.slot].glyph}</span>` },
+  { h: 'Nombre', v: (d) => `<div class="nm">${esc(d.name)}</div><div class="desc">${esc(d.desc)}</div>`, s: (d) => d.name },
+  { h: 'Ranura', v: (d) => MOD_SLOTS[d.slot].name, s: (d) => d.slot },
+  { h: 'Nv', num: true, v: (d) => d.tier, s: (d) => d.tier },
+  { h: 'Efectos', v: (d) => [d.acc ? tag(`${d.acc > 0 ? '+' : ''}${d.acc}% precisión`, d.acc > 0 ? 'g' : 'b') : '', d.range ? tag(`${d.range > 0 ? '+' : ''}${d.range} alcance`, d.range > 0 ? 'g' : 'b') : '', d.crit ? tag(`+${d.crit}% crítico`, 'g') : '', d.noise ? tag(`${d.noise} ruido`, 'g') : '', d.magPct ? tag(`${d.magPct > 0 ? '+' : ''}${d.magPct}% cargador`, d.magPct > 0 ? 'g' : 'b') : '', d.dmgPct ? tag(`${d.dmgPct > 0 ? '+' : ''}${d.dmgPct}% daño`, d.dmgPct > 0 ? 'g' : 'b') : '', d.pierce ? tag(`+${d.pierce} perforación`, 'g') : '', d.scope ? tag('mira de tirador', 'c') : '', d.still ? tag(`+${d.still}% quieto`, 'c') : '', d.vision ? tag(`+${d.vision} visión`, 'c') : '', d.bayonet ? tag('bayoneta', 'b') : ''].join('') },
+  { h: 'Compatible con', v: (d) => d.fits.map((w) => tag(WTYPE[w])).join('') },
+  { h: 'Armas concretas', v: (d) => { const ws = byCat('weapon').filter((w) => d.fits.includes(w.wtype) && weaponSlots(w.id, w.wtype).includes(d.slot)); return `<span class="desc">${ws.length} armas</span>`; }, s: (d) => byCat('weapon').filter((w) => d.fits.includes(w.wtype) && weaponSlots(w.id, w.wtype).includes(d.slot)).length },
+  { h: 'Intendencia', v: (d) => shopText(d), s: (d) => d.tier },
+  { h: 'Valor ₽', num: true, v: (d) => d.value, s: (d) => d.value },
+]), 'Los mods se montan en la base (EQUIPO): arrastra el mod a la ranura que aparece bajo el arma del agente. Cada tipo de arma tiene sus ranuras, y algunas armas concretas no tienen todas (silenciador integrado, revólveres, tambores fijos…). Las miras de tirador dan alcance y crítico pero penalizan a quemarropa. Los valores positivos crecen con la rareza del mod.');
 
 sec('Objetos', 'municion', 'Munición', byCat('ammo').length, () => table(byCat('ammo'), [
   { h: '', g: true, v: (d) => esc(d.glyph) },
@@ -81,16 +96,18 @@ sec('Objetos', 'cascos', 'Cascos', byCat('helmet').length, () => table(byCat('he
   { h: 'Gas', v: (d) => (d.gasImmune ? tag('inmune', 'g') : '—') },
 ])));
 
-const EFF = { vision: (v) => `+${v} visión`, rad: (v) => `+${v}% resist. rad.`, essence: (v) => `+${v}% esencia`, acc: (v) => `+${v} puntería`, regen: (v) => `regenera ${v}`, ev: (v) => `+${v} agilidad`, crit: (v) => `+${v}% crítico`, hp: (v) => `+${v} salud máx.`, slots: (v) => `+${v} huecos`, gasImmune: () => 'inmune al gas' };
+const EFF = { vision: (v) => `+${v} visión`, rad: (v) => `+${v}% resist. rad.`, essence: (v) => `+${v}% esencia`, acc: (v) => `+${v} puntería`, regen: (v) => `regenera ${v}`, ev: (v) => `${v > 0 ? '+' : ''}${v} agilidad`, crit: (v) => `+${v}% crítico`, hp: (v) => `+${v} salud máx.`, slots: (v) => `+${v} huecos`, gasImmune: () => 'inmune al gas' };
 const effTags = (d) => Object.keys(EFF).filter((k) => d[k]).map((k) => tag(EFF[k](d[k]), 'g')).join('');
 sec('Objetos', 'gadgets', 'Gadgets', byCat('gadget').length, () => table(byCat('gadget'), [
   { h: '', g: true, v: (d) => esc(d.glyph) },
   { h: 'Nombre', v: (d) => `<div class="nm">${esc(d.name)}</div><div class="desc">${esc(d.desc)}</div>`, s: (d) => d.name },
   { h: 'Nv', num: true, v: (d) => d.tier, s: (d) => d.tier },
   { h: 'Efectos', v: effTags },
+  { h: 'Sinergias y especiales', v: (d) => gadgetEffectLines({ b: d.id, r: 0 }).map((l) => `<div class="desc" style="color:var(--cyan)">◈ ${l}</div>`).join('') || '—' },
+  { h: 'Tipo', v: (d) => { const x = gadgetExtras({ b: d.id, r: 0 }); return [x.cond ? tag({ near: 'juntos', alone: 'separado', still: 'quieto', hurt: 'herido', lowhp: 'último aliento' }[x.cond.when], 'c') : '', x.aura ? tag('aura', 'g') : '', x.team ? tag('equipo', 'g') : '', d.set ? tag('conjunto', 'b') : '', x.flags ? tag('especial') : ''].join('') || tag('pasivo'); } },
   { h: 'Intendencia', v: (d) => shopText(d), s: (d) => d.tier },
   { h: 'Valor ₽', num: true, v: (d) => d.value, s: (d) => d.value },
-]), 'Cada agente puede llevar 2 gadgets. Sus efectos son pasivos.');
+]), 'Cada agente lleva 2 gadgets. Muchos tienen sinergias: se activan juntos o separados del grupo, quieto, herido, como aura para los aliados cercanos, si varios agentes llevan el mismo, en conjunto con otra pieza, o al matar.');
 sec('Objetos', 'mochilas', 'Mochilas', byCat('backpack').length, () => table(byCat('backpack'), [
   { h: '', g: true, v: (d) => esc(d.glyph) },
   { h: 'Nombre', v: (d) => `<div class="nm">${esc(d.name)}</div><div class="desc">${esc(d.desc)}</div>`, s: (d) => d.name },
@@ -100,22 +117,38 @@ sec('Objetos', 'mochilas', 'Mochilas', byCat('backpack').length, () => table(byC
   { h: 'Valor ₽', num: true, v: (d) => d.value, s: (d) => d.value },
 ]), 'Un agente tiene 6 huecos de mochila de base (más si tiene el rasgo Carroñero). Cada pila de objetos ocupa un hueco.');
 
+const BUFFTXT = { acc: (v) => `${v > 0 ? '+' : ''}${v} puntería`, ev: (v) => `+${v} agilidad`, crit: (v) => `+${v}% crítico`, dmgPct: (v) => `+${v}% daño`, prot: (v) => `+${v} protección`, rad: (v) => `+${v}% resist. rad.`, vision: (v) => `+${v} visión`, regen: (v) => `regenera ${v}`, gasImmune: () => 'inmune al gas' };
 function consEffect(d) {
   const t = [];
-  if (d.use === 'heal') t.push(tag(d.heal >= 999 ? 'cura toda la salud' : `cura ${d.heal}`, 'g'));
+  if (d.heal) t.push(tag(d.heal >= 999 ? 'cura toda la salud' : `cura ${d.heal}`, 'g'));
   if (d.cure) t.push(tag('quita veneno', 'g'));
+  if (d.cureBurn) t.push(tag('apaga quemaduras', 'g'));
   if (d.radHeal) t.push(tag(`−${d.radHeal} radiación`, 'g'));
-  if (d.use === 'stim') t.push(tag(`+30% daño y +10 puntería · ${d.turns} turnos`, 'b'));
+  if (d.buff) {
+    const m = Object.entries(d.buff.mods || {}).map(([k, v]) => BUFFTXT[k] ? BUFFTXT[k](v) : k).join(', ');
+    t.push(tag(`${m}${d.buff.flags && d.buff.flags.poisonImmune ? 'inmune al veneno' : ''} · ${d.buff.turns}t`, 'c'));
+    if (d.buff.after) t.push(tag('después: veneno', 'b'));
+  }
   if (d.use === 'throw') {
     if (d.dmg) t.push(tag(`${d.dmg[0]}–${d.dmg[1]} daño · radio ${d.blast}`, 'b'));
+    if (d.pierce) t.push(tag('ignora blindaje', 'b'));
     if (d.fire) t.push(tag('incendia', 'b'));
-    if (d.lure) t.push(tag('ilumina y atrae chebylitas', 'c'));
+    if (d.essBoost) t.push(tag(`+${d.essBoost}% esencia`, 'c'));
+    if (d.lure) t.push(tag(`atrae a ${d.lure} casillas${d.light ? ' e ilumina' : ''}`, 'c'));
+    if (d.smoke) t.push(tag(`humo radio ${d.smoke} · bloquea visión`, 'c'));
+    if (d.gas) t.push(tag(`nube tóxica radio ${d.gas}`, 'b'));
+    if (d.stun) t.push(tag(`aturde ${d.stun}t · radio ${d.blast}`, 'c'));
     t.push(tag(`alcance ${d.range}`));
   }
+  if (d.use === 'trap') t.push(tag(`trampa: ${d.trap.dmg[0]}–${d.trap.dmg[1]}${d.trap.blast ? ` radio ${d.trap.blast}` : ''}${d.trap.stun ? ` · inmoviliza ${d.trap.stun}t` : ''}`, 'b'));
   if (d.use === 'beacon') t.push(tag('abre extracción en 6 turnos', 'c'));
+  if (d.use === 'signal') t.push(tag('extracción temporal inmediata', 'c'));
+  if (d.use === 'reveal') t.push(tag(`cartografía radio ${d.radius}`, 'c'));
+  if (d.use === 'sense') t.push(tag(`detecta enemigos a ${d.radius} · ${d.turns}t`, 'c'));
+  if (d.use === 'ammo') t.push(tag(`${d.mags} cargadores por arma`, 'g'));
   return t.join('');
 }
-const USE = { heal: 'Curación', antirad: 'Antirradiación', stim: 'Estimulante', throw: 'Arrojadizo', beacon: 'Baliza' };
+const USE = { heal: 'Curación', antirad: 'Antirradiación', buff: 'Potenciador', throw: 'Arrojadizo', trap: 'Trampa', beacon: 'Baliza', signal: 'Señal', reveal: 'Cartografía', sense: 'Detección', ammo: 'Munición' };
 sec('Objetos', 'consumibles', 'Consumibles', byCat('consumable').length, () => table(byCat('consumable'), [
   { h: '', g: true, v: (d) => esc(d.glyph) },
   { h: 'Nombre', v: (d) => `<div class="nm">${esc(d.name)}</div><div class="desc">${esc(d.desc)}</div>`, s: (d) => d.name },
@@ -125,7 +158,7 @@ sec('Objetos', 'consumibles', 'Consumibles', byCat('consumable').length, () => t
   { h: 'Pila', num: true, v: (d) => d.stack, s: (d) => d.stack },
   { h: 'Intendencia', v: (d) => shopText(d), s: (d) => d.tier },
   { h: 'Valor ₽', num: true, v: (d) => d.value, s: (d) => d.value },
-]), 'Usar un consumible gasta un turno. Las curaciones mejoran un 50% con el rasgo Sanitario.');
+]), 'Usar un consumible gasta un turno. Las curaciones mejoran un 50% con el rasgo Sanitario. Los potenciadores aplican un efecto temporal (se ve en la tarjeta del agente). Las trampas se colocan en una casilla adyacente y saltan cuando un chebylita las pisa.');
 sec('Objetos', 'botin', 'Botín', byCat('valuable').length, () => table(byCat('valuable'), [
   { h: '', g: true, v: (d) => esc(d.glyph) },
   { h: 'Nombre', v: (d) => `<div class="nm">${esc(d.name)}</div><div class="desc">${esc(d.desc)}</div>`, s: (d) => d.name },
@@ -175,6 +208,7 @@ function renderSummary() {
   return `<p class="intro">Catálogo generado directamente a partir de los datos del juego: si se añade contenido, aparece aquí automáticamente. Pulsa en una categoría para ver la lista; las columnas de las tablas se pueden ordenar y el buscador filtra filas.</p>
   <div class="cards">${cards}</div>
   <div class="block"><h3>Profundidad del juego</h3>
+    <div>${byCat('weapon').length} armas · ${byCat('mod').length} mods de arma en ${Object.keys(MOD_SLOTS).length} ranuras · ${byCat('gadget').length} gadgets · ${byCat('consumable').length} consumibles</div>
     <div>${items.length} objetos base (${equipBases} de equipo) × ${R.length} rarezas · ${AFFIXES.length} propiedades aleatorias · ${MYTHIC_NAMES.length} nombres míticos</div>
     <div>${Object.keys(ENEMIES).length} especies de chebylita (${bosses} jefes) con 10 niveles de poder · ${new Set(Object.values(ENEMIES).flatMap((e) => e.abil)).size} habilidades distintas</div>
     <div>${MAPS.length} zonas generadas proceduralmente · ${Object.values(SECTOR_NAMES).flat().length} nombres de sector · ${Object.keys(SECTOR_NAMES).length} tipos de terreno</div>
