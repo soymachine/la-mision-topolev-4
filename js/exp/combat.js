@@ -237,6 +237,7 @@ export class CombatPart {
     if (def.boss) this.addFloor(e.x, e.y, createItem('crystal', rng.int(2, 4), rng));
     const bySquad = !src || this.isSquad(src);
     if (bySquad) { this.tally.kills++; S.stats.kills++; }
+    if (src && src.id) this.trigger('kill', { type: e.type, faction: actorFaction(e), lvl: e.lvl }, src);
     if (!human && bySquad) bestiaryKill(e.type);
     if (src && src.id && this.inMap(src)) {
       const kh = this.flag(src, 'killHeal');
@@ -279,6 +280,7 @@ export class CombatPart {
 
   damageAgent(sq, dmg, cause, srcE = null, delay = 0) {
     if (!this.inMap(sq)) return;
+    if (this.god) return; // consola de depuración
     sq.a.hp -= dmg;
     this.tally.dmgTaken += dmg;
     this.fx.push({ type: 'dmg', x: sq.x, y: sq.y, n: dmg, delay, color: '#ff3b30', agent: true });
@@ -295,6 +297,7 @@ export class CombatPart {
       }
     }
     if (sq.a.hp <= 0) this.agentDies(sq, cause);
+    else this.trigger('agentHurt', { dmg }, sq);
   }
 
   agentDies(sq, cause) {

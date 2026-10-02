@@ -55,4 +55,11 @@ Dentro del juego, la sección **Instrucciones** explica las reglas y los control
 python3 -m http.server 8000 &
 npm i -D playwright   # una sola vez
 node tests/smoke.cjs 0   # 0..4 = zona
+node tests/systems.cjs   # facciones, eventos, diálogos, consola y guardado
 ```
+
+## Consola de depuración
+
+Pulsa **º** (o la tecla `` ` ``) en partida, o abre el juego con `?debug` en la URL. Escribe `help` para ver las órdenes:
+`give`, `spawn`, `kill`, `tp`, `reveal`, `heal`, `god`, `wait`, `extract`, `day`, `ess`, `rub`, `rel`, `rep`, `flag`, `events`, `event`, `dialog`.
+Tab completa órdenes e identificadores.

@@ -332,3 +332,23 @@ body.no-crt #crt { display: none; }
   #screen-exp.active { grid-template-columns: 1fr 34ch; }
   .grid3 { grid-template-columns: 1fr 1fr; overflow-y: auto; }
 }
+
+/* ---------- diálogos (motor de eventos) ---------- */
+.dlg { display: flex; flex-direction: column; gap: .6em; }
+.dlg-art { margin: 0; line-height: 1.05; opacity: .9; text-align: center; }
+.dlg-speaker { font-weight: bold; letter-spacing: .08em; text-transform: uppercase; font-size: .9em; }
+.dlg-speaker::before { content: '▌ '; opacity: .6; }
+.dlg-text { line-height: 1.6; padding: .2em 0 .4em; animation: dlg-in .35s ease-out; }
+.dlg-opts { display: flex; flex-direction: column; gap: .35em; border-top: 1px dashed var(--o5); padding-top: .6em; }
+.dlg-opt { text-align: left; width: 100%; white-space: normal; transition: color .08s, background .08s, padding .12s; }
+.dlg-opt:not(.disabled):hover { padding-left: 2ch; }
+.dlg-opt.disabled { opacity: .45; cursor: not-allowed; }
+@keyframes dlg-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* ---------- consola de depuración ---------- */
+.dbg { position: fixed; left: 0; right: 0; bottom: 0; z-index: 9000; background: rgba(10, 5, 1, .96); border-top: 1px solid var(--o3); font-size: 13px; display: flex; flex-direction: column; max-height: 45vh; box-shadow: 0 -8px 30px rgba(0,0,0,.7); }
+.dbg.hidden { display: none; }
+.dbg-title { color: var(--o4); padding: .2em 1ch; letter-spacing: .2em; font-size: 11px; }
+.dbg-out { overflow-y: auto; padding: 0 1ch; color: var(--o1); line-height: 1.45; flex: 1; min-height: 6em; word-break: break-word; }
+.dbg-in { background: #000; color: var(--o0); border: none; border-top: 1px dashed var(--o5); font: inherit; padding: .4em 1ch; outline: none; caret-color: var(--o2); }
+.dbg-in::placeholder { color: var(--o5); }

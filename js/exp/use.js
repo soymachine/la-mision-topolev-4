@@ -45,7 +45,7 @@ export class UsePart {
       return false;
     }
     if (o.kind === 'survivor') {
-      if (sq === this.cur) this.emit('survivor', o);
+      if (sq === this.cur) this.openDialog('survivor', sq, o);
       return false;
     }
     if (!o.opened) {
@@ -90,6 +90,7 @@ export class UsePart {
     this.tally.items++;
     this.say(`${this.nm(sq)} coge <span style="color:${rarityColor(it.r)}">${esc(itemName(it))}${it.q > 1 ? ' ×' + it.q : ''}</span>.`);
     this.fx.push({ type: 'pickup', x: sq.x, y: sq.y, color: rarityColor(it.r) });
+    this.trigger('pickup', { item: it.b, rarity: it.r }, sq);
     this.cleanFloor();
     this.emit('update');
     return true;
@@ -106,43 +107,6 @@ export class UsePart {
     }
     this.addFloor(sq.x, sq.y, it);
     this.say(`${this.nm(sq)} suelta ${esc(itemName(it))}.`, 'dimt');
-    this.dirty = true;
-    this.emit('update');
-    return true;
-  }
-
-  // ---------------------------------------------------------------- supervivientes
-  survivorChoice(o, choice) {
-    const sq = this.cur;
-    if (!sq || o.gone) return false;
-    if (choice === 'heal') {
-      const h = sq.a.bag.filter((it) => ITEMS[it.b].use === 'heal').sort((a, b) => ITEMS[a.b].heal - ITEMS[b.b].heal)[0];
-      if (!h) { this.say('No llevas medicinas que darle.', 'bad'); return false; }
-      this.consume(sq, h);
-      const n = rng.int(1, 2);
-      for (let i = 0; i < n; i++) this.addFloor(sq.x, sq.y, rollLoot(Math.min(10, o.lvl + 1), rng, { rarityBonus: 0.7, catW: { ammo: 4, consumable: 6, valuable: 10 } }));
-      if (rng.chance(0.5)) { const k = this.key(sq.x, sq.y); this.essence.set(k, (this.essence.get(k) || 0) + rng.int(6, 14) * o.lvl); }
-      const ups = giveXp(sq.a, 25 + o.lvl * 5);
-      this.say(`«Gracias, camarada. Tomad esto, a mí ya no me sirve.» El superviviente deja su equipo a los pies de ${this.nm(sq)}.`, 'good');
-      if (ups) this.say(`★ ${this.nm(sq)} sube a nivel ${sq.a.lvl}.`, 'good');
-      this.emit('loot', { floor: true, x: sq.x, y: sq.y });
-    } else if (choice === 'intel') {
-      let n = 0;
-      for (let y = o.y - 30; y <= o.y + 30; y++) for (let x = o.x - 30; x <= o.x + 30; x++) {
-        if (!this.inb(x, y) || Math.hypot(x - o.x, (y - o.y) * 1.3) > 30) continue;
-        const k = this.key(x, y);
-        if (TILES[this.t[k]].walk || this.t[k] === T.WALL || this.t[k] === T.MACHINE) { if (!this.explored[k]) n++; this.explored[k] = 1; }
-      }
-      this.say(`«Escuchad: conozco estos túneles.» Os dibuja un plano en un trozo de cartón (${n} casillas cartografiadas).`, 'o1');
-    } else {
-      this.say('Lo dejáis atrás. Sus ojos os siguen en la oscuridad.', 'dimt');
-      return true;
-    }
-    o.gone = true;
-    this.objects.splice(this.objects.indexOf(o), 1);
-    this.objMap.delete(this.key(o.x, o.y));
-    this.fx.push({ type: 'extract', x: o.x, y: o.y, color: '#9fe8a0' });
-    this.say('El superviviente se arrastra hacia la superficie.', 'dimt');
     this.dirty = true;
     this.emit('update');
     return true;

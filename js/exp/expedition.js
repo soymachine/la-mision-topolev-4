@@ -23,6 +23,7 @@ import { UsePart } from './use.js';
 import { ExtractionPart } from './extraction.js';
 import { AIPart } from './ai.js';
 import { EnvironmentPart } from './environment.js';
+import { StoryPart } from './story.js';
 export { ORDERS, ESSENCE_COLOR };
 
 function b64(u8) {
@@ -84,6 +85,8 @@ export class Expedition {
     e.computeVisibility(true);
     e.say(`Inserción en <b>${def.name}</b>. Nivel medio ${def.lvl[0]}–${def.lvl[1]}. Recolectad esencia y salid por un punto de extracción.`, 'o1');
     e.say('Los puntos de extracción (<span class="cyan">⌂</span>) están marcados en el radar. Pulsa <b>?</b> para ver los controles.', 'dimt');
+    e.trigger('expStart');
+    e.checkSector(e.cur);
     return e;
   }
 
@@ -115,6 +118,7 @@ export class Expedition {
       sectors: this.sectors, exits: this.exits, pois: this.pois, objects: this.objects, vents: this.vents, start: this.start,
       rad: sparse(this.rad, 100), anomaly: an, gas: sparse(this.gas), fire: sparse(this.fire), smoke: sparse(this.smoke),
       traps: this.traps, sense: this.sense, senseR: this.senseR, relations: this.relations || {},
+      eventsDone: this.eventsDone || {}, secSeen: this.secSeen || {}, facSeen: this.facSeen || {}, dlg: this.dlg || null, dlgQueue: this.dlgQueue || [],
       floorItems: [...this.floorItems.entries()], essence: [...this.essence.entries()],
       turn: this.turn, log: this.log.slice(-60), evac: this.evac, pending: this.pending, flares: this.flares, tally: this.tally,
       surgeAt: this.surgeAt, nextTemp: this.nextTemp, nextRadio: this.nextRadio, active: this.active,
@@ -307,6 +311,13 @@ export class Expedition {
         if (!e.seen) { e.seen = 1; fresh.push(e); if (ENEMIES[e.type]) seeEnemy(e.type); }
       }
     }
+    // primer avistamiento de cada facción humana en la expedición
+    for (const e of fresh) {
+      const f = actorFaction(e);
+      if (f === 'chebylitas' || (this.facSeen = this.facSeen || {})[f]) continue;
+      this.facSeen[f] = 1;
+      if (this.trigger) this.trigger('seeFaction', { faction: f, type: e.type });
+    }
     if (fresh.length && !silent) {
       for (const att of ['hostile', 'neutral', 'allied']) {
         const list = fresh.filter((e) => this.attitudeToSquad(e) === att);
@@ -387,8 +398,20 @@ export class Expedition {
     if (ent.id && !ent.type) ent.lastMove = this.turn;
   }
 
+  // primer paso del escuadrón en un sector
+  checkSector(sq) {
+    if (!sq) return;
+    const s = this.sectorAt(sq.x, sq.y);
+    if (!s) return;
+    this.secSeen = this.secSeen || {};
+    if (this.secSeen[s.id]) return;
+    this.secSeen[s.id] = 1;
+    this.trigger('enterSector', { sector: s }, sq);
+  }
+
   onAgentEnter(sq) {
     const k = this.key(sq.x, sq.y);
+    this.checkSector(sq);
     this.pickupEssence(sq, k);
     const items = this.floorItems.get(k);
     if (items && items.length && sq === this.cur) {
@@ -463,6 +486,7 @@ export class Expedition {
     this.turn++;
     S.stats.turns++;
     this.computeVisibility();
+    this.trigger('turn', { turn: this.turn });
     this.emit('turn');
   }
 
@@ -475,7 +499,7 @@ export class Expedition {
 }
 
 // Mezcla de los módulos parciales en la clase principal
-for (const Part of [CombatPart, UsePart, ExtractionPart, AIPart, EnvironmentPart]) {
+for (const Part of [CombatPart, UsePart, ExtractionPart, AIPart, EnvironmentPart, StoryPart]) {
   for (const k of Object.getOwnPropertyNames(Part.prototype)) {
     if (k === 'constructor') continue;
     if (Object.prototype.hasOwnProperty.call(Expedition.prototype, k)) throw new Error('Método duplicado en Expedition: ' + k);

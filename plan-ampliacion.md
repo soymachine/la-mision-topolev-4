@@ -46,7 +46,7 @@
 
 ---
 
-## FASE 13 — Cimientos técnicos
+## FASE 13 — Cimientos técnicos ✔
 
 **Objetivo:** preparar el código para crecer sin romperse.
 
@@ -69,9 +69,10 @@ Hoy existen dos tipos de actor: agentes (`squad`) y chebylitas (`enemies`). Hace
   - *Hecho:* registro común `ACTORS` (`data/actors.js` = chebylitas + humanos de `data/humans.js`), facción por actor, `relations` serializadas, `provoke()` al atacar a neutrales/aliados (−25 de reputación). Los humanos aún **no aparecen** en los mapas normales (llegan en la fase 18); se generan desde la consola de depuración (13.5).
 
 ### 13.3 Motor de eventos y diálogos (M)
-- [ ] `data/events.js`: eventos con **disparador** (entrar en zona, ver facción, turno N, objeto recogido, agente herido, día X en la base), **condiciones** (flags, reputación, relaciones) y **efectos** (dar objeto, cambiar reputación, abrir diálogo, generar actores, marcar flag).
-- [ ] `data/dialogs.js`: árboles de diálogo con opciones condicionadas (habilidad del agente, objeto en la mochila, reputación) → la UI ya tiene modales con botones (ver `openSurvivor`).
-- [ ] Estado narrativo global `S.flags` y por agente `a.flags`.
+- [x] `data/events.js`: eventos con **disparador** (entrar en zona, ver facción, turno N, objeto recogido, agente herido, día X en la base), **condiciones** (flags, reputación, relaciones) y **efectos** (dar objeto, cambiar reputación, abrir diálogo, generar actores, marcar flag).
+- [x] `data/dialogs.js`: árboles de diálogo con opciones condicionadas (habilidad del agente, objeto en la mochila, reputación) → la UI ya tiene modales con botones (ver `openSurvivor`).
+- [x] Estado narrativo global `S.flags` y por agente `a.flags`.
+  - *Hecho:* motor en `core/events.js` (condiciones y efectos declarativos; cualquier valor puede ser una función), mezcla `exp/story.js` (`trigger`, cola de diálogos, se guardan con la expedición), ventana `ui/dialog.js` (teclas 1–9) usada también en la base (`S.pendingDialogs`). Disparadores: `expStart`, `enterSector`, `turn`, `seeFaction`, `pickup`, `agentHurt`, `kill`, `baseDay`. El superviviente ya es el diálogo `survivor` (con historia propia). Contenido inicial: radios de la RDA, EE. UU. y Suecia, visita del Comité, carta de la viuda y ~15 eventos ambientales.
 
 ### 13.4 Guardado v2 (M)
 - [x] Compresión del guardado (LZ-string incrustado en `js/util/lz.js`, sin dependencias externas).
@@ -79,9 +80,11 @@ Hoy existen dos tipos de actor: agentes (`squad`) y chebylitas (`enemies`). Hace
 - [x] `SAVE_VERSION = 2` con migración desde v1 (la partida v1 pasa a la ranura 1 y se guarda una copia `topolev_save_v1_backup`).
 
 ### 13.5 Herramientas de desarrollo (S)
-- [ ] Consola de depuración oculta (tecla `º` o `?debug` en la URL): teletransporte, generar actor, dar objeto, revelar mapa, saltar día.
-- [ ] Bot de pruebas ampliado: recorre cada zona nueva y prueba facciones, compañeros y eventos.
-- [ ] Ampliar `admin.html` con secciones nuevas a medida que aparezcan (facciones, zonas, eventos, talentos).
+- [x] Consola de depuración oculta (tecla `º` o `?debug` en la URL): teletransporte, generar actor, dar objeto, revelar mapa, saltar día.
+- [x] Bot de pruebas ampliado: recorre cada zona nueva y prueba facciones, compañeros y eventos.
+  - *Hecho:* `tests/systems.cjs` (18 comprobaciones: base, facciones, diálogos, superviviente, guardado, consola). Ampliarlo con cada zona y compañero nuevos.
+- [x] Ampliar `admin.html` con secciones nuevas a medida que aparezcan (facciones, zonas, eventos, talentos).
+  - *Hecho:* Facciones (con matriz de actitudes), Personas, Eventos y Diálogos. Seguir añadiendo secciones en cada fase.
 
 ---
 

@@ -1,5 +1,6 @@
 // Lógica de campaña: intendencia, reclutamiento, mejoras, lanzar y cerrar expediciones
 import { S, save, addMessage } from './state.js';
+import { fireEvents, dialogView, dialogChoose } from './events.js';
 import { ITEMS } from '../data/items.js';
 import { MAPS, MODULES, MODULE_MAX, moduleCost, rosterSize, stashSize, squadSize } from '../data/world.js';
 import { createItem, itemValue, itemName, itemStats, mergeInto, rollRarity } from './items.js';
@@ -265,6 +266,7 @@ export function finalizeExpedition(exp) {
 
 export function nextDay() {
   S.day++;
+  baseDayEvents();
   const enf = S.modules.enfermeria;
   for (const a of S.agents) {
     const st = agentStats(a);
@@ -276,3 +278,30 @@ export function nextDay() {
 }
 
 export function totalCarried(a) { return Object.values(a.equip).filter(Boolean).length + a.bag.length; }
+
+// eventos de la base al empezar un nuevo día (data/events.js, disparador «baseDay»)
+export function baseDayEvents() {
+  const ctx = { base: true, data: {}, S };
+  fireEvents('baseDay', ctx);
+  for (const m of ctx.out || []) addMessage(m.text.replace(/<[^>]+>/g, ''));
+  if (ctx.nextDialog) (S.pendingDialogs = S.pendingDialogs || []).push(ctx.nextDialog);
+}
+
+// diálogo pendiente en la base: { view, choose(i) → seguir?, dismiss() }
+export function baseDialog() {
+  const id = S.pendingDialogs && S.pendingDialogs[0];
+  if (!id) return null;
+  const dlg = { id, node: 'start' };
+  const ctx = () => ({ base: true, data: {}, S });
+  return {
+    view: () => dialogView(dlg, ctx()),
+    choose: (i) => {
+      const c = ctx();
+      const r = dialogChoose(dlg, i, c);
+      for (const m of c.out || []) addMessage(m.text.replace(/<[^>]+>/g, ''));
+      if (r && r.end) { S.pendingDialogs.shift(); save(); return false; }
+      return !!r;
+    },
+    dismiss: () => { S.pendingDialogs.shift(); save(); },
+  };
+}

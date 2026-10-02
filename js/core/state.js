@@ -33,7 +33,7 @@ export function newGame(n = slot) {
     agents: [], stash: [], fallen: [], unlocked: 1, cleared: {}, bestiary: {},
     stats: { expeditions: 0, extractions: 0, deaths: 0, kills: 0, essTotal: 0, rubTotal: 0, turns: 0, bestItem: null },
     shop: null, recruits: null, messages: [], lastReport: null, exp: null, introSeen: false,
-    flags: {}, rep: {}, eventsDone: {},
+    flags: {}, rep: {}, eventsDone: {}, pendingDialogs: [],
   };
   for (let i = 0; i < 3; i++) {
     const a = createAgent(g, { day: 1, avoid: new Set(S.agents.map((x) => x.nick)) });
@@ -110,7 +110,8 @@ export function load(n = lastSlot()) {
 // actualiza estructuras de versiones anteriores
 function upgrade(d) {
   if (d.v < 2) { d.flags = d.flags || {}; d.rep = d.rep || {}; d.eventsDone = d.eventsDone || {}; d.v = 2; }
-  d.flags = d.flags || {}; d.rep = d.rep || {}; d.eventsDone = d.eventsDone || {};
+  d.flags = d.flags || {}; d.rep = d.rep || {}; d.eventsDone = d.eventsDone || {}; d.pendingDialogs = d.pendingDialogs || [];
+  for (const a of d.agents || []) a.flags = a.flags || {};
 }
 
 // Ajustes de compatibilidad con contenido retirado

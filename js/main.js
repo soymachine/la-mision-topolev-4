@@ -6,6 +6,7 @@ import { Expedition } from './exp/expedition.js';
 import { ExpeditionUI } from './ui/expui.js';
 import { BaseUI } from './ui/base.js';
 import { TitleScreen, IntroScreen, ReportScreen, HelpScreen } from './ui/screens.js';
+import { installDebug } from './ui/debug.js';
 
 let current = null;
 let prevScreen = 'title';
@@ -104,7 +105,8 @@ async function boot() {
 
   show('title');
   title.open();
-  window.__topolev = { get S() { return S; }, get exp() { return exp; }, show };
+  const debug = installDebug({ exp: () => exp, base, expUI, current: () => current });
+  window.__topolev = { get S() { return S; }, get exp() { return exp; }, show, debug };
 }
 
 boot();

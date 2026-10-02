@@ -15,7 +15,8 @@ import { astar } from '../exp/path.js';
 import { cheb, rng } from '../util/rng.js';
 import { sfx } from '../audio.js';
 import { uiFly } from './fx.js';
-import { NOTES, SURVIVOR_LINES } from '../data/lore.js';
+import { NOTES } from '../data/lore.js';
+import { showDialog } from './dialog.js';
 
 export function toggleFullscreen() {
   try {
@@ -118,9 +119,11 @@ export class ExpeditionUI {
     exp.on('tempexit', () => { sfx.radio(); toast('📻 Nueva extracción temporal disponible. Consulta el radar.', '', 3500); });
     exp.on('end', () => this.onEnd());
     exp.on('note', (o) => this.openNote(o));
-    exp.on('survivor', (o) => this.openSurvivor(o));
+    exp.on('dialog', () => this.openDialog());
     this.renderLog();
     this.refresh();
+    this.dlgClose = null;
+    if (exp.dlg) setTimeout(() => { if (this.exp === exp && exp.dlg && !this.dlgClose) this.openDialog(); }, 350);
     this.last = performance.now();
     const token = (this.loopToken = (this.loopToken || 0) + 1);
     const loop = (now) => {
@@ -930,20 +933,16 @@ export class ExpeditionUI {
     sfx.type();
     modal({ title: 'NOTA ENCONTRADA', width: 'min(70ch, 92vw)', body: `<div class="msg-topolev" style="font-size:15px;line-height:1.6;padding:1em 1ch">${esc(n.t)}</div><div class="dimt" style="text-align:right">— ${esc(n.a)}</div>`, actions: [{ label: 'GUARDAR EN LA MEMORIA' }] });
   }
-  openSurvivor(o) {
+  // diálogo abierto por el motor de eventos (data/dialogs.js)
+  openDialog() {
     const e = this.exp;
-    const sq = e.cur;
-    const hasHeal = sq.a.bag.some((it) => ITEMS[it.b].use === 'heal');
-    sfx.radio();
-    modal({
-      title: 'SUPERVIVIENTE', width: 'min(72ch, 92vw)',
-      body: `<div class="msg-topolev" style="padding:.5em 0">${esc(SURVIVOR_LINES[o.line % SURVIVOR_LINES.length])}</div><div class="dimt">¿Qué hacéis?</div>`,
-      actions: [
-        { label: 'DEJARLO', fn: () => { e.act(() => e.survivorChoice(o, 'leave')); } },
-        { label: 'PEDIRLE UN PLANO', fn: () => { e.act(() => e.survivorChoice(o, 'intel')); } },
-        { label: hasHeal ? 'DARLE MEDICINAS' : 'DARLE MEDICINAS (no tienes)', cls: hasHeal ? 'good' : 'disabled', fn: () => { if (!hasHeal) return false; e.act(() => e.survivorChoice(o, 'heal')); } },
-      ],
-    });
+    if (this.dlgClose) { const c = this.dlgClose; this.dlgClose = null; c('replaced'); }
+    const view = e.dialogView();
+    if (!view) { e.closeDialog(); return; }
+    const tok = e.dlg.tok;
+    this.dlgClose = showDialog(view,
+      (i) => { this.dlgClose = null; if (!e.dlg || e.dlg.tok !== tok) return; e.act(() => e.dialogChoose(i)); if (e.dlg && e.dlg.tok === tok) this.refresh(); },
+      () => { this.dlgClose = null; if (e.dlg && e.dlg.tok === tok) e.closeDialog(); });
   }
 
   // ------------------------------------------------------------ menú de pausa

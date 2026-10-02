@@ -386,6 +386,10 @@ export class HelpScreen {
 <p>Cada especie tiene su propio color. Cuanto <b>más intenso</b> es, <b>más nivel</b> tiene: ${lvlDemo}</p>
 <p>Los nidos duermen hasta que te acercas o haces ruido. Algunos chebylitas envenenan, otros revientan en esporas, embisten, disparan rayos o engendran más criaturas. Consulta el bestiario en el ARCHIVO.</p>
 
+<h2>PERSONAS Y CONVERSACIONES</h2>
+<p>No estáis solos ahí abajo. Las personas (<b>@</b>) llevan un recuadro según su postura: <span class="good">verde</span> aliados, <span class="warn">amarillo</span> neutrales y <span class="bad">rojo</span> hostiles. Los aliados se apartan si chocas con ellos y combaten a vuestro lado; los neutrales no os molestarán... salvo que abráis fuego contra ellos: entonces toda su facción se vuelve hostil.</p>
+<p>Algunos encuentros abren una <b>conversación</b>: elige respuesta con el ratón o con las teclas <b>1–9</b>. Las opciones en gris necesitan algo que no tienes. Lo que decidas se recuerda.</p>
+
 <h2>RADIACIÓN Y PELIGROS</h2>
 <ul>
 <li>La radiación se acumula en el agente (barra <span style="color:#b8f53d">RAD</span>) y <b>reduce su salud máxima</b>. A partir de 100 causa daño cada turno. Los trajes y el antirrad la reducen; la enfermería la trata en la base.</li>

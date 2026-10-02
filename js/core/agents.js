@@ -32,7 +32,7 @@ export function createAgent(g = grng, opts = {}) {
   const a = {
     id: uid('a'), first, last, nick: pickNick(g, opts.avoid), female,
     lvl, xp: 0, baseHp: g.int(28, 36), acc: g.int(0, 5), ev: g.int(0, 4), trait,
-    hp: 0, rad: 0, color: g.pick(AGENT_COLORS),
+    hp: 0, rad: 0, color: g.pick(AGENT_COLORS), flags: {},
     equip: { w1: null, w2: null, armor: null, helmet: null, g1: null, g2: null, pack: null },
     bag: [], missions: 0, kills: 0, extractions: 0, essTotal: 0, hired: opts.day || 1,
   };

@@ -13,6 +13,7 @@ import { sfx } from '../audio.js';
 import { uiBurst, uiSparkEl, uiFly, uiText } from './fx.js';
 import { fmt } from '../util/rng.js';
 import { toggleFullscreen } from './expui.js';
+import { showDialog } from './dialog.js';
 
 const TABS = [
   { id: 'cuartel', label: 'CUARTEL' },
@@ -63,6 +64,26 @@ export class BaseUI {
     for (const id of [...this.squad]) if (!S.agents.find((a) => a.id === id)) this.squad.delete(id);
     C.ensureShop(); C.ensureRecruits();
     this.render();
+    setTimeout(() => this.runDialogs(), 400);
+  }
+
+  // diálogos pendientes del motor de eventos (visitas, cartas…)
+  runDialogs() {
+    if (!this.active || this.dlgOpen) return;
+    const d = C.baseDialog();
+    if (!d) return;
+    const step = () => {
+      const view = d.view();
+      if (!view) { d.dismiss(); this.dlgOpen = false; return; }
+      this.dlgOpen = true;
+      showDialog(view, (i) => {
+        this.dlgOpen = false;
+        const more = d.choose(i);
+        this.render();
+        if (more) step(); else setTimeout(() => this.runDialogs(), 250);
+      }, () => { this.dlgOpen = false; d.dismiss(); this.render(); setTimeout(() => this.runDialogs(), 250); });
+    };
+    step();
   }
   close() { this.active = false; }
 

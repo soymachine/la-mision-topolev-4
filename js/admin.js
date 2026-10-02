@@ -7,6 +7,10 @@ import { TILES } from './data/tiles.js';
 import { MOD_SLOTS, weaponSlots } from './data/mods.js';
 import { gadgetExtras, gadgetEffectLines, WTYPE_NAMES } from './core/items.js';
 import { NOTES, RADIO, SURVIVOR_LINES } from './data/lore.js';
+import { FACTIONS, baseAttitude, ATTITUDE_TEXT } from './data/factions.js';
+import { HUMANS, scaleHuman } from './data/humans.js';
+import { EVENTS } from './data/events.js';
+import { DIALOGS } from './data/dialogs.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const byCat = (c) => Object.entries(ITEMS).filter(([, d]) => d.cat === c).map(([id, d]) => ({ id, ...d })).sort((a, b) => a.tier - b.tier || a.value - b.value);
@@ -176,6 +180,8 @@ sec('Sistemas', 'nombres', 'Nombres de objetos', MYTHIC_NAMES.length + EPITHETS.
 
 // ----- MUNDO -----
 sec('Mundo', 'enemigos', 'Chebylitas', Object.keys(ENEMIES).length, renderEnemies);
+sec('Mundo', 'facciones', 'Facciones', Object.keys(FACTIONS).length, renderFactions, 'Actitud inicial de cada facción hacia las demás. Durante la expedición cambia: atacar a un neutral o a un aliado vuelve hostil a toda su facción (−25 de reputación).');
+sec('Mundo', 'personas', 'Personas', Object.keys(HUMANS).length, renderHumans, 'Miembros de otras expediciones. Usan armas reales del catálogo, recargan, huyen heridos y sueltan su equipo al morir. Todavía no aparecen en los mapas: llegarán con las zonas nuevas (fase 18). Se pueden generar con la consola de depuración (tecla º → spawn).');
 sec('Mundo', 'zonas', 'Zonas', MAPS.length, renderMaps);
 sec('Mundo', 'casillas', 'Casillas del mapa', TILES.length, () => table(TILES.map((t, i) => ({ i, ...t })), [
   { h: 'Glifos', v: (t) => t.glyphs.map((g, k) => `<b style="color:${t.fg[k % t.fg.length]};${t.bg ? `background:${t.bg};` : ''}padding:0 .3ch">${esc(g)}</b>`).join(' ') },
@@ -197,7 +203,9 @@ sec('Base', 'agentes', 'Nombres de agentes', FIRST_NAMES_M.length + FIRST_NAMES_
 // ----- NARRATIVA -----
 sec('Narrativa', 'notas', 'Notas', NOTES.length, () => `<div class="list">${NOTES.map((n) => `<div class="note row-f"><div>${esc(n.t)}</div><div class="a">— ${esc(n.a)}</div></div>`).join('')}</div>`, 'Se encuentran en el suelo (glifo ?) durante las expediciones: de 1 a 3 por mapa.');
 sec('Narrativa', 'radio', 'Mensajes de radio', RADIO.length, () => `<div class="list">${RADIO.map((n) => `<div class="note row-f">📻 ${esc(n)}</div>`).join('')}</div>`, 'Aparecen en el registro cada 60–110 turnos. Las extracciones temporales también se anuncian por radio.');
-sec('Narrativa', 'supervivientes', 'Supervivientes', SURVIVOR_LINES.length, () => `<div class="list">${SURVIVOR_LINES.map((n) => `<div class="note row-f">☺ ${esc(n)}</div>`).join('')}</div><div class="block"><h3>Opciones</h3><div>${tag('Darle medicinas', 'g')} gasta tu peor curación · deja 1–2 objetos (+rareza), a veces esencia, y da XP.</div><div>${tag('Pedirle un plano', 'c')} cartografía un radio de ~30 casillas a su alrededor.</div><div>${tag('Dejarlo')} no pasa nada.</div></div>`, 'Hay un 50% de probabilidad de encontrar uno por expedición.');
+sec('Narrativa', 'supervivientes', 'Supervivientes', SURVIVOR_LINES.length, () => `<div class="list">${SURVIVOR_LINES.map((n) => `<div class="note row-f">☺ ${esc(n)}</div>`).join('')}</div><p class="desc">Hablar con un superviviente abre el diálogo <b>survivor</b> (ver «Diálogos»).</p>`, 'Hay un 50% de probabilidad de encontrar uno por expedición.');
+sec('Narrativa', 'eventos', 'Eventos', EVENTS.length, renderEvents, 'Sucesos narrativos de data/events.js: un disparador, condiciones y efectos. «Una vez» puede ser por partida, por expedición o por agente.');
+sec('Narrativa', 'dialogos', 'Diálogos', Object.keys(DIALOGS).length, renderDialogs, 'Árboles de diálogo de data/dialogs.js. Las opciones con condición aparecen desactivadas si no se cumple; las marcadas con ⌛ gastan el turno.');
 
 // ------------------------------------------------------------ vistas especiales
 function renderSummary() {
@@ -309,6 +317,65 @@ function renderAgentNames() {
 }
 
 // ------------------------------------------------------------ tabla genérica
+// ------------------------------------------------------------ facciones, personas, eventos y diálogos
+const ATT_COLOR = { hostile: '#ff5050', neutral: '#e6c85a', allied: '#8fe870' };
+function renderFactions() {
+  const ids = Object.keys(FACTIONS);
+  const cards = ids.map((id) => { const f = FACTIONS[id]; return `<div class="block row-f"><h3 style="color:${f.color}">${esc(f.name)} ${tag(f.short)}</h3><div class="desc">${esc(f.country)} · id <code>${id}</code></div><div>${esc(f.desc)}</div></div>`; }).join('');
+  const head = `<tr><th></th>${ids.map((b) => `<th style="color:${FACTIONS[b].color}">${esc(FACTIONS[b].short)}</th>`).join('')}</tr>`;
+  const rows = ids.map((a) => `<tr><td style="color:${FACTIONS[a].color}"><b>${esc(FACTIONS[a].short)}</b></td>${ids.map((b) => { const t = a === b ? 'allied' : baseAttitude(a, b); return `<td style="color:${a === b ? 'var(--dim)' : ATT_COLOR[t]}">${a === b ? '—' : ATTITUDE_TEXT[t]}</td>`; }).join('')}</tr>`).join('');
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(46ch,1fr));gap:0 2ch">${cards}</div><h3>Actitudes iniciales</h3><table style="width:auto">${head}${rows}</table>`;
+}
+function renderHumans() {
+  const cards = Object.entries(HUMANS).map(([id, d]) => {
+    const f = FACTIONS[d.faction];
+    const w = ITEMS[d.weapon];
+    const lv = [1, 5, 10], S = lv.map((l) => scaleHuman(d, l));
+    const line = (lab, fn) => `<tr><td class="desc">${lab}</td>${S.map((x) => `<td class="num">${fn(x)}</td>`).join('')}</tr>`;
+    return `<div class="block row-f"><h3><span style="color:${f.color};background:${f.bg || 'transparent'};font-size:22px;margin-right:1ch;padding:0 .3ch">${esc(d.glyph)}</span>${esc(d.name)} <span style="color:${f.color};font-weight:400">· ${esc(f.short)}</span></h3>
+      <div class="desc">id <code>${id}</code> · arma ${w ? `<b>${esc(w.name)}</b>` : '—'} · velocidad ${d.speed} · huye por debajo del ${Math.round(d.flee * 100)}% de salud${d.gasImmune ? ' · inmune al gas' : ''}</div>
+      <table style="width:auto;margin:.3em 0"><tr><th style="position:static">Nivel</th>${lv.map((l) => `<th style="position:static;text-align:right">${l}</th>`).join('')}</tr>
+        ${line('Salud', (x) => x.hp)}${line('Precisión', (x) => x.acc)}${line('Esquiva %', (x) => Math.round(x.ev))}${line('Blindaje', (x) => x.armor)}${line('XP', (x) => x.xp)}</table>
+      <div class="desc">Puede soltar: ${d.loot.map((b) => (ITEMS[b] ? esc(ITEMS[b].name) : b)).join(', ') || '—'} (además de su arma y munición)</div>
+      <div class="desc" style="margin-top:.4em;font-style:italic">${esc(d.lore)}</div></div>`;
+  }).join('');
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(52ch,1fr));gap:0 2ch">${cards}</div>`;
+}
+const TRIGGER_TEXT = { expStart: 'Inicio de expedición', enterSector: 'Entrar en un sector', turn: 'Cada turno', seeFaction: 'Avistar una facción', pickup: 'Recoger un objeto', agentHurt: 'Agente herido', kill: 'Abatir a un actor', baseDay: 'Nuevo día en la base' };
+const ONCE_TEXT = { true: 'una vez por partida', exp: 'una vez por expedición', agent: 'una vez por agente' };
+function descObj(o) {
+  if (o == null) return '—';
+  if (Array.isArray(o)) return o.map(descObj).join(' <b>y</b> ');
+  return Object.entries(o).map(([k, v]) => {
+    if (typeof v === 'function') return `<code>${k}</code>: <i>dinámico</i>`;
+    if (k === 'any') return `(${v.map(descObj).join(' <b>o</b> ')})`;
+    if (k === 'not') return `<b>no</b> (${descObj(v)})`;
+    if (k === 'if') return `<i>si</i> ${descObj(v)} →`;
+    if (k === 'dialog') return `abre diálogo <b>${esc(v)}</b>`;
+    if (k === 'cls') return '';
+    const txt = typeof v === 'object' ? JSON.stringify(v) : String(v);
+    return `<code>${k}</code>: ${esc(txt.length > 110 ? txt.slice(0, 110) + '…' : txt)}`;
+  }).filter(Boolean).join(' · ');
+}
+function renderEvents() {
+  return table(EVENTS.map((e) => ({ ...e })), [
+    { h: 'Id', v: (e) => `<b>${esc(e.id)}</b>`, s: (e) => e.id },
+    { h: 'Disparador', v: (e) => TRIGGER_TEXT[e.on] || e.on, s: (e) => e.on },
+    { h: 'Frecuencia', v: (e) => `${ONCE_TEXT[e.once] || 'siempre'}${e.chance != null ? ` · ${Math.round(e.chance * 100)}%` : ''}` },
+    { h: 'Condiciones', v: (e) => descObj(e.cond) },
+    { h: 'Efectos', v: (e) => e.effects.map((x) => `<div>${descObj(x)}</div>`).join('') },
+  ]);
+}
+function renderDialogs() {
+  const txt = (t) => (typeof t === 'function' ? '<i>(texto dinámico según el contexto)</i>' : esc(t));
+  return Object.entries(DIALOGS).map(([id, D]) => {
+    const nodes = Object.entries(D.nodes).map(([nid, N]) => `<div style="margin:.4em 0 .6em 2ch"><div><code>${nid}</code> ${N.title ? `<b>${esc(N.title)}</b>` : ''}</div>
+      <div class="desc" style="margin:.2em 0 .3em 2ch">${txt(N.text)}</div>
+      ${(N.opts || []).map((o) => `<div style="margin-left:4ch">▸ <b>${txt(o.label)}</b>${o.turn ? ' ⌛' : ''}${o.cond ? ` <span class="desc">[requiere ${descObj(o.cond)}]</span>` : ''}${o.goto ? ` → <code>${esc(o.goto)}</code>` : ''}${o.effects ? `<div class="desc" style="margin-left:2ch">${o.effects.map(descObj).join(' · ')}</div>` : ''}</div>`).join('')}</div>`).join('');
+    return `<div class="block row-f"><h3 style="color:${D.color || 'inherit'}">${esc(D.title)} <span class="desc">· <code>${id}</code> · ${esc(D.speaker || '')}</span></h3>${nodes}</div>`;
+  }).join('');
+}
+
 let current = null;
 function table(rows, cols) {
   current = { rows, cols, sort: null, asc: true };
@@ -368,3 +435,4 @@ function route() {
 }
 addEventListener('hashchange', route);
 route();
+
