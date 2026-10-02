@@ -159,6 +159,6 @@ O órdenes del escuadrón · I inventario · M mapa · Espacio esperar · ? ayud
 
 ## FASE 11 — Ideas futuras (opcional)
 - [x] 11.1 Eventos narrativos aleatorios en expedición (radio, supervivientes)
-- [ ] 11.2 Crafteo con esencia (objetos míticos)
+- [x] 11.2 Crafteo con esencia (objetos míticos)
 - [ ] 11.3 Más jefes y mapas
-- [ ] 11.4 Modo accesibilidad (fuente mayor, alto contraste)
+- [x] 11.4 Modo accesibilidad (fuente mayor, alto contraste)

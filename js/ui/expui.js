@@ -1,5 +1,5 @@
 // Interfaz de la expedición: HUD, entrada, inventario, botín, mapa completo
-import { el, $, panel, esc, showTooltip, hideTooltip, modal, modalOpen, closeTopModal, toast, draggable, dropzone, hpBar, bar, tip, confirmBox } from '../util/dom.js';
+import { el, $, panel, esc, UI_SCALES, cycleUiScale, showTooltip, hideTooltip, modal, modalOpen, closeTopModal, toast, draggable, dropzone, hpBar, bar, tip, confirmBox } from '../util/dom.js';
 import { MapRenderer, OBJ_NAME } from '../render/ascii.js';
 import { Minimap } from '../render/minimap.js';
 import { TILES, T } from '../data/tiles.js';
@@ -931,6 +931,7 @@ export class ExpeditionUI {
       btn(`EFECTO CRT: ${settings.crt ? 'SÍ' : 'NO'}`, () => { settings.crt = !settings.crt; document.body.classList.toggle('no-crt', !settings.crt); saveSettings(); close(); this.openMenu(); }),
       btn('ZOOM +', () => this.zoom(1)), btn('ZOOM −', () => this.zoom(-1)),
       btn('PANTALLA COMPLETA', () => { toggleFullscreen(); close(); }),
+      btn(`TEXTO: ${UI_SCALES[settings.uiScale || 0].name}`, () => { cycleUiScale(); close(); this.refresh(); this.renderLog(); setTimeout(() => { this.sizeMinimap(); this.r.resize(); }, 50); this.openMenu(); }),
       btn('GUARDAR Y SALIR AL TÍTULO', () => { save(); close(); this.stop(); this.hooks.onQuit(); }, 'danger'),
     );
     body.append(el('div', { class: 'dimt', style: { marginTop: '1em', textAlign: 'center' }, text: 'La expedición se guarda automáticamente. No se puede abandonar: solo se sale por una extracción.' }));

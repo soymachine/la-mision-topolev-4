@@ -261,9 +261,32 @@ function endDrag(ev) {
 }
 export const isDragging = () => !!dragState;
 
+// ---------- Tamaño de texto (accesibilidad) ----------
+export const UI_SCALES = [{ name: 'NORMAL', fs: 13, lh: 17 }, { name: 'GRANDE', fs: 15, lh: 19 }, { name: 'MUY GRANDE', fs: 17, lh: 22 }];
+let settingsRef = null;
+export function applyUiScale(settings) {
+  if (settings) settingsRef = settings;
+  const sc = UI_SCALES[(settingsRef && settingsRef.uiScale) || 0];
+  const root = document.documentElement.style;
+  if (innerWidth <= 1100 && sc.fs === 13) { root.removeProperty('--fs'); root.removeProperty('--lh'); }
+  else { root.setProperty('--fs', sc.fs + 'px'); root.setProperty('--lh', sc.lh + 'px'); }
+  measureFont();
+  refreshFrames();
+}
+export function cycleUiScale() {
+  if (!settingsRef) return;
+  settingsRef.uiScale = ((settingsRef.uiScale || 0) + 1) % UI_SCALES.length;
+  try { localStorage.setItem('topolev_settings_v1', JSON.stringify(settingsRef)); } catch {}
+  applyUiScale();
+}
+
 export function initDom() {
   measureFont();
   initTooltips();
+  // Esc cierra el modal superior en cualquier pantalla
+  window.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && modalStack.length) { ev.preventDefault(); ev.stopImmediatePropagation(); closeTopModal(); }
+  }, true);
   window.addEventListener('resize', () => { measureFont(); refreshFrames(); });
 }
 

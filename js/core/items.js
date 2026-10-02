@@ -31,6 +31,35 @@ export function createItem(b, r = 0, g = grng, q) {
   return it;
 }
 
+// Forja de esencia: sube la rareza de un objeto y añade una propiedad
+export const FORGE_CATS = ['weapon', 'armor', 'helmet', 'gadget', 'backpack'];
+export function forgeCost(it) {
+  const d = ITEMS[it.b];
+  return { ess: Math.round(25 * Math.pow(it.r + 1, 2) * (1 + d.tier * 0.5)), rub: Math.round(itemValue(it) * 0.4) };
+}
+export function infuse(it, g = grng) {
+  const d = ITEMS[it.b];
+  if (it.r >= 5) return false;
+  const oldMag = d.cat === 'weapon' && d.mag ? itemStats(it).mag : 0;
+  it.r++;
+  const pool = AFFIXES.filter((a) => a.cats.includes(d.cat) && !(a.ranged && d.wtype === 'melee'));
+  const have = new Set((it.aff || []).map(([k]) => k));
+  const fresh = pool.filter((a) => !have.has(a.id));
+  it.aff = it.aff || [];
+  if (fresh.length) { const a = g.pick(fresh); it.aff.push([a.id, a.roll(it.r, g)]); }
+  else if (it.aff.length) { const i = g.int(0, it.aff.length - 1); const a = AFFIXES.find((x) => x.id === it.aff[i][0]); it.aff[i][1] += Math.max(1, Math.round(a.roll(it.r, g) / 2)); }
+  // re-roll suave: las propiedades existentes mejoran un poco
+  for (const af of it.aff) af[1] = Math.round(af[1] * 1.1) || af[1];
+  const base = d.name;
+  if (it.r === 5) it.nm = base + ' ' + g.pick(MYTHIC_NAMES);
+  else if (it.r >= 3) it.nm = it.nm && it.r > 3 && /«/.test(it.nm) ? it.nm : base + ' ' + g.pick(EPITHETS);
+  else if (it.r === 2) it.nm = base + ' ' + g.pick(RARE_SUFFIX);
+  else it.nm = base + ' ' + g.pick(UNCOMMON_SUFFIX);
+  statCache.delete(it);
+  if (oldMag) it.ld = Math.min(it.ld ?? 0, itemStats(it).mag);
+  return true;
+}
+
 export function itemName(it) { return it.nm || ITEMS[it.b].name; }
 export function itemGlyph(it) { return ITEMS[it.b].glyph || CAT_INFO[ITEMS[it.b].cat].glyph; }
 

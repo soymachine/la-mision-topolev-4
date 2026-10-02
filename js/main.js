@@ -1,5 +1,5 @@
 // Arranque y navegación entre pantallas
-import { initDom, $, $$, toast, hideTooltip, modalOpen, measureFont, refreshFrames } from './util/dom.js';
+import { initDom, $, $$, toast, hideTooltip, modalOpen, measureFont, refreshFrames, applyUiScale } from './util/dom.js';
 import { S, newGame, load, save, settings, setExpSerializer, wipe } from './core/state.js';
 import { launchExpedition, finalizeExpedition, ensureVolunteer } from './core/campaign.js';
 import { Expedition } from './exp/expedition.js';
@@ -19,6 +19,7 @@ function show(id) {
 
 async function boot() {
   initDom();
+  applyUiScale(settings);
   document.body.classList.toggle('no-crt', !settings.crt);
   try {
     await Promise.race([

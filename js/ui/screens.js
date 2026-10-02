@@ -1,5 +1,5 @@
 // Pantallas: título, intro, informe de expedición, instrucciones
-import { el, panel, esc, confirmBox } from '../util/dom.js';
+import { el, panel, esc, confirmBox, UI_SCALES, cycleUiScale } from '../util/dom.js';
 import { S, hasSave, settings, saveSettings } from '../core/state.js';
 import { RARITIES } from '../data/rarity.js';
 import { ENEMIES, enemyColor } from '../data/enemies.js';
@@ -67,6 +67,7 @@ export class TitleScreen {
     menu.append(btn('PANTALLA COMPLETA', () => toggleFullscreen()));
     menu.append(btn(`SONIDO: ${settings.sound ? 'SÍ' : 'NO'}`, () => { settings.sound = !settings.sound; saveSettings(); this.open(); }));
     menu.append(btn(`EFECTO CRT: ${settings.crt ? 'SÍ' : 'NO'}`, () => { settings.crt = !settings.crt; document.body.classList.toggle('no-crt', !settings.crt); saveSettings(); this.open(); }));
+    menu.append(btn(`TEXTO: ${UI_SCALES[settings.uiScale || 0].name}`, () => { cycleUiScale(); this.open(); }));
     R.append(this.bg, el('div', { class: 'title-wrap' },
       this.logo,
       el('div', { class: 'title-sub', text: 'CHERNÓBIL · RSS DE UCRANIA · 1986' }),
@@ -251,7 +252,7 @@ export class HelpScreen {
 <li><b>CUARTEL</b>: resumen, mensajes del Dr. Topolev y último informe.</li>
 <li><b>EQUIPO</b>: <b>arrastra y suelta</b> objetos entre el almacén, las ranuras del agente y su mochila. Doble clic para moverlos rápido. Puedes tratar heridas y radiación pagando rublos.</li>
 <li><b>BARRACONES</b>: recluta nuevos agentes (llegan candidatos cada día) o despide a los que sobren.</li>
-<li><b>LABORATORIO</b>: mejora los módulos (Armería, Polvorín, Blindaje, Enfermería, Taller, Radar, Barracones, Almacén y Laboratorio de esencia) con esencia y rublos.</li>
+<li><b>LABORATORIO</b>: mejora los módulos (Armería, Polvorín, Blindaje, Enfermería, Taller, Radar, Barracones, Almacén y Laboratorio de esencia) con esencia y rublos. En la <b>Forja de esencia</b> puedes arrastrar una pieza de equipo para subir su rareza; los cristales de esencia se convierten aquí.</li>
 <li><b>INTENDENCIA</b>: compra material (el catálogo cambia cada día) y vende el botín. El botín <span style="color:#ffb02e">$</span> se vende a precio completo.</li>
 <li><b>EXPEDICIÓN</b>: elige destino según su <b>nivel medio</b> y forma el escuadrón.</li>
 <li><b>ARCHIVO</b>: bestiario, memorial de caídos y estadísticas.</li>

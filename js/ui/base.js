@@ -1,11 +1,11 @@
 // La base: cuartel general cerca de la central
-import { el, $, panel, framify, esc, toast, tip, draggable, dropzone, hpBar, bar, levelPips, confirmBox, modal, modalOpen, closeTopModal } from '../util/dom.js';
+import { el, $, panel, framify, esc, UI_SCALES, cycleUiScale, toast, tip, draggable, dropzone, hpBar, bar, levelPips, confirmBox, modal, modalOpen, closeTopModal } from '../util/dom.js';
 import { S, save, settings, saveSettings } from '../core/state.js';
 import { ITEMS, CAT_INFO } from '../data/items.js';
 import { MAPS, MODULES, MODULE_MAX, moduleCost, TRAITS } from '../data/world.js';
 import { ENEMIES, enemyColor, ABIL_TEXT } from '../data/enemies.js';
 import { RARITIES, rarityWeights } from '../data/rarity.js';
-import { itemHTML, itemTooltip, itemName, itemStats, sortItems, mergeInto, rarityColor, itemValue } from '../core/items.js';
+import { itemHTML, itemTooltip, itemName, itemStats, sortItems, mergeInto, rarityColor, itemValue, forgeCost, infuse, FORGE_CATS } from '../core/items.js';
 import { agentStats, agentName, EQUIP_SLOTS, canEquip, bagCapacity, traitOf, xpForLevel } from '../core/agents.js';
 import * as C from '../core/campaign.js';
 import { sfx } from '../audio.js';
@@ -409,6 +409,43 @@ export class BaseUI {
     el('div', { class: 'msg-topolev', text: '«La esencia es energía de radiación ordenada por la vida. Con ella podemos fortalecer cada módulo de la base. Cada mejora cuesta esencia y rublos, y abre nuevas posibilidades en la intendencia y en el campo.» — Dr. A. Topolev' }),
     el('div', { class: 'sep', text: '─'.repeat(80) }),
     el('div', { class: 'kv', html: `<span>Esencia</span><span class="cyan">${fmt(S.ess)} ✦</span><span>Rublos</span><span>${fmt(S.rub)} ₽</span><span>Esencia total</span><span>${fmt(S.stats.essTotal)} ✦</span>` }));
+    // ---- forja de esencia ----
+    const maxR = Math.min(5, S.modules.laboratorio + 1);
+    R.body.append(el('div', { class: 'sep', text: '─'.repeat(80) }), el('div', { class: 'h', text: 'FORJA DE ESENCIA' }),
+      el('div', { class: 'dimt', html: `Infunde esencia en una pieza de equipo para subir su rareza y darle una propiedad nueva. Rareza máxima con tu laboratorio: <span style="color:${RARITIES[maxR].color}">${RARITIES[maxR].name}</span>.` }));
+    const forgeIt = this.forgeUid && S.stash.find((x) => x.uid === this.forgeUid);
+    const slot = el('div', { class: 'panel', style: { padding: 'var(--lh) 2ch', margin: '4px 0', minHeight: '5em' } });
+    framify(slot, 'dash');
+    if (forgeIt) {
+      const c = forgeCost(forgeIt);
+      const can = forgeIt.r < maxR && S.ess >= c.ess && S.rub >= c.rub;
+      const chip = el('div', { class: 'item', html: itemHTML(forgeIt) });
+      tip(chip, () => itemTooltip(forgeIt));
+      slot.append(chip,
+        el('div', { html: forgeIt.r >= maxR ? '<span class="bad">Rareza máxima para tu laboratorio.</span>' : `<span style="color:${RARITIES[forgeIt.r].color}">${RARITIES[forgeIt.r].name}</span> → <span style="color:${RARITIES[forgeIt.r + 1].color}">${RARITIES[forgeIt.r + 1].name}</span> · +1 propiedad · coste <span class="cyan">${c.ess} ✦</span> ${c.rub} ₽` }),
+        el('div', { class: 'row', style: { marginTop: '4px' } },
+          el('button', { class: 'btn ' + (can ? 'primary' : 'disabled'), onclick: (ev) => {
+            if (!can) { sfx.error(); toast(forgeIt.r >= maxR ? 'Mejora el Laboratorio de esencia.' : 'Recursos insuficientes.', 'bad'); return; }
+            S.ess -= c.ess; S.rub -= c.rub;
+            infuse(forgeIt);
+            sfx.upgrade();
+            uiSparkEl(ev.target, { n: 50, chars: ['✦', '*', '+', '·'], colors: ['#5ff7ff', RARITIES[forgeIt.r].color, '#fff'] });
+            toast(`¡${esc(itemName(forgeIt))} ahora es <span style="color:${RARITIES[forgeIt.r].color}">${RARITIES[forgeIt.r].name}</span>!`, 'good', 3500);
+            save(); setTimeout(() => this.render(), 350);
+          } }, 'INFUNDIR'),
+          el('button', { class: 'btn small', onclick: () => { this.forgeUid = null; this.render(); } }, 'QUITAR')));
+    } else slot.append(el('div', { class: 'dimt', style: { textAlign: 'center' }, text: 'Arrastra aquí un arma, protección, gadget o mochila del almacén' }));
+    dropzone(slot, { accepts: (d) => d && d.src === 'stash' && FORGE_CATS.includes(ITEMS[d.it.b].cat), onDrop: (d) => { this.forgeUid = d.it.uid; sfx.pickup(); this.render(); } });
+    R.body.append(slot);
+    const forgeable = sortItems(S.stash.filter((it) => FORGE_CATS.includes(ITEMS[it.b].cat)));
+    for (const it of forgeable) {
+      const r = el('div', { class: 'item', html: itemHTML(it) });
+      tip(r, () => itemTooltip(it, null, '<div class="dimt">Arrastra a la forja (o doble clic).</div>'));
+      draggable(r, { data: () => ({ src: 'stash', it }), ghost: () => itemHTML(it) });
+      r.addEventListener('dblclick', () => { this.forgeUid = it.uid; this.render(); });
+      R.body.append(r);
+    }
+    if (!forgeable.length) R.body.append(el('div', { class: 'dimt', text: 'No hay equipo en el almacén.' }));
     const crystals = S.stash.filter((it) => ITEMS[it.b].essenceValue);
     if (crystals.length) {
       R.body.append(el('div', { class: 'sep', text: '─'.repeat(80) }), el('div', { class: 'h', text: 'CRISTALES DE ESENCIA' }));
@@ -593,6 +630,7 @@ export class BaseUI {
       btn(`EFECTO CRT: ${settings.crt ? 'SÍ' : 'NO'}`, () => { settings.crt = !settings.crt; document.body.classList.toggle('no-crt', !settings.crt); saveSettings(); close(); this.openMenu(); }),
       btn('GUARDAR PARTIDA', () => { save(); toast('Partida guardada.', 'good'); close(); }),
       btn('PANTALLA COMPLETA', () => { toggleFullscreen(); close(); }),
+      btn(`TEXTO: ${UI_SCALES[settings.uiScale || 0].name}`, () => { cycleUiScale(); close(); this.render(); this.openMenu(); }),
       btn('SALIR AL TÍTULO', () => { save(); close(); this.close(); this.hooks.onQuit(); }, 'danger'),
     );
     close = modal({ title: 'MENÚ', body, width: '46ch' });
