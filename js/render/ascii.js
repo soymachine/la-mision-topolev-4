@@ -4,7 +4,7 @@ import { ENEMIES, enemyColor } from '../data/enemies.js';
 import { hexToRgb, rng, clamp } from '../util/rng.js';
 import { Particles } from './particles.js';
 import { rarityColor, itemGlyph } from '../core/items.js';
-import { ESSENCE_COLOR } from '../exp/expedition.js';
+import { ESSENCE_COLOR } from '../exp/shared.js';
 
 export const FONT = '"JetBrains Mono", "DejaVu Sans Mono", Consolas, monospace';
 const hash = (x, y) => { let h = (x * 374761393 + y * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177; return (h ^ (h >>> 16)) >>> 0; };

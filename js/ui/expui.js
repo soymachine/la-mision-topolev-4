@@ -8,7 +8,7 @@ import { ITEMS, AMMO_NAMES } from '../data/items.js';
 import { itemName, itemStats, itemTooltip, itemHTML, rarityColor, mergeInto, sortItems } from '../core/items.js';
 import { agentStats, agentName, EQUIP_SLOTS, canEquip, bagCapacity, traitOf } from '../core/agents.js';
 import { S, save, settings, saveSettings } from '../core/state.js';
-import { ORDERS, ESSENCE_COLOR } from '../exp/expedition.js';
+import { ORDERS, ESSENCE_COLOR } from '../exp/shared.js';
 import { astar } from '../exp/path.js';
 import { cheb, rng } from '../util/rng.js';
 import { sfx } from '../audio.js';
