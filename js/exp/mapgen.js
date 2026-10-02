@@ -4,6 +4,7 @@ import { T, TILES } from '../data/tiles.js';
 import { SECTOR_NAMES } from '../data/world.js';
 import { ENEMIES } from '../data/enemies.js';
 import { rollLoot } from '../core/items.js';
+import { NOTES, SURVIVOR_LINES } from '../data/lore.js';
 
 const D8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 const D4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -592,6 +593,24 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
     for (let i = 0; i < nItems; i++) items.push(rollLoot(lvl, g));
     const kind = s && (s.type === 'industrial' || s.type === 'ruinas') ? (g.chance(0.6) ? 'locker' : 'crate') : g.chance(0.5) ? 'crate' : 'corpse';
     objects.push({ kind, x, y, items, opened: false, lvl });
+  }
+  // Notas y supervivientes (eventos narrativos)
+  const noteCount = g.int(1, 3);
+  const usedNotes = new Set();
+  for (let n = 0; n < noteCount; n++) {
+    const spot = findSpot({ minDist: 8, poiGap: 3, tries: 80 });
+    if (!spot) continue;
+    let note = g.int(0, NOTES.length - 1);
+    if (usedNotes.has(note)) note = (note + 1) % NOTES.length;
+    usedNotes.add(note);
+    objects.push({ kind: 'note', x: spot[0], y: spot[1], note, opened: false, items: [] });
+  }
+  if (g.chance(0.5)) {
+    const spot = findSpot({ minDist: 16, poiGap: 6, needFree: true });
+    if (spot) {
+      blocked[I(spot[0], spot[1])] = 1;
+      objects.push({ kind: 'survivor', x: spot[0], y: spot[1], line: g.int(0, SURVIVOR_LINES.length - 1), lvl: levelAt(I(spot[0], spot[1])), opened: false, items: [] });
+    }
   }
   // Objetos sueltos en el suelo
   const looseCount = 5 + mapIdx * 2;

@@ -13,6 +13,14 @@ import { astar } from '../exp/path.js';
 import { cheb, rng } from '../util/rng.js';
 import { sfx } from '../audio.js';
 import { uiFly } from './fx.js';
+import { NOTES, SURVIVOR_LINES } from '../data/lore.js';
+
+export function toggleFullscreen() {
+  try {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen();
+  } catch {}
+}
 
 const KEYDIR = {
   ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0],
@@ -107,6 +115,8 @@ export class ExpeditionUI {
     exp.on('death', (sq) => { toast(`✝ ${esc(sq.a.first)} «${esc(sq.a.nick)}» ha caído.`, 'bad', 4000); });
     exp.on('tempexit', () => { sfx.radio(); toast('📻 Nueva extracción temporal disponible. Consulta el radar.', '', 3500); });
     exp.on('end', () => this.onEnd());
+    exp.on('note', (o) => this.openNote(o));
+    exp.on('survivor', (o) => this.openSurvivor(o));
     this.renderLog();
     this.refresh();
     this.last = performance.now();
@@ -138,7 +148,10 @@ export class ExpeditionUI {
   onEnd() {
     this.travel = null;
     this.mode = null;
-    setTimeout(() => { this.stop(); this.hooks.onEnd(this.exp); }, 1600);
+    this.cancelMode();
+    // el resultado se aplica ya (por si se cierra la página); la pantalla cambia tras la animación
+    const rep = this.hooks.onEnd(this.exp);
+    setTimeout(() => { this.stop(); this.hooks.onReport(rep); }, 1600);
   }
 
   // ------------------------------------------------------------ sonidos según efectos
@@ -416,6 +429,7 @@ export class ExpeditionUI {
       case 'Tab': ev.preventDefault(); e.switchActive(); sfx.click(); break;
       case '?': case 'F1': ev.preventDefault(); this.hooks.onHelp(); break;
       case '+': ev.preventDefault(); this.zoom(1); break;
+      case 'F11': break;
       case '-': ev.preventDefault(); this.zoom(-1); break;
       case '1': case '2': case '3': case '4': {
         const i = +lower - 1;
@@ -606,7 +620,7 @@ export class ExpeditionUI {
       return;
     }
     if (x === c.x && y === c.y) {
-      if (e.exitAt(x, y) || e.floorAt(x, y).length || (e.objAt(x, y) && e.objAt(x, y).kind === 'corpse')) { if (this.canAct()) e.interact(); }
+      if (e.exitAt(x, y) || e.floorAt(x, y).length || (e.objAt(x, y) && ['corpse', 'note'].includes(e.objAt(x, y).kind))) { if (this.canAct()) e.interact(); }
       else if (this.canAct()) e.wait();
       return;
     }
@@ -682,6 +696,8 @@ export class ExpeditionUI {
     const obj = e.objAt(x, y);
     if (obj) {
       if (obj.kind === 'vein') parts.push(`<div class="tt-title cyan">✦ Veta de esencia</div><div class="dimt">${obj.amount > 0 ? `Quedan ~${obj.amount} ✦. Ponte al lado y pulsa <b>F</b> para extraer (hace ruido).` : 'Agotada.'}</div>`);
+      else if (obj.kind === 'note') parts.push(`<div class="tt-title" style="color:#f0e1aa">? Nota</div><div class="dimt">${obj.opened ? 'Ya leída.' : 'Papel arrugado.'} Ponte encima y pulsa <b>F</b>.</div>`);
+      else if (obj.kind === 'survivor') parts.push('<div class="tt-title" style="color:#a0e8a0">☺ Superviviente</div><div class="dimt">Alguien sigue vivo aquí abajo. Ponte al lado y pulsa <b>F</b>.</div>');
       else parts.push(`<div class="tt-title o1">${OBJ_NAME[obj.kind]}</div><div class="dimt">${!obj.opened ? 'Sin registrar. Adyacente + <b>F</b> o clic.' : obj.items.length ? `${obj.items.length} objeto(s) dentro.` : 'Vacío.'}</div>`);
     }
     if (vis && e.essence.get(k)) parts.push(`<div class="cyan">✦ ${e.essence.get(k)} de esencia</div>`);
@@ -881,6 +897,28 @@ export class ExpeditionUI {
     this.lootClose = close;
   }
 
+  // ------------------------------------------------------------ eventos narrativos
+  openNote(o) {
+    const n = NOTES[o.note % NOTES.length];
+    sfx.type();
+    modal({ title: 'NOTA ENCONTRADA', width: 'min(70ch, 92vw)', body: `<div class="msg-topolev" style="font-size:15px;line-height:1.6;padding:1em 1ch">${esc(n.t)}</div><div class="dimt" style="text-align:right">— ${esc(n.a)}</div>`, actions: [{ label: 'GUARDAR EN LA MEMORIA' }] });
+  }
+  openSurvivor(o) {
+    const e = this.exp;
+    const sq = e.cur;
+    const hasHeal = sq.a.bag.some((it) => ITEMS[it.b].use === 'heal');
+    sfx.radio();
+    modal({
+      title: 'SUPERVIVIENTE', width: 'min(72ch, 92vw)',
+      body: `<div class="msg-topolev" style="padding:.5em 0">${esc(SURVIVOR_LINES[o.line % SURVIVOR_LINES.length])}</div><div class="dimt">¿Qué hacéis?</div>`,
+      actions: [
+        { label: 'DEJARLO', fn: () => { e.act(() => e.survivorChoice(o, 'leave')); } },
+        { label: 'PEDIRLE UN PLANO', fn: () => { e.act(() => e.survivorChoice(o, 'intel')); } },
+        { label: hasHeal ? 'DARLE MEDICINAS' : 'DARLE MEDICINAS (no tienes)', cls: hasHeal ? 'good' : 'disabled', fn: () => { if (!hasHeal) return false; e.act(() => e.survivorChoice(o, 'heal')); } },
+      ],
+    });
+  }
+
   // ------------------------------------------------------------ menú de pausa
   openMenu() {
     const body = el('div', { class: 'title-menu', style: { marginTop: 0 } });
@@ -892,6 +930,7 @@ export class ExpeditionUI {
       btn(`SONIDO: ${settings.sound ? 'SÍ' : 'NO'}`, () => { settings.sound = !settings.sound; saveSettings(); close(); this.openMenu(); }),
       btn(`EFECTO CRT: ${settings.crt ? 'SÍ' : 'NO'}`, () => { settings.crt = !settings.crt; document.body.classList.toggle('no-crt', !settings.crt); saveSettings(); close(); this.openMenu(); }),
       btn('ZOOM +', () => this.zoom(1)), btn('ZOOM −', () => this.zoom(-1)),
+      btn('PANTALLA COMPLETA', () => { toggleFullscreen(); close(); }),
       btn('GUARDAR Y SALIR AL TÍTULO', () => { save(); close(); this.stop(); this.hooks.onQuit(); }, 'danger'),
     );
     body.append(el('div', { class: 'dimt', style: { marginTop: '1em', textAlign: 'center' }, text: 'La expedición se guarda automáticamente. No se puede abandonar: solo se sale por una extracción.' }));

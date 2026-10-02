@@ -7,6 +7,7 @@ import { MAPS } from '../data/world.js';
 import { sfx } from '../audio.js';
 import { FONT } from '../render/ascii.js';
 import { uiBurst } from './fx.js';
+import { toggleFullscreen } from './expui.js';
 
 // ------------------------------------------------------------ logo ASCII
 function asciiLogo(lines, cols) {
@@ -63,6 +64,7 @@ export class TitleScreen {
       this.hooks.onNew();
     }, has ? '' : 'primary'));
     menu.append(btn('INSTRUCCIONES', () => this.hooks.onHelp()));
+    menu.append(btn('PANTALLA COMPLETA', () => toggleFullscreen()));
     menu.append(btn(`SONIDO: ${settings.sound ? 'SÍ' : 'NO'}`, () => { settings.sound = !settings.sound; saveSettings(); this.open(); }));
     menu.append(btn(`EFECTO CRT: ${settings.crt ? 'SÍ' : 'NO'}`, () => { settings.crt = !settings.crt; document.body.classList.toggle('no-crt', !settings.crt); saveSettings(); this.open(); }));
     R.append(this.bg, el('div', { class: 'title-wrap' },

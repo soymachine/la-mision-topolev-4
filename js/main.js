@@ -1,5 +1,5 @@
 // Arranque y navegación entre pantallas
-import { initDom, $, $$, toast, hideTooltip, modalOpen } from './util/dom.js';
+import { initDom, $, $$, toast, hideTooltip, modalOpen, measureFont, refreshFrames } from './util/dom.js';
 import { S, newGame, load, save, settings, setExpSerializer, wipe } from './core/state.js';
 import { launchExpedition, finalizeExpedition, ensureVolunteer } from './core/campaign.js';
 import { Expedition } from './exp/expedition.js';
@@ -27,6 +27,8 @@ async function boot() {
     ]);
   } catch {}
   initDom.done = true;
+  measureFont(); refreshFrames();
+  document.fonts.ready.then(() => { measureFont(); refreshFrames(); });
 
   setExpSerializer(() => (exp && !exp.ended ? exp.serialize() : null));
 
@@ -58,9 +60,9 @@ async function boot() {
       const rep = finalizeExpedition(e);
       exp = null;
       save();
-      show('report');
-      report.open(rep);
+      return rep;
     },
+    onReport: (rep) => { show('report'); report.open(rep); },
     onHelp: () => openHelp(),
     onQuit: () => { save(); exp = null; show('title'); title.open(); },
   });

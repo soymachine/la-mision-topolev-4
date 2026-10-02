@@ -2,7 +2,7 @@
 import { S, save, addMessage } from './state.js';
 import { ITEMS } from '../data/items.js';
 import { MAPS, MODULES, MODULE_MAX, moduleCost, rosterSize, stashSize, squadSize } from '../data/world.js';
-import { createItem, itemValue, itemName, mergeInto, rollRarity } from './items.js';
+import { createItem, itemValue, itemName, itemStats, mergeInto, rollRarity } from './items.js';
 import { createAgent, starterKit, agentStats, recruitCost, agentName, bagCapacity, giveXp } from './agents.js';
 import { RNG, rng } from '../util/rng.js';
 import { Expedition } from '../exp/expedition.js';
@@ -187,6 +187,22 @@ export function launchExpedition(mapIdx, agents) {
         const q = d.mag * pv;
         mergeInto(a.bag, createItem(d.ammo, 0, rng, q), bagCapacity(a));
       }
+    }
+  }
+  // la armería recarga los cargadores con la munición de la mochila
+  for (const a of agents) {
+    for (const slot of ['w1', 'w2']) {
+      const w = a.equip[slot];
+      if (!w || !ITEMS[w.b].ammo) continue;
+      const st = itemStats(w);
+      let need = st.mag - (w.ld || 0);
+      for (const it of a.bag) {
+        if (need <= 0) break;
+        if (it.b !== st.ammo) continue;
+        const mv = Math.min(it.q, need);
+        it.q -= mv; need -= mv; w.ld = (w.ld || 0) + mv;
+      }
+      a.bag = a.bag.filter((it) => !(it.q !== undefined && it.q <= 0));
     }
   }
   S.stats.expeditions++;

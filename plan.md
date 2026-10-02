@@ -158,7 +158,7 @@ O órdenes del escuadrón · I inventario · M mapa · Espacio esperar · ? ayud
 - Siguiente sesión: continuar con la fase 11 (opcional) o con ajustes de balance según el feedback.
 
 ## FASE 11 — Ideas futuras (opcional)
-- [ ] 11.1 Eventos narrativos aleatorios en expedición (radio, supervivientes)
+- [x] 11.1 Eventos narrativos aleatorios en expedición (radio, supervivientes)
 - [ ] 11.2 Crafteo con esencia (objetos míticos)
 - [ ] 11.3 Más jefes y mapas
 - [ ] 11.4 Modo accesibilidad (fuente mayor, alto contraste)

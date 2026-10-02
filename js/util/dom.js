@@ -26,11 +26,16 @@ export const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '
 export const metrics = { charW: 7.8, lh: 17 };
 export function measureFont() {
   const cs = getComputedStyle(document.documentElement);
-  const fs = cs.getPropertyValue('--fs').trim() || '13px';
   const lh = parseFloat(cs.getPropertyValue('--lh')) || 17;
-  const c = document.createElement('canvas').getContext('2d');
-  c.font = `${fs} ${cs.getPropertyValue('--font')}`;
-  metrics.charW = c.measureText('─'.repeat(50)).width / 50;
+  // medir en el DOM con el mismo estilo que los marcos (el canvas puede elegir otra fuente de respaldo)
+  const probe = document.createElement('pre');
+  probe.className = 'frame-bg';
+  probe.style.cssText = 'position:absolute;visibility:hidden;left:-9999px;top:0;letter-spacing:0';
+  probe.textContent = '─'.repeat(100);
+  document.body.append(probe);
+  const w = probe.getBoundingClientRect().width;
+  probe.remove();
+  metrics.charW = w > 0 ? w / 100 : 7.8;
   metrics.lh = lh;
 }
 
@@ -69,8 +74,8 @@ const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver((entries) 
     const t = en.target;
     const bg = t._frameBg;
     if (!bg) continue;
-    const r = t.getBoundingClientRect();
-    drawFrame(bg, r.width, r.height, t._frameStyle);
+    // tamaño de layout (no afectado por transformaciones como la animación de entrada)
+    drawFrame(bg, t.offsetWidth, t.offsetHeight, t._frameStyle);
   }
 }) : null;
 export function framify(elm, style = 'single') {
@@ -82,7 +87,7 @@ export function framify(elm, style = 'single') {
 }
 export function refreshFrames() {
   for (const p of $$('.panel, .tooltip')) {
-    if (p._frameBg) { p._frameBg._key = null; const r = p.getBoundingClientRect(); drawFrame(p._frameBg, r.width, r.height, p._frameStyle); }
+    if (p._frameBg) { p._frameBg._key = null; drawFrame(p._frameBg, p.offsetWidth, p.offsetHeight, p._frameStyle); }
   }
 }
 
@@ -105,8 +110,7 @@ export function showTooltip(html, x, y) {
   if (!tipEl) return;
   tipBody.innerHTML = html;
   tipEl.classList.remove('hidden');
-  const r = tipEl.getBoundingClientRect();
-  drawFrame(tipBg, r.width, r.height, 'single');
+  drawFrame(tipBg, tipEl.offsetWidth, tipEl.offsetHeight, 'single');
   positionTooltip(x, y);
 }
 export function positionTooltip(x, y) {

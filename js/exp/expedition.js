@@ -11,10 +11,11 @@ import { itemStats, itemName, createItem, rollLoot, mergeInto, rarityColor } fro
 import { agentStats, agentName, giveXp, bagCapacity } from '../core/agents.js';
 import { S, seeEnemy, killEnemy as bestiaryKill } from '../core/state.js';
 import { esc } from '../util/dom.js';
+import { RADIO } from '../data/lore.js';
 
 const D8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 const FISTS = { dmg: [1, 3], acc: 82, range: 1, crit: 5, pierce: 0, burst: 1, noise: 1, wtype: 'melee' };
-const BLOCKING_OBJ = { vein: 1, cache: 1, locker: 1, crate: 1 };
+const BLOCKING_OBJ = { vein: 1, cache: 1, locker: 1, crate: 1, survivor: 1 };
 export const ORDERS = { seguir: 'SEGUIR', mantener: 'MANTENER', pasivo: 'NO DISPARAR' };
 export const ESSENCE_COLOR = '#5ff7ff';
 
@@ -56,6 +57,7 @@ export class Expedition {
     const g = new RNG(seed ^ 0x5bd1e995);
     e.surgeAt = 300 + mapIdx * 40 + g.int(0, 60);
     e.nextTemp = 40 + g.int(10, 50) - S.modules.radar * 5;
+    e.nextRadio = 25 + g.int(0, 40);
     // escuadrón
     e.squad = [];
     const startCells = [[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]];
@@ -104,7 +106,7 @@ export class Expedition {
       rad: sparse(this.rad, 100), anomaly: an, gas: sparse(this.gas), fire: sparse(this.fire),
       floorItems: [...this.floorItems.entries()], essence: [...this.essence.entries()],
       turn: this.turn, log: this.log.slice(-60), evac: this.evac, pending: this.pending, flares: this.flares, tally: this.tally,
-      surgeAt: this.surgeAt, nextTemp: this.nextTemp, active: this.active,
+      surgeAt: this.surgeAt, nextTemp: this.nextTemp, nextRadio: this.nextRadio, active: this.active,
       squad: this.squad.map((sq) => { const { a, ...rest } = sq; return rest; }),
       enemies: this.enemies.map(({ _st, ...r }) => r),
     };
@@ -120,6 +122,7 @@ export class Expedition {
     for (const sq of this.squad) if (sq.alive && !sq.out) this.occ.set(this.key(sq.x, sq.y), sq);
     this.objMap = new Map();
     for (const o of this.objects) this.objMap.set(this.key(o.x, o.y), o);
+    if (this.nextRadio == null) this.nextRadio = this.turn + 40;
     this.ended = false;
     this.interrupt = false;
     this.dirty = true;
@@ -279,6 +282,7 @@ export class Expedition {
     }
     const o = this.objAt(sq.x, sq.y);
     if (o && o.kind === 'corpse' && !o.opened && sq === this.cur) this.say('Un cadáver de liquidador. Pulsa <b>F</b> para registrarlo.', 'dimt');
+    if (o && o.kind === 'note' && sq === this.cur) this.say(`Hay una nota en el suelo${o.opened ? ' (ya leída)' : ''}. Pulsa <b>F</b> para leerla.`, 'dimt');
     if (this.exitAt(sq.x, sq.y) && sq === this.cur && !this.evac) this.say('Estás en un punto de extracción. Pulsa <b>F</b> para solicitar evacuación.', 'cyan');
   }
 
@@ -540,7 +544,9 @@ export class Expedition {
       // 2. contenedor / veta adyacentes o en la casilla
       for (const [dx, dy] of [[0, 0], ...D8]) {
         const o = this.objAt(sq.x + dx, sq.y + dy);
-        if (o && (o.kind === 'vein' ? o.amount > 0 : !o.opened || (o.items && o.items.length))) return this.interactObj(sq, o);
+        if (!o) continue;
+        const usable = o.kind === 'vein' ? o.amount > 0 : o.kind === 'note' ? dx === 0 && dy === 0 : o.kind === 'survivor' ? true : !o.opened || (o.items && o.items.length);
+        if (usable) return this.interactObj(sq, o);
       }
       // 3. objetos en el suelo
       if (this.floorAt(sq.x, sq.y).length) { this.emit('loot', { floor: true, x: sq.x, y: sq.y }); return false; }
@@ -551,6 +557,15 @@ export class Expedition {
 
   interactObj(sq, o) {
     if (o.kind === 'vein') return this.mine(sq, o);
+    if (o.kind === 'note') {
+      o.opened = true; this.dirty = true;
+      if (sq === this.cur) this.emit('note', o);
+      return false;
+    }
+    if (o.kind === 'survivor') {
+      if (sq === this.cur) this.emit('survivor', o);
+      return false;
+    }
     if (!o.opened) {
       o.opened = true;
       const names = { cache: 'el alijo', locker: 'la taquilla', crate: 'la caja', corpse: 'el cadáver' };
@@ -609,6 +624,43 @@ export class Expedition {
     }
     this.addFloor(sq.x, sq.y, it);
     this.say(`${this.nm(sq)} suelta ${esc(itemName(it))}.`, 'dimt');
+    this.dirty = true;
+    this.emit('update');
+    return true;
+  }
+
+  // ---------------------------------------------------------------- supervivientes
+  survivorChoice(o, choice) {
+    const sq = this.cur;
+    if (!sq || o.gone) return false;
+    if (choice === 'heal') {
+      const h = sq.a.bag.filter((it) => ITEMS[it.b].use === 'heal').sort((a, b) => ITEMS[a.b].heal - ITEMS[b.b].heal)[0];
+      if (!h) { this.say('No llevas medicinas que darle.', 'bad'); return false; }
+      this.consume(sq, h);
+      const n = rng.int(1, 2);
+      for (let i = 0; i < n; i++) this.addFloor(sq.x, sq.y, rollLoot(Math.min(10, o.lvl + 1), rng, { rarityBonus: 0.7, catW: { ammo: 4, consumable: 6, valuable: 10 } }));
+      if (rng.chance(0.5)) { const k = this.key(sq.x, sq.y); this.essence.set(k, (this.essence.get(k) || 0) + rng.int(6, 14) * o.lvl); }
+      const ups = giveXp(sq.a, 25 + o.lvl * 5);
+      this.say(`«Gracias, camarada. Tomad esto, a mí ya no me sirve.» El superviviente deja su equipo a los pies de ${this.nm(sq)}.`, 'good');
+      if (ups) this.say(`★ ${this.nm(sq)} sube a nivel ${sq.a.lvl}.`, 'good');
+      this.emit('loot', { floor: true, x: sq.x, y: sq.y });
+    } else if (choice === 'intel') {
+      let n = 0;
+      for (let y = o.y - 30; y <= o.y + 30; y++) for (let x = o.x - 30; x <= o.x + 30; x++) {
+        if (!this.inb(x, y) || Math.hypot(x - o.x, (y - o.y) * 1.3) > 30) continue;
+        const k = this.key(x, y);
+        if (TILES[this.t[k]].walk || this.t[k] === T.WALL || this.t[k] === T.MACHINE) { if (!this.explored[k]) n++; this.explored[k] = 1; }
+      }
+      this.say(`«Escuchad: conozco estos túneles.» Os dibuja un plano en un trozo de cartón (${n} casillas cartografiadas).`, 'o1');
+    } else {
+      this.say('Lo dejáis atrás. Sus ojos os siguen en la oscuridad.', 'dimt');
+      return true;
+    }
+    o.gone = true;
+    this.objects.splice(this.objects.indexOf(o), 1);
+    this.objMap.delete(this.key(o.x, o.y));
+    this.fx.push({ type: 'extract', x: o.x, y: o.y, color: '#9fe8a0' });
+    this.say('El superviviente se arrastra hacia la superficie.', 'dimt');
     this.dirty = true;
     this.emit('update');
     return true;
@@ -1163,6 +1215,11 @@ export class Expedition {
         this.spawnTempExit(spot[0], spot[1], dur, nm);
         this.say(`📻 RADIO: «Extracción temporal abierta: <span class="cyan">${nm}</span>${s ? ' en el sector ' + s.code : ''}. Disponible ${dur} turnos.»`, 'cyan');
       }
+    }
+    // radio ambiental
+    if (this.turn >= this.nextRadio) {
+      this.nextRadio = this.turn + rng.int(60, 110);
+      this.say(`📻 ${rng.pick(RADIO)}`, 'dimt');
     }
     // evacuación
     if (this.evac) {

@@ -11,6 +11,7 @@ import * as C from '../core/campaign.js';
 import { sfx } from '../audio.js';
 import { uiBurst, uiSparkEl, uiFly, uiText } from './fx.js';
 import { fmt } from '../util/rng.js';
+import { toggleFullscreen } from './expui.js';
 
 const TABS = [
   { id: 'cuartel', label: 'CUARTEL' },
@@ -591,6 +592,7 @@ export class BaseUI {
       btn(`SONIDO: ${settings.sound ? 'SÍ' : 'NO'}`, () => { settings.sound = !settings.sound; saveSettings(); close(); this.openMenu(); }),
       btn(`EFECTO CRT: ${settings.crt ? 'SÍ' : 'NO'}`, () => { settings.crt = !settings.crt; document.body.classList.toggle('no-crt', !settings.crt); saveSettings(); close(); this.openMenu(); }),
       btn('GUARDAR PARTIDA', () => { save(); toast('Partida guardada.', 'good'); close(); }),
+      btn('PANTALLA COMPLETA', () => { toggleFullscreen(); close(); }),
       btn('SALIR AL TÍTULO', () => { save(); close(); this.close(); this.hooks.onQuit(); }, 'danger'),
     );
     close = modal({ title: 'MENÚ', body, width: '46ch' });

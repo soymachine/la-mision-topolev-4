@@ -8,8 +8,8 @@ import { ESSENCE_COLOR } from '../exp/expedition.js';
 
 export const FONT = '"JetBrains Mono", "DejaVu Sans Mono", Consolas, monospace';
 const hash = (x, y) => { let h = (x * 374761393 + y * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177; return (h ^ (h >>> 16)) >>> 0; };
-const OBJ_GLYPH = { vein: '✦', cache: '■', locker: '▤', crate: '□', corpse: '%' };
-const OBJ_NAME = { vein: 'Veta de esencia', cache: 'Alijo de suministros', locker: 'Taquilla', crate: 'Caja de material', corpse: 'Cadáver de liquidador' };
+const OBJ_GLYPH = { vein: '✦', cache: '■', locker: '▤', crate: '□', corpse: '%', note: '?', survivor: '☺' };
+const OBJ_NAME = { vein: 'Veta de esencia', cache: 'Alijo de suministros', locker: 'Taquilla', crate: 'Caja de material', corpse: 'Cadáver de liquidador', note: 'Nota', survivor: 'Superviviente' };
 export { OBJ_NAME };
 
 export class MapRenderer {
@@ -275,6 +275,13 @@ export class MapRenderer {
     if (!e) return;
     this.consumeFx();
     if (e.dirty) { this.updateStatic(); e.dirty = false; }
+    // limpieza periódica de cachés
+    if ((this.gc = (this.gc || 0) + 1) % 120 === 0) {
+      for (const [k, t] of this.flashes) if (t < now) this.flashes.delete(k);
+      if (this.lunge) for (const [k, l] of this.lunge) if (now - l.t > 300) this.lunge.delete(k);
+      const live = new Set([...e.enemies.map((x) => x.uid), ...e.squad.map((x) => x.id)]);
+      for (const k of this.pos.keys()) if (!live.has(k)) this.pos.delete(k);
+    }
     const ctx = this.ctx;
     const cw = this.cw, ch = this.ch;
     // cámara
@@ -373,6 +380,8 @@ export class MapRenderer {
         ctx.shadowBlur = 0;
         continue;
       }
+      if (o.kind === 'note') { glyph(o.x, o.y, '?', o.opened ? (vis ? '#7a6a4a' : '#3a3020') : vis ? `rgba(240,225,170,${0.7 + 0.3 * Math.sin(T_ * 3 + o.x)})` : '#5a5030', null, 1, !o.opened); continue; }
+      if (o.kind === 'survivor') { glyph(o.x, o.y, '☺', vis ? `rgba(160,232,160,${0.75 + 0.25 * Math.sin(T_ * 2)})` : '#3a5a3a', null, 1.05, true); continue; }
       if (o.opened) col = vis ? '#6a4a2a' : '#3a2814';
       else if (o.kind === 'cache') col = vis ? (this.radar >= 2 ? rarityColor(o.best) : '#ffb02e') : '#7a5a20';
       else col = vis ? '#d9a066' : '#6a4a2a';
