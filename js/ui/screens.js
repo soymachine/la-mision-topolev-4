@@ -269,6 +269,8 @@ export class ReportScreen {
       }
       B.append(box);
     }
+    if (rep.prisoners) B.append(el('div', { class: 'warn', style: { textAlign: 'center' }, text: `⚑ ${rep.prisoners} prisionero(s) entregados al KGB: +${rep.prisoners * 150} ₽` }));
+    if (rep.recruits && rep.recruits.length) B.append(el('div', { class: 'good', style: { textAlign: 'center' }, text: `✚ Se unen al puesto: ${rep.recruits.join(', ')}` }));
     if (rep.unlocked) B.append(el('div', { class: 'sep', text: '─'.repeat(200) }), el('div', { class: 'good', style: { textAlign: 'center', fontWeight: 700 }, text: `☢ NUEVA ZONA ACCESIBLE: ${rep.unlocked.toUpperCase()}` }));
     B.append(el('div', { class: 'sep', text: '─'.repeat(200) }), el('div', { class: 'dimt', text: 'Los objetos extraídos siguen en las mochilas de los agentes. Usa «DESCARGAR MOCHILA» en EQUIPO para pasarlos al almacén y vende el botín en la INTENDENCIA.' }));
     B.append(el('div', { style: { textAlign: 'center', marginTop: '1em' } }, el('button', { class: 'btn primary', onclick: () => { sfx.click(); this.hooks.onDone(); } }, 'VOLVER A LA BASE')));
@@ -436,6 +438,16 @@ export class HelpScreen {
 <h2>PERSONAS Y CONVERSACIONES</h2>
 <p>No estáis solos ahí abajo. Las personas (<b>@</b>) llevan un recuadro según su postura: <span class="good">verde</span> aliados, <span class="warn">amarillo</span> neutrales y <span class="bad">rojo</span> hostiles. Los aliados se apartan si chocas con ellos y combaten a vuestro lado; los neutrales no os molestarán... salvo que abráis fuego contra ellos: entonces toda su facción se vuelve hostil.</p>
 <p>Algunos encuentros abren una <b>conversación</b>: elige respuesta con el ratón o con las teclas <b>1–9</b>. Las opciones en gris necesitan algo que no tienes. Lo que decidas se recuerda.</p>
+
+<h2>FACCIONES Y REPUTACIÓN</h2>
+<ul>
+<li>Hay una docena de expediciones en la Zona: aliados del Pacto (RDA, Cuba, Checoslovaquia), neutrales (Suecia, Finlandia, Yugoslavia, contrabandistas), hostiles (EE. UU., Reino Unido, la Congregación de la Ceniza) y negociables (merodeadores, desertores). La pestaña <b>RADIO</b> de la base muestra la <b>reputación</b> con cada una (−100…+100) y lo que ofrecen.</li>
+<li><b>F</b> junto a alguien no hostil abre un <b>encuentro</b>: comerciar, compartir mapas, pedir ayuda, amenazar… A los merodeadores y desertores se les puede sobornar; un Comisario puede reclutar desertores.</li>
+<li>Los neutrales se vuelven hostiles si les disparas, si abres sus suministros delante de ellos o si les <b>apuntas</b> (T) con insistencia: «¡Baja el arma, camarada!».</li>
+<li>Las personas buscan cobertura, lanzan granadas, avisan por radio y, malheridas, <b>se rinden</b> (⚑): F para dejarlas ir, interrogarlas, requisar su equipo, entregarlas al KGB o algo peor.</li>
+<li>La <b>bengala roja</b> llama a los aliados de la zona; si la RDA o Cuba os aprecian, mandan una patrulla. Los sacerdotes de la Ceniza azuzan a los chebylitas: dispárales primero.</li>
+<li>En los mapas hay <b>campamentos abandonados</b> (tiendas Λ, hogueras *, radios ☏) con cajas OTAN y diarios en otros idiomas. El <b>KGB</b> paga por informes, documentos y diarios (pestaña RADIO), pero no le gusta que comerciéis con extranjeros: si desconfía, manda a un comisario.</li>
+</ul>
 
 <h2>RADIACIÓN Y PELIGROS</h2>
 <ul>

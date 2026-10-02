@@ -6,6 +6,7 @@ import { BACKGROUNDS } from '../data/backgrounds.js';
 import { createItem } from './items.js';
 import { ITEMS } from '../data/items.js';
 import { RNG } from '../util/rng.js';
+import { FACTIONS } from '../data/factions.js';
 import { compressToUTF16, decompressFromUTF16 } from '../util/lz.js';
 
 // Guardado v2: 3 ranuras comprimidas (LZ/UTF-16) + ficha resumen por ranura
@@ -35,7 +36,7 @@ export function newGame(n = slot) {
     agents: [], stash: [], fallen: [], unlocked: 1, cleared: {}, bestiary: {},
     stats: { expeditions: 0, extractions: 0, deaths: 0, kills: 0, essTotal: 0, rubTotal: 0, turns: 0, bestItem: null },
     shop: null, recruits: null, messages: [], lastReport: null, exp: null, introSeen: false,
-    flags: {}, rep: {}, eventsDone: {}, pendingDialogs: [], instructors: [],
+    flags: {}, rep: {}, repV: 1, eventsDone: {}, pendingDialogs: [], instructors: [],
   };
   for (let i = 0; i < 3; i++) {
     const a = createAgent(g, { day: 1, avoid: new Set(S.agents.map((x) => x.nick)) });
@@ -113,6 +114,8 @@ export function load(n = lastSlot()) {
 function upgrade(d) {
   if (d.v < 2) { d.flags = d.flags || {}; d.rep = d.rep || {}; d.eventsDone = d.eventsDone || {}; d.v = 2; }
   d.flags = d.flags || {}; d.rep = d.rep || {}; d.eventsDone = d.eventsDone || {}; d.pendingDialogs = d.pendingDialogs || []; d.instructors = d.instructors || []; d.eventZones = d.eventZones || [];
+  // fase 18: la reputación pasa a ser absoluta (−100…+100) partiendo de la postura inicial de cada facción
+  if (!d.repV) { for (const [f, F] of Object.entries(FACTIONS)) if (F.rep0 != null) d.rep[f] = Math.max(-100, Math.min(100, F.rep0 + (d.rep[f] || 0))); d.repV = 1; }
   for (const a of d.agents || []) upgradeAgent(a);
 }
 // fases 14 y 15: atributos 1–10, trasfondo, talentos (ofertas retroactivas), contenedor y honores

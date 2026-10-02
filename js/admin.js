@@ -7,8 +7,8 @@ import { TILES } from './data/tiles.js';
 import { MOD_SLOTS, weaponSlots } from './data/mods.js';
 import { gadgetExtras, gadgetEffectLines, WTYPE_NAMES } from './core/items.js';
 import { NOTES, RADIO, SURVIVOR_LINES } from './data/lore.js';
-import { FACTIONS, baseAttitude, ATTITUDE_TEXT } from './data/factions.js';
-import { HUMANS, scaleHuman } from './data/humans.js';
+import { FACTIONS, baseAttitude, ATTITUDE_TEXT, REP_LEVELS, repLevel, squadAttitude } from './data/factions.js';
+import { HUMANS, scaleHuman, SQUADS, SQUAD_MIN_TIER } from './data/humans.js';
 import { EVENTS } from './data/events.js';
 import { DIALOGS } from './data/dialogs.js';
 import { ATTRS, ATTR_MAX, TALENTS, TALENT_EVERY } from './data/talents.js';
@@ -204,7 +204,7 @@ sec('Sistemas', 'nombres', 'Nombres de objetos', MYTHIC_NAMES.length + EPITHETS.
 // ----- MUNDO -----
 sec('Mundo', 'enemigos', 'Chebylitas', Object.keys(ENEMIES).length, renderEnemies);
 sec('Mundo', 'facciones', 'Facciones', Object.keys(FACTIONS).length, renderFactions, 'Actitud inicial de cada facción hacia las demás. Durante la expedición cambia: atacar a un neutral o a un aliado vuelve hostil a toda su facción (−25 de reputación).');
-sec('Mundo', 'personas', 'Personas', Object.keys(HUMANS).length, renderHumans, 'Miembros de otras expediciones. Usan armas reales del catálogo, recargan, huyen heridos y sueltan su equipo al morir. Aparecen en Metro-2, Fénix, el campamento Wismut, el mercado negro, el avión espía y con el modificador «Presencia extranjera». También se pueden generar con la consola de depuración (tecla º → spawn).');
+sec('Mundo', 'personas', 'Personas', Object.keys(HUMANS).length, renderHumans, 'Miembros de otras expediciones. Usan armas reales del catálogo, recargan, huyen heridos y sueltan su equipo al morir. Patrullan las zonas según su región y peligrosidad (ver «Zonas»): buscan cobertura, lanzan granadas, avisan por radio, se rinden malheridos (prisioneros) y se puede hablar con los no hostiles (F). También se pueden generar con la consola de depuración (tecla º → spawn).');
 sec('Mundo', 'zonas', 'Zonas', MAPS.length, renderMaps);
 sec('Mundo', 'casillas', 'Casillas del mapa', TILES.length, () => table(TILES.map((t, i) => ({ i, ...t })), [
   { h: 'Glifos', v: (t) => t.glyphs.map((g, k) => `<b style="color:${t.fg[k % t.fg.length]};${t.bg ? `background:${t.bg};` : ''}padding:0 .3ch">${esc(g)}</b>`).join(' ') },
@@ -374,10 +374,11 @@ function renderAgentNames() {
 const ATT_COLOR = { hostile: '#ff5050', neutral: '#e6c85a', allied: '#8fe870' };
 function renderFactions() {
   const ids = Object.keys(FACTIONS);
-  const cards = ids.map((id) => { const f = FACTIONS[id]; return `<div class="block row-f"><h3 style="color:${f.color}">${esc(f.name)} ${tag(f.short)}</h3><div class="desc">${esc(f.country)} · id <code>${id}</code></div><div>${esc(f.desc)}</div></div>`; }).join('');
+  const cards = ids.map((id) => { const f = FACTIONS[id]; const r = f.rep0 ?? null; return `<div class="block row-f"><h3 style="color:${f.color}">${esc(f.name)} ${tag(f.short)}${f.bloc ? tag(f.bloc === 'varsovia' ? 'Pacto de Varsovia' : f.bloc === 'otan' ? 'OTAN' : 'neutral') : ''}${f.negotiable ? tag('negociable', 'c') : ''}${f.combat === false ? tag('no combate', 'b') : ''}</h3><div class="desc">${esc(f.country)} · id <code>${id}</code>${r != null ? ` · reputación inicial <b>${r}</b> (${repLevel(r).name}) → postura <b>${ATTITUDE_TEXT[squadAttitude({ rep: {} }, id)]}</b>` : ''}</div><div>${esc(f.desc)}</div>${f.offers ? `<div class="desc">Ofrece: ${esc(f.offers)}</div>` : ''}${SQUADS[id] ? `<div class="desc">Patrulla: ${SQUADS[id].map(([t, a, b]) => `${esc(HUMANS[t].name)} ${a}–${b}`).join(', ')} · desde tier ${SQUAD_MIN_TIER[id] ?? 0}</div>` : ''}</div>`; }).join('');
   const head = `<tr><th></th>${ids.map((b) => `<th style="color:${FACTIONS[b].color}">${esc(FACTIONS[b].short)}</th>`).join('')}</tr>`;
   const rows = ids.map((a) => `<tr><td style="color:${FACTIONS[a].color}"><b>${esc(FACTIONS[a].short)}</b></td>${ids.map((b) => { const t = a === b ? 'allied' : baseAttitude(a, b); return `<td style="color:${a === b ? 'var(--dim)' : ATT_COLOR[t]}">${a === b ? '—' : ATTITUDE_TEXT[t]}</td>`; }).join('')}</tr>`).join('');
-  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(46ch,1fr));gap:0 2ch">${cards}</div><h3>Actitudes iniciales</h3><table style="width:auto">${head}${rows}</table>`;
+  const lv = `<h3>Reputación (−100…+100)</h3><p class="desc">${REP_LEVELS.map((l) => `<b>${l.name}</b> desde ${l.min}`).join(' · ')}. La postura del escuadrón sale de la reputación: Pacto de Varsovia aliados desde 15, neutrales por debajo y hostiles por debajo de −50; neutrales aliados desde 50 y hostiles por debajo de −50; negociables neutrales desde 0 y aliados desde 50; EE. UU., Reino Unido y el culto, hostiles salvo con 50 o más. Atacar a un no hostil: −25 y hostilidad toda la expedición. Robar en sus alijos: −6 (o hostilidad si os ven). Apuntarles tres veces seguidas: hostilidad. Comerciar con quien no es del Pacto: −3 con el KGB.</p>`;
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(46ch,1fr));gap:0 2ch">${cards}</div>${lv}<h3>Actitudes iniciales entre facciones</h3><table style="width:auto">${head}${rows}</table>`;
 }
 function renderHumans() {
   const cards = Object.entries(HUMANS).map(([id, d]) => {
@@ -386,7 +387,8 @@ function renderHumans() {
     const lv = [1, 5, 10], S = lv.map((l) => scaleHuman(d, l));
     const line = (lab, fn) => `<tr><td class="desc">${lab}</td>${S.map((x) => `<td class="num">${fn(x)}</td>`).join('')}</tr>`;
     return `<div class="block row-f"><h3><span style="color:${f.color};background:${f.bg || 'transparent'};font-size:22px;margin-right:1ch;padding:0 .3ch">${esc(d.glyph)}</span>${esc(d.name)} <span style="color:${f.color};font-weight:400">· ${esc(f.short)}</span></h3>
-      <div class="desc">id <code>${id}</code> · arma ${w ? `<b>${esc(w.name)}</b>` : '—'} · velocidad ${d.speed} · huye por debajo del ${Math.round(d.flee * 100)}% de salud${d.gasImmune ? ' · inmune al gas' : ''}</div>
+      <div class="desc">id <code>${id}</code> · arma ${w ? `<b>${esc(w.name)}</b>` : '—'} · velocidad ${d.speed} · huye con poca salud (${Math.round(d.flee * 100)}%) · se rinde (${Math.round((d.surrender || 0) * 100)}%)${d.gasImmune ? ' · inmune al gas' : ''}</div>
+      <div class="desc">${[d.cover ? `busca cobertura (${Math.round(d.cover * 100)}%)` : '', d.nade ? `lanza ${esc(ITEMS[d.nade].name)}` : '', d.radio ? 'avisa por radio' : '', d.charm ? 'azuza chebylitas' : '', d.stealthy ? 'sigiloso' : '', d.stationary ? 'fijo' : '', d.alarm ? 'da la alarma' : ''].filter(Boolean).join(' · ')}</div>
       <table style="width:auto;margin:.3em 0"><tr><th style="position:static">Nivel</th>${lv.map((l) => `<th style="position:static;text-align:right">${l}</th>`).join('')}</tr>
         ${line('Salud', (x) => x.hp)}${line('Precisión', (x) => x.acc)}${line('Esquiva %', (x) => Math.round(x.ev))}${line('Blindaje', (x) => x.armor)}${line('XP', (x) => x.xp)}</table>
       <div class="desc">Puede soltar: ${d.loot.map((b) => (ITEMS[b] ? esc(ITEMS[b].name) : b)).join(', ') || '—'} (además de su arma y munición)</div>

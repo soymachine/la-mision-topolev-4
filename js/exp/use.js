@@ -31,8 +31,13 @@ export class UsePart {
         const o = this.objAt(sq.x + dx, sq.y + dy);
         if (!o) continue;
         if (o.kind === 'cart') continue;
-        const usable = o.kind === 'vein' || o.kind === 'shard' ? o.amount > 0 : o.kind === 'note' ? dx === 0 && dy === 0 : o.kind === 'survivor' || OBJ_DIALOG[o.kind] ? true : !o.opened || (o.items && o.items.length);
+        const usable = o.kind === 'vein' || o.kind === 'shard' ? o.amount > 0 : o.kind === 'note' ? dx === 0 && dy === 0 : o.kind === 'survivor' || OBJ_DIALOG[o.kind] ? true : o.kind === 'radio' ? !o.opened : !o.opened || (o.items && o.items.length);
         if (usable) return this.interactObj(sq, o);
+      }
+      // 2b. personas: prisioneros y gente con la que se puede hablar
+      for (const [dx, dy] of D8) {
+        const e = this.talkableAt(sq.x + dx, sq.y + dy);
+        if (e) return this.interactActor(sq, e);
       }
       // 3. casillas que se usan (puertas blindadas, terminales, interruptores, montacargas, simas, grafito)
       for (const [dx, dy] of [[0, 0], ...D8]) {
@@ -48,7 +53,10 @@ export class UsePart {
 
   interactObj(sq, o) {
     if (o.kind === 'vein' || o.kind === 'shard') return this.mine(sq, o);
+    if (o.kind === 'radio') return this.listenRadio(sq, o);
     if (o.kind === 'note') {
+      // diarios de otras expediciones: se traducen al leerlos y el KGB los quiere
+      if (o.fnote != null && !o.opened) { const it = createItem('foreigndiary', 0, rng); if (mergeInto(sq.a.bag, it, bagCapacity(sq.a))) this.addFloor(sq.x, sq.y, it); this.say(`${this.nm(sq)} se guarda el diario. Al KGB le interesará.`, 'o1'); }
       o.opened = true; this.dirty = true;
       if (sq === this.cur) this.emit('note', o);
       return false;
@@ -62,8 +70,9 @@ export class UsePart {
       return false;
     }
     if (!o.opened) {
+      if (o.owner) this.checkTheft(sq, o);
       o.opened = true;
-      const names = { cache: 'el alijo', locker: 'la taquilla', crate: 'la caja', corpse: 'el cadáver', wreck: 'los restos del aparato' };
+      const names = { cache: 'el alijo', locker: 'la taquilla', crate: o.label ? 'la ' + o.label.toLowerCase() : 'la caja', corpse: 'el cadáver', wreck: 'los restos del aparato' };
       this.say(`${this.nm(sq)} registra ${names[o.kind]}${o.items.length ? '.' : ': vacío.'}`);
       this.fx.push({ type: 'open', x: o.x, y: o.y });
       this.noise(sq.x, sq.y, 2);
@@ -189,6 +198,9 @@ export class UsePart {
         this.say(`${this.nm(sq)} usa ${d.name}${parts.length ? ` (${parts.join(', ')})` : ''}.`, 'good');
         break;
       }
+      case 'redflare':
+        this.redFlare(sq);
+        break;
       case 'beacon':
         this.pending.push({ x: sq.x, y: sq.y, at: this.turn + 6 });
         this.say('Baliza activada. Extracción de emergencia en 6 turnos en esta posición.', 'cyan');

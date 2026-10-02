@@ -20,6 +20,8 @@ import { toggleFullscreen } from './expui.js';
 import { showDialog } from './dialog.js';
 import { regionMap } from './region.js';
 import { MODIFIERS } from '../data/modifiers.js';
+import { FACTIONS, REP_LEVELS, repLevel, repOf, squadAttitude, ATTITUDE_TEXT, ATTITUDE_CLASS, COMBAT_FACTIONS } from '../data/factions.js';
+import { SQUADS, HUMANS } from '../data/humans.js';
 import { floorsFor } from '../exp/expedition.js';
 
 const TABS = [
@@ -29,8 +31,17 @@ const TABS = [
   { id: 'laboratorio', label: 'LABORATORIO' },
   { id: 'intendencia', label: 'INTENDENCIA' },
   { id: 'expedicion', label: 'EXPEDICIÓN' },
+  { id: 'radio', label: 'RADIO' },
   { id: 'archivo', label: 'ARCHIVO' },
 ];
+
+// barra de reputación −100…+100 con el cero en el centro
+function repBar(v, w = 20) {
+  const half = w / 2, n = Math.round((Math.abs(v) / 100) * half);
+  const left = v < 0 ? ' '.repeat(half - n) + `<span class="bad">${'█'.repeat(n)}</span>` : '·'.repeat(half);
+  const right = v > 0 ? `<span class="good">${'█'.repeat(n)}</span>` + ' '.repeat(half - n) : '·'.repeat(half);
+  return `<span class="dimt">[</span>${v < 0 ? left : `<span class="dimt">${left}</span>`}<span class="o2">|</span>${v > 0 ? right : `<span class="dimt">${right}</span>`}<span class="dimt">]</span>`;
+}
 
 const BASE_ART = String.raw`
             .   *        .        ☢          .
@@ -869,6 +880,61 @@ export class BaseUI {
     const evId = this.selEvent;
     this.selEvent = null;
     this.hooks.onLaunch(this.selMap, agents, evId);
+  }
+
+  // =========================================================== RADIO (fase 18: facciones y reputación)
+  tab_radio() {
+    const g = el('div', { class: 'grid3' });
+    const facs = [...COMBAT_FACTIONS, 'kgb'];
+    if (!this.selFac || !FACTIONS[this.selFac]) this.selFac = 'rda';
+    const met = S.met || {};
+    const L = panel({ title: 'SALA DE RADIO · FACCIONES', bodyCls: 'scroll' });
+    L.body.append(el('div', { class: 'dimt', text: 'Reputación de −100 a +100. Atacar, robar o apuntar a alguien la baja; ayudar, comerciar y cumplir encargos la sube.' }), el('div', { class: 'sep', text: '─'.repeat(60) }));
+    for (const f of facs) {
+      const F = FACTIONS[f], v = repOf(S, f), lv = repLevel(v);
+      const known = met[f] || f === 'kgb' || f === 'rda';
+      const att = F.combat === false ? null : squadAttitude(S, f);
+      const card = el('div', { class: `mapcard fac-card ${this.selFac === f ? 'sel' : ''}` });
+      card.innerHTML = `<div class="o2" style="color:${F.color}">${known ? '■' : '?'}</div><div><b style="color:${F.color}">${known ? esc(F.name) : '???'}</b><div class="dimt">${esc(F.country)}${att ? ` · <span class="${ATTITUDE_CLASS[att]}">${ATTITUDE_TEXT[att]}</span>` : ''}</div><div class="repbar">${repBar(v)}</div></div><div class="dif ${lv.cls}">${v > 0 ? '+' : ''}${v}<br>${lv.name}</div>`;
+      card.addEventListener('click', () => { this.selFac = f; sfx.click(); this.render(); });
+      L.body.append(card);
+    }
+    const f = this.selFac, F = FACTIONS[f], v = repOf(S, f), lv = repLevel(v);
+    const known = met[f] || f === 'kgb' || f === 'rda';
+    const M = panel({ title: known ? F.name.toUpperCase() : 'FACCIÓN SIN CONTACTO', bodyCls: 'scroll' });
+    M.body.append(
+      el('div', { class: 'kv', html: `<span>País</span><span>${esc(F.country)}</span><span>Reputación</span><span class="${lv.cls}"><b>${v > 0 ? '+' : ''}${v}</b> · ${lv.name}</span>${F.combat === false ? '' : `<span>Postura</span><span class="${ATTITUDE_CLASS[squadAttitude(S, f)]}">${ATTITUDE_TEXT[squadAttitude(S, f)]}</span>`}` }),
+      el('div', { class: 'repbar big', html: repBar(v, 40) }),
+      el('div', { class: 'msg-topolev', text: known ? F.desc : 'Todavía no os habéis cruzado con ellos. Las otras expediciones aparecen en las zonas según su región y peligrosidad.' }),
+    );
+    if (known && F.offers) M.body.append(el('div', { html: `<span class="dimt">Qué ofrecen:</span> ${esc(F.offers)}` }));
+    M.body.append(el('div', { class: 'sep', text: '─'.repeat(80) }), el('div', { class: 'h', text: 'UMBRALES' }));
+    for (const l of REP_LEVELS) M.body.append(el('div', { class: l.id === lv.id ? 'sel' : '', html: `<span class="${l.cls}">${l.id === lv.id ? '►' : ' '} ${l.name}</span> <span class="dimt">desde ${l.min}</span>` }));
+    M.body.append(el('div', { class: 'dimt', style: { marginTop: '.5em' }, text: F.combat === false ? 'El Directorio 9 no combate. Le gustan los informes; le disgusta que comerciéis con extranjeros que no son del Pacto.' : f === 'usa' || f === 'uk' || f === 'culto' ? 'Hostiles a la vista: solo dejarían de disparar con una reputación excepcional.' : F.negotiable ? 'Negociables: con reputación 0 o más se apartan; con 50, colaboran.' : F.bloc === 'varsovia' ? 'Del Pacto de Varsovia: desde «Amistosa» luchan a vuestro lado; por debajo de −15 desconfían, por debajo de −50 disparan.' : 'Neutrales: con «Aliada» luchan a vuestro lado; si los atacáis, se vuelven hostiles toda la expedición.' }));
+    if (known && SQUADS[f]) {
+      M.body.append(el('div', { class: 'sep', text: '─'.repeat(80) }), el('div', { class: 'h', text: 'PERSONAL AVISTADO' }));
+      for (const [type] of SQUADS[f]) { const h = HUMANS[type]; M.body.append(el('div', { html: `<span style="color:${F.color};font-weight:700">@</span> ${esc(h.name)} <span class="dimt">· ${esc(h.weapon ? ITEMS[h.weapon].name : 'sin arma')}</span><div class="dimt" style="padding-left:2ch">${esc(h.lore)}</div>` })); }
+    }
+    // KGB: entrega de informes
+    const R = panel({ title: 'DIRECTORIO 9 · INFORMES', bodyCls: 'scroll' });
+    const kv = repOf(S, 'kgb');
+    R.body.append(
+      el('div', { class: 'msg-topolev', text: '«Camarada director: cualquier documento extranjero, diario o registro de vuelo es propiedad del Estado. El Estado sabe ser agradecido.» — Mayor Volkov, KGB' }),
+      el('div', { class: 'kv', html: `<span>Confianza del KGB</span><span class="${repLevel(kv).cls}">${kv > 0 ? '+' : ''}${kv} · ${repLevel(kv).name}</span><span>Informes entregados</span><span>${S.kgbReports || 0}</span><span>Tratos con extranjeros</span><span class="${(S.foreignTrade || 0) ? 'warn' : ''}">${S.foreignTrade || 0}</span>` }),
+      el('div', { class: 'sep', text: '─'.repeat(60) }),
+    );
+    const wants = C.kgbStash();
+    if (!wants.length) R.body.append(el('div', { class: 'dimt', text: 'No hay en el almacén nada que interese al KGB (informes de inteligencia, documentos, cajas negras, diarios extranjeros, reliquias).' }));
+    for (const it of wants) {
+      const p = C.kgbPrice(it);
+      const row = el('div', { class: 'row', style: { justifyContent: 'space-between' } }, el('span', { html: itemHTML(it) }), el('button', { class: 'btn small', onclick: () => { const got = C.kgbDeliver(it); sfx.buy(); toast(`Entregado al KGB: +${got} ₽ y +3 de confianza.`, 'good'); save(); this.render(); this.pulseRes('rub'); } }, `ENTREGAR · ${p} ₽`));
+      tip(row, () => itemTooltip(it));
+      R.body.append(row);
+    }
+    if (kv <= -25) R.body.append(el('div', { class: 'bad', style: { marginTop: '1em' }, text: '⚠ El KGB desconfía del puesto: espera la visita de un comisario.' }));
+    else if (kv >= 50) R.body.append(el('div', { class: 'good', style: { marginTop: '1em' }, text: '★ El KGB confía en el puesto: paga mejor los informes y envía fondos de vez en cuando.' }));
+    g.append(L, M, R);
+    return g;
   }
 
   // =========================================================== ARCHIVO

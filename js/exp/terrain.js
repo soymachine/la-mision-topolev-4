@@ -4,6 +4,7 @@
 import { rng, cheb, line } from '../util/rng.js';
 import { T, TILES } from '../data/tiles.js';
 import { createItem, mergeInto, rollLoot } from '../core/items.js';
+import { ITEMS } from '../data/items.js';
 import { ACTORS } from '../data/actors.js';
 import { agentStats, bagCapacity } from '../core/agents.js';
 import { esc } from '../util/dom.js';
@@ -28,6 +29,7 @@ export class TerrainPart {
   }
   nightVision(sq) {
     const a = sq.a;
+    if (a.equip.helmet && ITEMS[a.equip.helmet.b].nv) return true;
     return [a.equip.w1, a.equip.w2].some((w) => w && w.mods && Object.values(w.mods).some((m) => m && NV_MODS.includes(m.b)));
   }
   // radio de visión fuera de las zonas iluminadas
@@ -67,6 +69,7 @@ export class TerrainPart {
     for (let k = 0; k < N; k++) {
       const tt = this.t[k];
       if (tt === T.LAMP) { this.lamps.push(k); glow(k % this.w, (k / this.w) | 0, TILES[tt].light); }
+      else if (tt === T.CAMPFIRE) glow(k % this.w, (k / this.w) | 0, TILES[tt].light);
       else if (this.fire[k]) glow(k % this.w, (k / this.w) | 0, 2);
     }
     for (const f of this.flares || []) glow(f.x, f.y, 5);

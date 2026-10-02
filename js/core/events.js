@@ -8,7 +8,7 @@ import { S, addMessage } from './state.js';
 import { ITEMS } from '../data/items.js';
 import { EVENTS } from '../data/events.js';
 import { DIALOGS } from '../data/dialogs.js';
-import { FACTIONS } from '../data/factions.js';
+import { FACTIONS, repOf, addRep } from '../data/factions.js';
 import { MAPS } from '../data/world.js';
 import { createItem, rollLoot, mergeInto, itemName, rarityColor } from './items.js';
 import { giveXp, bagCapacity, agentStats, talentFlag } from './agents.js';
@@ -43,7 +43,7 @@ const COND = {
   flagAtLeast: ([f, n]) => (S.flags[f] || 0) >= n,
   agentFlag: (v, c) => !!(c.a && c.a.flags && c.a.flags[v]),
   notAgentFlag: (v, c) => !(c.a && c.a.flags && c.a.flags[v]),
-  rep: ([f, op, n]) => cmp(S.rep[f] || 0, op, n),
+  rep: ([f, op, n]) => cmp(repOf(S, f), op, n),
   relation: ([f, att], c) => !!c.exp && c.exp.attitude('squad', f) === att,
   chance: (p) => rng.chance(p),
   day: ([op, n]) => cmp(S.day, op, n),
@@ -111,7 +111,7 @@ const EFF = {
     // Políglota (Comisario): las mejoras de reputación son mayores
     const poly = n > 0 ? Math.max(0, ...(c.exp ? c.exp.team.map((q) => q.a) : S.agents).map((a) => talentFlag(a, 'polyglot'))) : 0;
     n = Math.round(n * (1 + poly / 100));
-    S.rep[f] = (S.rep[f] || 0) + n;
+    addRep(S, f, n);
     const F = FACTIONS[f];
     if (F) say(c, `Reputación con <span style="color:${F.color}">${esc(F.short || F.name)}</span>: ${n > 0 ? '+' : ''}${n} (${S.rep[f]}).`, n > 0 ? 'good' : 'warn');
   },
@@ -272,7 +272,7 @@ export function dialogView(dlg, ctx) {
   return {
     title: fmt(N.title || D.title, ctx),
     speaker: fmt(N.speaker || D.speaker || '', ctx),
-    color: N.color || D.color || '#ff9a3c',
+    color: val(N.color || D.color, ctx) || '#ff9a3c',
     art: N.art || D.art || '',
     text: fmt(N.text, ctx),
     opts,

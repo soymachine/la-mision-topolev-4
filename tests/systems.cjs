@@ -533,6 +533,163 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
   ok(ez2.event === 'heli' && ez2.wreck, 'la zona de evento sobrevive a recargar');
   await ctx5.close();
 
+  // ================================================================ fase 18
+  console.log('· Fase 18: facciones, reputación, encuentros y KGB');
+  {
+  const ctx6 = await b.newContext({ viewport: { width: 1440, height: 860 } });
+  const Q = await ctx6.newPage();
+  Q.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
+  Q.on('console', (m) => { if ((m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) || m.type() === 'warning') errs.push(m.text()); });
+  const fd18 = (line) => Q.evaluate((l) => window.__topolev.debug.run(l), line);
+  const close18 = async () => { for (let i = 0; i < 6 && (await Q.$('.modal')); i++) { await Q.keyboard.press('Escape'); await Q.waitForTimeout(150); } };
+  await Q.goto(URL); await Q.waitForTimeout(800);
+  await Q.click('text=NUEVA PARTIDA'); await Q.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await Q.click('#screen-intro'); await Q.click('text=COMENZAR');
+  await Q.waitForTimeout(300);
+  await Q.evaluate(() => { const S = window.__topolev.S; for (const a of S.agents) { a.baseHp = 200; a.hp = 400; } S.rub = 3000; });
+  await Q.click('.tab:has-text("RADIO")'); await Q.waitForTimeout(200);
+  const rd = await Q.evaluate(async () => {
+    const F = await import('./js/data/factions.js'); const S = window.__topolev.S;
+    return { cards: document.querySelectorAll('.fac-card').length, rda: F.repOf(S, 'rda'), usa: F.repOf(S, 'usa'), att: ['cuba', 'finlandia', 'merodeadores', 'usa'].map((f) => F.squadAttitude(S, f)), lvl: F.repLevel(F.repOf(S, 'rda')).name };
+  });
+  ok(rd.cards === 13 && rd.rda === 35 && rd.usa === -70 && rd.lvl === 'Amistosa', `sala de radio: ${rd.cards} facciones, RDA ${rd.rda} (${rd.lvl}), EE. UU. ${rd.usa}`);
+  ok(rd.att.join(',') === 'allied,neutral,hostile,hostile', `la postura sale de la reputación (${rd.att.join(', ')})`);
+  await fd18('rep merodeadores 45');
+  ok(await Q.evaluate(async () => (await import('./js/data/factions.js')).squadAttitude(window.__topolev.S, 'merodeadores')) === 'neutral', 'sobornar/ayudar a los merodeadores (reputación ≥ 0) los vuelve neutrales');
+  await fd18('rep merodeadores -45');
+  // expedición
+  await Q.click('.tab:has-text("EXPEDICIÓN")'); await Q.waitForTimeout(200);
+  for (let i = 0; i < 2; i++) { const rows = await Q.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+  await Q.click('text=LANZAR EXPEDICIÓN'); await Q.waitForTimeout(300);
+  if (await Q.$('.modal-back >> text=LANZAR')) await Q.click('.modal-back >> text=LANZAR');
+  await Q.waitForTimeout(800); await close18();
+  await fd18('god');
+  // helpers en la página
+  await Q.evaluate(() => {
+    window.__adj = (e) => { const c = e.cur; return [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]].map(([dx, dy]) => [c.x + dx, c.y + dy]).find(([x, y]) => e.passable(x, y) && !e.entityAt(x, y)); };
+    window.__clear = (e) => { for (const x of [...e.enemies]) e.dismissActor(x); if (e.dlg) e.closeDialog(); e.dlgQueue = []; };
+    window.__optIdx = (e, re) => e.dialogView().opts.find((o) => new RegExp(re).test(o.label)).i;
+  });
+  const en1 = await Q.evaluate(() => {
+    const e = window.__topolev.exp; const S = window.__topolev.S; window.__clear(e);
+    const [x, y] = window.__adj(e);
+    const m = e.spawnEnemy('cuba_medic', 2, x, y, 'errante');
+    e.computeVisibility(true); if (e.dlg) e.closeDialog(); e.dlgQueue = [];
+    e.interact();
+    const id = e.dlg && e.dlg.id;
+    e.dialogChoose(window.__optIdx(e, 'INTERCAMBIAR'));
+    const rub0 = S.rub, kgb0 = S.rep.kgb ?? 20;
+    e.dialogChoose(window.__optIdx(e, 'BOTIQUÍN'));
+    const got = e.cur.a.bag.some((it) => it.b === 'gironkit') || e.floorAt(e.cur.x, e.cur.y).some((it) => it.b === 'gironkit');
+    const paid = rub0 - S.rub;
+    e.closeDialog(); e.dismissActor(m);
+    // un neutral sueco: comerciar con él lo anota el KGB
+    const s2 = e.spawnEnemy('swe_scientist', 2, x, y, 'errante');
+    e.openDialog('encounter', e.cur, null, s2);
+    e.dialogChoose(window.__optIdx(e, 'INTERCAMBIAR'));
+    e.dialogChoose(window.__optIdx(e, 'DOSÍMETRO'));
+    e.closeDialog(); e.dismissActor(s2);
+    return { id, paid, got, kgbCuba: (S.rep.kgb ?? 20) === kgb0, trades: S.foreignTrade || 0, kgb: S.rep.kgb };
+  });
+  ok(en1.id === 'encounter' && en1.got && en1.paid > 0, `F junto a una médica cubana abre el encuentro y se puede comerciar (${en1.paid} ₽)`);
+  ok(en1.trades === 1 && en1.kgb === 17, `comerciar con suecos lo anota el KGB (tratos ${en1.trades}, confianza ${en1.kgb})`);
+  const pr = await Q.evaluate(() => {
+    const e = window.__topolev.exp; window.__clear(e);
+    const [x, y] = window.__adj(e);
+    const d = e.spawnEnemy('des_soldier', 2, x, y, 'alerta');
+    if (e.dlg) e.closeDialog(); e.dlgQueue = [];
+    const host0 = e.hostile(e.cur, d);
+    e.surrender(d);
+    const host1 = e.hostile(e.cur, d);
+    if (e.dlg) e.closeDialog();
+    e.interact();
+    const id = e.dlg && e.dlg.id;
+    e.dialogChoose(window.__optIdx(e, 'KGB'));
+    return { host0, host1, id, prisoners: e.fac.prisoners, gone: !e.enemies.includes(d) };
+  });
+  ok(pr.host0 && !pr.host1 && pr.id === 'prisoner', 'un desertor malherido se rinde: deja de ser hostil y F abre el diálogo del prisionero');
+  ok(pr.prisoners === 1 && pr.gone, 'entregar el prisionero al KGB');
+  const aim = await Q.evaluate(() => {
+    const e = window.__topolev.exp; window.__clear(e);
+    const [x, y] = window.__adj(e);
+    const t = e.spawnEnemy('yu_trader', 2, x, y, 'errante');
+    if (e.dlg) e.closeDialog(); e.dlgQueue = [];
+    const out = [];
+    for (let i = 0; i < 3; i++) { e.aimAt(e.cur, t); out.push(e.attitudeToSquad(t)); e.turn++; }
+    e.dismissActor(t);
+    return out;
+  });
+  ok(aim.join(',') === 'neutral,neutral,hostile', `apuntar a un neutral: aviso, advertencia y hostilidad (${aim.join(' → ')})`);
+  const ch = await Q.evaluate(() => {
+    const e = window.__topolev.exp; window.__clear(e);
+    const c = e.cur;
+    const cells = []; for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) { const x = c.x + dx, y = c.y + dy; if ((dx || dy) && e.passable(x, y) && !e.entityAt(x, y) && e.los(c.x, c.y, x, y)) cells.push([x, y]); }
+    const p = e.spawnEnemy('cult_priest', 3, ...cells[0], 'alerta');
+    const r = cells.slice(1).find(([x, y]) => e.los(p.x, p.y, x, y) && !e.entityAt(x, y));
+    const rat = e.spawnEnemy('rata', 1, ...r, 'dormido');
+    if (e.dlg) e.closeDialog(); e.dlgQueue = [];
+    p.cd = 0; e.humanAct(p);
+    const res = { charmed: !!rat.charmed, fac: rat.faction, state: rat.state };
+    window.__clear(e);
+    return res;
+  });
+  ok(ch.charmed && ch.fac === 'culto' && ch.state === 'alerta', 'un sacerdote de la Ceniza azuza a un chebylita cercano');
+  const fl = await Q.evaluate(() => {
+    const e = window.__topolev.exp; window.__clear(e);
+    const [x, y] = window.__adj(e);
+    const r = e.spawnEnemy('rda_rifle', 2, x, y, 'errante');
+    if (e.dlg) e.closeDialog(); e.dlgQueue = [];
+    window.__topolev.debug.run('give redflare');
+    const it = e.cur.a.bag.find((i) => i.b === 'redflare');
+    e.act((sq) => e.useItem(sq, it));
+    const esc = r.escort;
+    const nAg0 = e.enemies.filter((o) => o.faction === 'rda').length;
+    for (let i = 0; i < 10; i++) e.wait();
+    if (e.dlg) e.closeDialog(); e.dlgQueue = [];
+    const nAg1 = e.enemies.filter((o) => o.faction === 'rda' && o.escort > 0).length;
+    return { esc, nAg0, nAg1 };
+  });
+  ok(fl.esc > 0 && fl.nAg1 > fl.nAg0, `bengala roja: los aliados acuden y llega una patrulla de refuerzo (${fl.nAg0} → ${fl.nAg1})`);
+  const th = await Q.evaluate(() => {
+    const e = window.__topolev.exp; window.__clear(e);
+    const c = e.cur;
+    const [x, y] = window.__adj(e);
+    e.objects.push({ kind: 'crate', x, y, items: [], opened: false, lvl: 1, owner: 'finlandia' }); e.objMap.set(e.key(x, y), e.objects[e.objects.length - 1]);
+    const w = [[2, 0], [-2, 0], [0, 2], [0, -2], [2, 2], [-2, -2]].map(([dx, dy]) => [c.x + dx, c.y + dy]).find(([xx, yy]) => e.passable(xx, yy) && !e.entityAt(xx, yy) && e.los(c.x, c.y, xx, yy));
+    const g = e.spawnEnemy('fin_scout', 2, ...w, 'errante');
+    if (e.dlg) e.closeDialog(); e.dlgQueue = [];
+    const before = e.attitudeToSquad(g);
+    e.interactObj(c, e.objMap.get(e.key(x, y)));
+    return [before, e.attitudeToSquad(g)];
+  });
+  ok(th.join(',') === 'neutral,hostile', `robar en un alijo finlandés a la vista de su dueño los vuelve hostiles (${th.join(' → ')})`);
+  // reclutar a un desertor y volver a la base
+  const nAg0 = await Q.evaluate(() => { const e = window.__topolev.exp; window.__clear(e); const [x, y] = window.__adj(e); const d = e.spawnEnemy('des_soldier', 3, x, y, 'errante'); e.recruitActor(d); return window.__topolev.S.agents.length; });
+  await Q.evaluate(() => { const e = window.__topolev.exp; e.fac.prisoners = 1; if (e.dlg) e.closeDialog(); for (const sq of [...e.team]) e.extract(sq); e.checkActive(); });
+  await Q.waitForSelector('#screen-report.active', { timeout: 10000 }).catch(() => {});
+  await Q.waitForTimeout(600);
+  const rp = await Q.$eval('#screen-report', (x) => x.innerText).catch(() => '');
+  const nAg1 = await Q.evaluate(() => window.__topolev.S.agents.length);
+  ok(/prisionero/.test(rp) && /Se unen al puesto/.test(rp) && nAg1 === nAg0 + 1, 'el informe cobra los prisioneros y el desertor reclutado se une al puesto');
+  for (let i = 0; i < 30 && !(await Q.$('#screen-base.active')); i++) { await Q.click('#screen-report >> text=VOLVER A LA BASE', { timeout: 800 }).catch(() => {}); await close18(); await Q.waitForTimeout(300); }
+  await close18();
+  // KGB: con poca confianza llega el comisario
+  await Q.evaluate(() => { const S = window.__topolev.S; S.rep.kgb = -40; S.pendingDialogs = []; });
+  await fd18('day');
+  await Q.waitForTimeout(600);
+  const kg = await Q.evaluate(() => document.body.innerText.includes('DIRECTORIO 9') || window.__topolev.S.pendingDialogs.includes('kgb_commissar'));
+  ok(kg, 'con la confianza del KGB por los suelos llega la visita del comisario');
+  await close18();
+  // diarios extranjeros y campamentos abandonados en los mapas
+  const camps = await Q.evaluate(async () => {
+    const { generateMap } = await import('./js/exp/mapgen.js'); const W = await import('./js/data/world.js');
+    let radios = 0, notes = 0, owned = 0;
+    for (let i = 0; i < 12; i++) { const m = generateMap(W.floorDef(W.MAPS[5], 0), 5, 1000 + i, { floor: 0, floors: 2, mods: {} }); radios += m.objects.filter((o) => o.kind === 'radio').length; notes += m.objects.filter((o) => o.fnote != null).length; owned += m.objects.filter((o) => o.owner).length; }
+    return { radios, notes, owned };
+  });
+  ok(camps.radios >= 3 && camps.notes >= 3, `campamentos abandonados con radio y diarios extranjeros (${camps.radios} en 12 mapas; ${camps.owned} alijos con dueño)`);
+  await ctx6.close();
+
+  }
   console.log(errs.length ? 'ERRORES:\n' + errs.join('\n') : '  ✓ sin errores en consola');
   await b.close();
   if (fails || errs.length) { console.log(`FALLOS: ${fails}`); process.exit(1); }

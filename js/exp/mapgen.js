@@ -3,15 +3,28 @@ import { RNG, clamp } from '../util/rng.js';
 import { T, TILES } from '../data/tiles.js';
 import { SECTOR_NAMES } from '../data/world.js';
 import { ENEMIES } from '../data/enemies.js';
+import { SQUADS, SQUAD_MIN_TIER } from '../data/humans.js';
 import { rollLoot, createItem } from '../core/items.js';
-import { NOTES, SURVIVOR_LINES } from '../data/lore.js';
+import { NOTES, SURVIVOR_LINES, FOREIGN_NOTES } from '../data/lore.js';
+import { ITEMS } from '../data/items.js';
 
 const D8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 const D4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const walkable = (t) => TILES[t].walk === 1;
 
+// objetos propios de una facción (campo origin de los objetos)
+const ORIGIN = {};
+for (const [id, d] of Object.entries(ITEMS)) if (d.origin && d.cat !== 'valuable') (ORIGIN[d.origin] = ORIGIN[d.origin] || []).push(id);
+function originPick(fac, n, g) {
+  const out = [];
+  const list = ORIGIN[fac] || [];
+  for (let i = 0; i < n && list.length; i++) { const b = g.pick(list); out.push(createItem(b, g.chance(0.2) ? 1 : 0, g, ITEMS[b].cat === 'ammo' ? ITEMS[b].pack : ITEMS[b].stack > 1 ? 1 : undefined)); }
+  return out;
+}
+
 export function generateMap(def, mapIdx, seed, opts = {}) {
   const g = new RNG(seed);
+  const originItems = (fac, n) => originPick(fac, n, g);
   const W = def.w, H = def.h;
   const N = W * H;
   const t = new Uint8Array(N); // ROCK
@@ -877,18 +890,41 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
     if (!tp) continue;
     spawnGroup(mods.esporas && g.chance(0.5) && ENEMIES.esporangio ? 'esporangio' : tp, lvl, spot[0], spot[1], g.int(1, 3), 'errante', null);
   }
-  // Presencia extranjera: otras expediciones en la zona
-  if (mods.extranjeros) {
-    const SQUADS = { rda: [['rda_rifle', 2, 3], ['rda_officer', 0, 1], ['rda_scientist', 0, 1]], suecia: [['swe_guard', 1, 2], ['swe_scientist', 1, 2]], usa: [['usa_operator', 2, 3], ['usa_sniper', 0, 1]] };
-    const facs = g.shuffle(Object.keys(SQUADS)).slice(0, g.int(2, 3));
-    for (const fac of facs) {
-      const spot = findSpot({ minDist: 22, poiGap: 8, open: 14, openR: 2 });
-      if (!spot) continue;
-      const lvl = levelAt(I(spot[0], spot[1]));
-      for (const [type, a0, a1] of SQUADS[fac]) {
-        const n = g.int(a0, a1);
-        for (const [x, y] of freeCellsAround(spot[0], spot[1], 4, n)) spawns.push({ type, lvl, x, y, state: 'errante', poi: null, faction: fac });
-      }
+  // Otras expediciones (fase 18): patrullas de las facciones de la zona; «Presencia extranjera» y Metro-2 garantizan varias
+  const fpool = (def.fpool || []).filter((f) => SQUADS[f] && (SQUAD_MIN_TIER[f] || 0) <= tier + (mods.extranjeros || def.factions ? 3 : 0));
+  const nPat = def.factions ? 4 : mods.extranjeros ? g.int(2, 3) : (g.chance(0.5) ? 1 : 0) + (tier >= 4 && g.chance(0.35) ? 1 : 0);
+  for (const fac of g.shuffle([...fpool]).slice(0, nPat)) {
+    const spot = findSpot({ minDist: 22, poiGap: 8, open: 14, openR: 2 }) || findSpot({ minDist: 16, poiGap: 5, open: 10 });
+    if (!spot) continue;
+    const lvl = levelAt(I(spot[0], spot[1]));
+    for (const [type, a0, a1] of SQUADS[fac]) for (const [x, y] of freeCellsAround(spot[0], spot[1], 4, g.int(a0, a1))) spawns.push({ type, lvl, x, y, state: 'errante', poi: null, faction: fac });
+    // sus suministros: abrirlos sin permiso es robar
+    if (g.chance(0.55)) {
+      const c = freeCellsAround(spot[0], spot[1], 3, 1)[0];
+      if (c) { blocked[I(c[0], c[1])] = 1; objects.push({ kind: 'crate', x: c[0], y: c[1], items: [rollLoot(lvl, g, { west: true, rarityBonus: 0.3 }), ...originItems(fac, 1)], opened: false, lvl, owner: fac }); }
+    }
+  }
+  // Restos de expediciones (fase 18): campamentos abandonados con tiendas, hoguera, radio, cajas OTAN y diarios
+  if (g.chance(0.6)) {
+    const spot = findSpot({ minDist: 18, poiGap: 8, open: 22, openR: 2, tries: 400 });
+    if (spot) {
+      const [cx, cy] = spot;
+      const fac = g.pick(['usa', 'uk', 'rda', 'suecia', 'finlandia', 'checos', 'yugo', 'cuba']);
+      const lvl = levelAt(I(cx, cy));
+      placeBlock([[cx, cy]], T.CAMPFIRE);
+      let tents = 0;
+      for (const [dx, dy] of g.shuffle([[-3, -2], [3, -2], [-3, 2], [3, 2], [0, -3], [0, 3]])) if (tents < g.int(1, 3) && placeBlock([[cx + dx, cy + dy]], T.TENT)) tents++;
+      const ring = freeCellsAround(cx, cy, 4, 30);
+      for (const [x, y] of ring) blocked[I(x, y)] = 0;
+      const around = g.shuffle(ring.filter(([x, y]) => Math.max(Math.abs(x - cx), Math.abs(y - cy)) >= 2));
+      const put = (o) => { const c = around.shift(); if (!c) return; blocked[I(c[0], c[1])] = 1; objects.push({ x: c[0], y: c[1], opened: false, lvl, ...o }); };
+      const west = !['rda', 'cuba', 'checos'].includes(fac);
+      put({ kind: 'crate', label: west ? 'Caja OTAN' : 'Caja de suministros', items: [rollLoot(lvl, g, { west: true, rarityBonus: 0.45, catW: { ammo: 6, consumable: 6, weapon: 4, gadget: 3 } }), ...originItems(fac, 2)] });
+      if (g.chance(0.6)) put({ kind: 'corpse', items: [rollLoot(lvl, g, { west: true, rarityBonus: 0.3 }), ...originItems(fac, 1)] });
+      put({ kind: 'radio', items: [], opened: false, fac });
+      const ds = around.shift();
+      if (ds) objects.push({ kind: 'note', x: ds[0], y: ds[1], fnote: g.int(0, FOREIGN_NOTES.length - 1), opened: false, items: [] });
+      pois.push({ type: 'cache', x: cx, y: cy, lvl, name: 'Campamento abandonado', sector: sec[I(cx, cy)], best: 2 });
     }
   }
 
@@ -1030,19 +1066,10 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
     }
     for (const o of objects) if ((o.kind === 'cache' || o.kind === 'locker') && o.items) { o.items.push(rollLoot(lvMax, g, { west: true, rarityBonus: 0.4, catW: { weapon: 8, ammo: 6 } })); if (g.chance(0.4)) o.items.push(createItem('intel', 0, g)); }
   }
-  // Metro-2 (y «Presencia extranjera»): las otras expediciones se cruzan aquí
-  if (def.factions && !mods.extranjeros) {
-    const SQUADS = { rda: [['rda_rifle', 2, 3], ['rda_officer', 0, 1]], suecia: [['swe_guard', 1, 2], ['swe_scientist', 1, 1]], usa: [['usa_operator', 2, 3], ['usa_sniper', 0, 1]], contrabandistas: [['smuggler', 2, 3]] };
-    for (const fac of Object.keys(SQUADS)) {
-      const spot = findSpot({ minDist: 20, poiGap: 8, open: 12, openR: 2 });
-      if (!spot) continue;
-      const lvl = levelAt(I(spot[0], spot[1]));
-      for (const [type, a0, a1] of SQUADS[fac]) for (const [x, y] of freeCellsAround(spot[0], spot[1], 4, g.int(a0, a1))) spawns.push({ type, lvl, x, y, state: 'errante', poi: null, faction: fac });
-    }
-  }
   // Objeto 7: celdas de contención y el archivo del director
   if (sp === 'objeto7') {
     let cells = 0;
+    const objCells = new Set(objects.map((o) => I(o.x, o.y)));
     for (let k = 0; k < N && cells < 6; k++) {
       if (t[k] !== T.DOOR || !g.chance(0.25)) continue;
       const x = k % W, y = (k / W) | 0;
@@ -1052,7 +1079,7 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
       for (const st of side) {
         const seen = new Set([st]), q = [st];
         for (let qi = 0; qi < q.length && q.length < 90; qi++) { const c = q[qi]; for (const [dx, dy] of D8) { const nk = c + dx + dy * W; if (!seen.has(nk) && walkable(t[nk])) { seen.add(nk); q.push(nk); } } }
-        if (q.length < 90 && !q.some((c) => blocked[c] || t[c] === T.PAD || t[c] === T.LIFT_UP || t[c] === T.LIFT)) { inside = q; break; }
+        if (q.length < 90 && !q.some((c) => blocked[c] || objCells.has(c) || t[c] === T.PAD || t[c] === T.LIFT_UP || t[c] === T.LIFT)) { inside = q; break; }
       }
       if (!inside) { t[k] = T.DOOR; continue; }
       t[k] = T.CELL; cells++;

@@ -39,3 +39,17 @@ export const SURVIVOR_LINES = [
   'Una técnica del laboratorio dosimétrico, escondida tras unas taquillas. Aprieta contra el pecho una carpeta de documentos.',
   'Un soldado de la defensa civil, sin munición y con la mirada perdida. Repite en voz baja los nombres de su pelotón.',
 ];
+
+// Diarios de otras expediciones (fase 18): idioma original y traducción al leerlos
+export const FOREIGN_NOTES = [
+  { lang: 'inglés', o: 'Day 4. Sgt. Miller says the glowing stuff is worth more than gold. Langley wants samples, not questions.', t: 'Día 4. El sargento Miller dice que esa cosa brillante vale más que el oro. Langley quiere muestras, no preguntas.', a: 'Diario de un operador, Operación «Nightingale»' },
+  { lang: 'inglés', o: 'They don\'t die when you shoot them. They just get… angrier. Request extraction. Request extraction.', t: 'No mueren cuando les disparas. Solo se… enfadan más. Solicito extracción. Solicito extracción.', a: 'Radiograma sin enviar, destacamento «Saxon»' },
+  { lang: 'alemán', o: 'Die Dosimeter zeigen Werte, die es nicht geben dürfte. Genosse Major sagt, wir sollen sie nicht aufschreiben.', t: 'Los dosímetros marcan valores que no deberían existir. El camarada mayor dice que no los apuntemos.', a: 'Cuaderno de campo, Expedición «Wismut»' },
+  { lang: 'alemán', o: 'Heute Nacht hat Klaus im Schlaf gesungen. Ein Lied, das keiner von uns kennt. Die Wände haben mitgesummt.', t: 'Esta noche Klaus ha cantado dormido. Una canción que ninguno conoce. Las paredes tarareaban con él.', a: 'Diario de una científica de Wismut' },
+  { lang: 'sueco', o: 'Vi mätte molnet i Forsmark innan Moskva erkände något. Nu står vi vid källan, och källan andas.', t: 'Medimos la nube en Forsmark antes de que Moscú admitiera nada. Ahora estamos en el origen, y el origen respira.', a: 'Equipo «Forsmark», cuaderno de mediciones' },
+  { lang: 'finés', o: 'Lumi olisi parempi. Täällä tuhka sataa ylöspäin.', t: 'La nieve sería mejor. Aquí la ceniza cae hacia arriba.', a: 'Nota a lápiz, misión «Sisu»' },
+  { lang: 'checo', o: 'Odstřelili jsme štolu číslo tři. Za ní byla další štola, kterou nikdo nekopal.', t: 'Volamos la galería número tres. Detrás había otra galería que nadie había excavado.', a: 'Parte de voladura, grupo «Tatra»' },
+  { lang: 'serbocroata', o: 'Prodao sam Amerikancu kartu za tri boce viskija. Karta je bila lažna. Viski nije.', t: 'Le vendí al americano un mapa por tres botellas de whisky. El mapa era falso. El whisky no.', a: 'Libreta de cuentas de un comerciante yugoslavo' },
+  { lang: 'español', o: 'Mamá: aquí no hay sol ni mar, pero los niños de Kiev nos sonríen. Mañana bajamos otra vez. No te preocupes.', t: 'Mamá: aquí no hay sol ni mar, pero los niños de Kiev nos sonríen. Mañana bajamos otra vez. No te preocupes.', a: 'Carta sin enviar, Brigada «Playa Girón»' },
+  { lang: 'inglés', o: 'Asset ZARYA confirmed. Topolev project codename ASH. Recover all documents. Leave no witnesses.', t: 'Fuente ZARYA confirmada. Proyecto Topolev, nombre en clave CENIZA. Recuperar todos los documentos. No dejar testigos.', a: 'Orden cifrada de la CIA (descifrada)' },
+];

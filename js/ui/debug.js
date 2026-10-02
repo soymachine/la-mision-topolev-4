@@ -3,7 +3,7 @@ import { el, esc } from '../util/dom.js';
 import { S, save } from '../core/state.js';
 import { ITEMS } from '../data/items.js';
 import { ACTORS, actorFaction } from '../data/actors.js';
-import { FACTIONS } from '../data/factions.js';
+import { FACTIONS, addRep } from '../data/factions.js';
 import { EVENTS } from '../data/events.js';
 import { DIALOGS } from '../data/dialogs.js';
 import { createItem, itemName, mergeInto, rarityColor } from '../core/items.js';
@@ -145,7 +145,7 @@ export function installDebug(app) {
       if (f) { if (!FACTIONS[f]) throw new Error('facción desconocida'); if (!['hostile', 'neutral', 'allied'].includes(att)) throw new Error('actitud: hostile | neutral | allied'); e.relations = e.relations || {}; e.relations[['squad', f].sort().join('|')] = att; }
       print(Object.keys(FACTIONS).filter((k) => k !== 'squad').map((k) => `${k}: ${e.attitude('squad', k)}`).join(' · '));
     } },
-    rep: { a: '[facción n]', d: 'muestra o suma reputación', f: ([f, n]) => { if (f) S.rep[f] = (S.rep[f] || 0) + num(n, 10); print(esc(JSON.stringify(S.rep))); } },
+    rep: { a: '[facción n]', d: 'muestra o suma reputación', f: ([f, n]) => { if (f) addRep(S, f, num(n, 10)); print(esc(JSON.stringify(S.rep))); } },
     flag: { a: '[nombre [valor]]', d: 'muestra o cambia flags narrativos', f: ([f, v]) => {
       if (f) { if (v === 'del') delete S.flags[f]; else S.flags[f] = v == null ? true : isNaN(+v) ? v : +v; }
       print(esc(JSON.stringify(S.flags)));

@@ -45,6 +45,18 @@ export const EVENTS = [
   { id: 'meet_rda', on: 'seeFaction', once: true, cond: { faction: 'rda' }, effects: [{ dialog: 'radio_rda' }] },
   { id: 'meet_usa', on: 'seeFaction', once: true, cond: { faction: 'usa' }, effects: [{ dialog: 'radio_usa' }] },
   { id: 'meet_suecia', on: 'seeFaction', once: true, cond: { faction: 'suecia' }, effects: [{ dialog: 'radio_suecia' }] },
+  // fase 18: el KGB (Directorio 9) vigila el puesto
+  { id: 'kgb_commissar', on: 'baseDay', cond: [{ rep: ['kgb', '<=', -25] }, { test: (c) => c.S.day - (c.S.flags.kgbVisit || -99) >= 6 }], effects: [{ run: (c) => { c.S.flags.kgbVisit = c.S.day; } }, { dialog: 'kgb_commissar' }] },
+  { id: 'kgb_funds', on: 'baseDay', cond: [{ rep: ['kgb', '>=', 50] }, { test: (c) => c.S.day - (c.S.flags.kgbFunds || -99) >= 5 }], effects: [{ run: (c) => { c.S.flags.kgbFunds = c.S.day; } }, { rub: 200 }, { baseMsg: 'El Directorio 9 envía 200 ₽ «para gastos operativos». Nadie firma el recibo.' }] },
+  // fase 18: el resto de facciones, por radio y sin interrumpir demasiado
+  { id: 'meet_cuba', on: 'seeFaction', once: true, cond: { faction: 'cuba' }, effects: [{ radio: '«¡Compañeros cubanos! La Brigada «Playa Girón». Médicos, sobre todo. Si os curan, no rechacéis el puro: es una ofensa.»' }, { setFlag: 'metCuba' }] },
+  { id: 'meet_checos', on: 'seeFaction', once: true, cond: { faction: 'checos' }, effects: [{ radio: '«Grupo «Tatra», mineros de Ostrava. Aliados… mientras Praga no cambie de opinión otra vez. Tienen explosivos: tratadlos bien.»' }, { setFlag: 'metChecos' }] },
+  { id: 'meet_finlandia', on: 'seeFaction', once: true, cond: { faction: 'finlandia' }, effects: [{ radio: '«Finlandeses. No deberían estar aquí y lo saben. Son neutrales y venden buenos mapas. Que el KGB no se entere de que hablamos con ellos.»' }, { setFlag: 'metFinlandia' }] },
+  { id: 'meet_yugo', on: 'seeFaction', once: true, cond: { faction: 'yugo' }, effects: [{ radio: '«Los «observadores» de Belgrado. Venden de todo a todos. No firméis nada.»' }, { setFlag: 'metYugo' }] },
+  { id: 'meet_uk', on: 'seeFaction', once: true, cond: { faction: 'uk' }, effects: [{ radio: '«¡Británicos! Destacamento «Saxon», del SAS. Tiradores y minas. Avanzad pegados a las paredes y mirad dónde pisáis.»', cls: 'bad' }, { setFlag: 'metUK' }, { interrupt: true }] },
+  { id: 'meet_merodeadores', on: 'seeFaction', once: true, cond: { faction: 'merodeadores' }, effects: [{ radio: '«Merodeadores. Saqueadores de la zona de exclusión. Atacan en grupo y huyen; a veces basta con pagarles para que se aparten.»' }, { setFlag: 'metMerodeadores' }] },
+  { id: 'meet_desertores', on: 'seeFaction', once: true, cond: { faction: 'desertores' }, effects: [{ radio: '«Desertores del Ejército Rojo. Por ley, deberíais detenerlos. Por sentido común… un comisario podría convencerlos de volver al servicio.»' }, { setFlag: 'metDesertores' }] },
+  { id: 'meet_culto', on: 'seeFaction', once: true, cond: { faction: 'culto' }, effects: [{ radio: '«¿Gente cubierta de ceniza… cantando a los chebylitas? Disparad primero a los sacerdotes. Los demás os seguirán sin cabeza.»', cls: 'bad' }, { setFlag: 'metCulto' }, { interrupt: true }] },
   { id: 'kill_usa_first', on: 'kill', once: true, cond: { faction: 'usa' },
     effects: [{ radio: '«Uno menos. Registrad el cuerpo: cualquier documento vale su peso en oro para Moscú.»' }, { setFlag: 'killedUSA' }] },
   { id: 'kill_boss', on: 'kill', once: 'exp', cond: { actor: ['pastor', 'coloso'] },

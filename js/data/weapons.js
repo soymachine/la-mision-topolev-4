@@ -389,9 +389,91 @@ export const WEAPONS = {
  |   \________|__==__==__|____________________
  |___/        \(_)/  ||                        |=
                      ||`) }),
+
+  // ======================================================== EXTRANJERAS (fase 18: las llevan otras expediciones; solo como botín o comercio)
+  // origin: país de la facción que la usa · west: fuera de la intendencia y del botín general
+  mpikm: W({ name: 'Fusil MPi-KM', wtype: 'rifle', tier: 1, dmg: [7, 12], acc: 70, range: 9, mag: 30, ammo: 'a_762x39', noise: 14, value: 340, west: 1, origin: 'rda', desc: 'El AKM de la RDA, con culata de plástico punteado. Hecho en Wiesa.', art: A(String.raw`
+       _                 ____
+  ____| |_______________|____|_____________
+ |____|_|  _____  ______|____|_____________|=-
+ [::::]   (_____)\(_)/   ))
+                         ((`) }),
+  vz58: W({ name: 'Fusil Sa vz. 58', wtype: 'rifle', tier: 2, dmg: [7, 12], acc: 74, range: 9, mag: 30, ammo: 'a_762x39', noise: 14, value: 420, west: 1, origin: 'checos', desc: 'Parece un AK y no lo es: cerrojo de Brno, más ligero y más preciso.', art: A(String.raw`
+  ______        ______________
+ |######|______|______________|___________
+ |######|  ___  ____|___|______________|==-
+          (___)\(_)/  ||`) }),
+  skorpion: W({ name: 'Subfusil Škorpion vz. 82', wtype: 'smg', tier: 2, dmg: [4, 7], acc: 66, range: 5, mag: 20, burst: 3, ammo: 'a_9x18', noise: 10, value: 300, west: 1, origin: 'checos', desc: 'Del tamaño de una pistola, escupe como un subfusil. Culata de alambre.', art: A(String.raw`
+  ________________
+ |__|_|______|____|=
+ /==/ \(_)/ ||
+            ||`) }),
+  m70: W({ name: 'Fusil Zastava M70', wtype: 'rifle', tier: 2, dmg: [7, 12], acc: 72, range: 9, mag: 30, ammo: 'a_762x39', noise: 14, crit: 7, value: 400, west: 1, origin: 'yugo', desc: 'El Kalashnikov de Kragujevac, con alza para lanzagranadas.', art: A(String.raw`
+       _          __________
+  ____| |________|__________|______________
+ |____|_| ___  ___|___|____________________|=o
+ (____)  (___)\(_)/ ))`) }),
+  rk62: W({ name: 'Fusil Valmet Rk 62', wtype: 'rifle', tier: 3, dmg: [7, 11], acc: 80, range: 10, mag: 30, ammo: 'a_762x39', noise: 13, value: 650, west: 1, origin: 'finlandia', desc: 'Kalashnikov finlandés de culata tubular. El más preciso de la familia.', art: A(String.raw`
+  __________________________
+ |=|____|_____|____________|_______________
+ |=|    ____  ____|__|_____________________|=-
+        \(_)/  ||`) }),
+  m45: W({ name: 'Subfusil Carl Gustaf m/45', wtype: 'smg', tier: 2, dmg: [4, 7], acc: 70, range: 5, mag: 36, burst: 3, ammo: 'a_9p', noise: 11, value: 380, west: 1, origin: 'suecia', desc: 'El «Kulsprutepistol» sueco. Sencillo, robusto y fiable.', art: A(String.raw`
+   ______________________________
+  |_o_o_o_o_o_o_o_o_|____________|=
+ //    \(_)/ |  |
+ \\_         |__|`) }),
+  cz75: W({ name: 'Pistola ČZ 75', wtype: 'pistol', tier: 2, dmg: [6, 10], acc: 80, range: 6, mag: 15, ammo: 'a_9p', noise: 10, crit: 8, value: 360, west: 1, origin: 'checos', desc: 'La mejor pistola del Pacto de Varsovia, según los que la tienen.', art: A(String.raw`
+  ________________
+ |________________|__
+ |___________________|
+    \(_)/ |  |
+          |__|`) }),
+  hipower: W({ name: 'Pistola Browning L9A1', wtype: 'pistol', tier: 2, dmg: [6, 10], acc: 78, range: 6, mag: 13, ammo: 'a_9p', noise: 10, value: 380, west: 1, origin: 'uk', desc: 'La Hi-Power del ejército británico. Trece balas de cortesía.', art: A(String.raw`
+  _________________
+ |=================|_
+ |__________________|
+     \(_)/ |  |
+           |__|`) }),
+  sterling: W({ name: 'Subfusil Sterling L2A3', wtype: 'smg', tier: 2, dmg: [4, 7], acc: 68, range: 5, mag: 34, burst: 3, ammo: 'a_9p', noise: 11, value: 420, west: 1, origin: 'uk', desc: 'Cargador lateral y cañón perforado. Silba al disparar.', art: A(String.raw`
+              ||
+   ___________||___________________
+  |o o o o o o o o o o o o|________|=
+  \\\_     \(_)/ ||
+   \\\_          ||`) }),
+  mp5: W({ name: 'Subfusil HK MP5', wtype: 'smg', tier: 3, dmg: [5, 8], acc: 76, range: 6, mag: 30, burst: 3, ammo: 'a_9p', noise: 10, value: 760, west: 1, origin: 'usa', desc: 'El arma de las unidades antiterroristas de medio mundo.', art: A(String.raw`
+   __   _______________________
+  |  |_|_______________________|___
+  |__|    \(_)/  ))            |__|=
+            ))  ((`) }),
+  sa80: W({ name: 'Fusil L85A1 «SA80»', wtype: 'rifle', tier: 3, dmg: [6, 10], acc: 82, range: 10, mag: 30, ammo: 'a_556', noise: 13, value: 980, west: 1, origin: 'uk', desc: 'Bullpup británico con visor SUSAT. Preciso… cuando no se encasquilla.', art: A(String.raw`
+          __[SUSAT]__
+  _______|___________|___________________
+ |_______|  ______  |____________________|=-
+ |____|_____\(_)/))
+            ((`) }),
+  m16a2: W({ name: 'Fusil M16A2', wtype: 'rifle', tier: 4, dmg: [7, 11], acc: 82, range: 11, mag: 30, burst: 3, ammo: 'a_556', noise: 13, value: 1250, west: 1, origin: 'usa', desc: 'Ráfagas de tres. El fusil de los marines… y de «Nightingale».', art: A(String.raw`
+     _                 ____
+  __| |_______________|____|________________
+ |__|_|  ________  ___|____|________________|=-
+   /____/        \(_)/  ||
+                       |__|`) }),
+  m60: W({ name: 'Ametralladora M60', wtype: 'mg', tier: 4, dmg: [9, 14], acc: 58, range: 10, mag: 100, burst: 4, ammo: 'a_762n', noise: 18, value: 1500, west: 1, origin: 'usa', desc: '«The Pig». Cien balas de 7,62 OTAN y un apetito insaciable.', art: A(String.raw`
+  ____________________________________
+ |____|______[====]___________________|____
+ |____|  __________ \(_)/  |__|       |____|=-
+  /__/              ||    /\
+                         /  \ .`) }),
+  l42: W({ name: 'Fusil de tirador L42A1', wtype: 'sniper', tier: 4, dmg: [15, 23], acc: 88, range: 15, mag: 10, crit: 18, ammo: 'a_762n', noise: 15, pierce: 1, value: 1500, west: 1, origin: 'uk', desc: 'El viejo Lee-Enfield recalibrado a 7,62 OTAN. El destacamento «Saxon» no falla.', art: A(String.raw`
+                 ____________
+  _____         |____________|
+ |     \________|____________|_________________
+ |_____/        \_o_/ ||                        |=
+                      ||`) }),
 };
 
 export const NEW_AMMO = {
+  a_9p: { cat: 'ammo', name: 'Munición 9×19 mm Parabellum', glyph: '"', tier: 2, stack: 120, value: 3, pack: 24, west: 1, desc: 'Munición occidental de pistola y subfusil. Aquí abajo, escasa.' },
   a_556: { cat: 'ammo', name: 'Munición 5,56×45 mm', glyph: '"', tier: 3, stack: 120, value: 4, pack: 20, west: 1, desc: 'Munición OTAN para el M16.' },
   a_45: { cat: 'ammo', name: 'Munición .45 ACP', glyph: '"', tier: 2, stack: 80, value: 4, pack: 14, west: 1, desc: 'Para la Colt M1911.' },
   a_762n: { cat: 'ammo', name: 'Munición 7,62×51 mm OTAN', glyph: '"', tier: 4, stack: 80, value: 6, pack: 20, west: 1, desc: 'Para el fusil de tirador M21.' },

@@ -14,6 +14,7 @@ import { S, seeEnemy, killEnemy as bestiaryKill } from '../core/state.js';
 import { esc } from '../util/dom.js';
 import { RADIO } from '../data/lore.js';
 import { D8, FISTS, BLOCKING_OBJ, ESSENCE_COLOR } from './shared.js';
+import { FACTIONS } from '../data/factions.js';
 import { ACTORS, actorColor, actorFaction, isHuman } from '../data/actors.js';
 import { HUMANS } from '../data/humans.js';
 
@@ -234,7 +235,7 @@ export class CombatPart {
       const ws = e.w ? itemStats(e.w) : null;
       if (ws && ws.ammo && rng.chance(0.7)) this.addFloor(e.x, e.y, createItem(ws.ammo, 0, rng, Math.max(4, Math.round((ITEMS[ws.ammo].pack || 10) * rng.float(0.3, 0.8)))));
       for (const b of def.loot || []) if (rng.chance(0.35)) this.addFloor(e.x, e.y, createItem(b, 0, rng, ITEMS[b].stack > 1 ? (ITEMS[b].cat === 'ammo' ? Math.round(ITEMS[b].pack * 0.6) : 1) : undefined));
-      if (rng.chance(0.15 + e.lvl * 0.02)) this.addFloor(e.x, e.y, rollLoot(e.lvl, rng, { rarityBonus: 0.3, west: actorFaction(e) === 'usa' || actorFaction(e) === 'contrabandistas' }));
+      if (rng.chance(0.15 + e.lvl * 0.02)) this.addFloor(e.x, e.y, rollLoot(e.lvl, rng, { rarityBonus: 0.3, west: (FACTIONS[actorFaction(e)] || {}).bloc !== 'varsovia' }));
     }
     // máquinas y similares: material
     for (const b of (!human && def.drops) || []) if (rng.chance(0.75)) this.addFloor(e.x, e.y, createItem(b, 0, rng, ITEMS[b].stack > 1 ? rng.int(1, 3) : undefined));

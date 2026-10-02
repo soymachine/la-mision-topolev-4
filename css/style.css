@@ -412,3 +412,6 @@ body.no-crt #crt { display: none; }
 .rg-mk:hover { background: var(--o4); color: #000; }
 .region-legend { font-size: .82em; color: var(--o4); }
 .mapcard.event.sel { border-left-color: #ff6ad5; }
+.repbar { white-space: pre; font-size: 12px; letter-spacing: 0; }
+.repbar.big { font-size: 14px; margin: .5em 0; }
+.fac-card .dif { text-align: right; }

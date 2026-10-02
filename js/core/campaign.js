@@ -8,6 +8,7 @@ import { createAgent, starterKit, agentStats, recruitCost, agentName, bagCapacit
 import { ACQUIRED, MEDALS, woundCost, RETIRE_LEVEL, MAX_INSTRUCTORS, INSTRUCTOR_XP, ROOKIE_LEVEL } from '../data/honors.js';
 import { SPECS } from '../data/specs.js';
 import { rollZoneMods } from '../data/modifiers.js';
+import { FACTIONS, repOf, addRep, foreignTrade as foreignTradeS } from '../data/factions.js';
 
 // modificadores de cada zona para hoy (fase 16.4)
 export const zoneMods = (mapIdx) => (S.forceMods ? [...S.forceMods] : rollZoneMods(S.created >>> 0, S.day, mapIdx));
@@ -309,6 +310,24 @@ export function finalizeExpedition(exp) {
       for (const m of opened) addMessage(`Acceso concedido a ${m.name}. Nivel medio ${m.lvl.join('–')}. Preparad mejor equipo.`);
     }
     S.unlocked = openCount(S);
+    // fase 18: prisioneros para el KGB y reclutas (desertores, merodeadores)
+    const fs = exp.fac;
+    if (fs && fs.prisoners) {
+      const pay = 150 * fs.prisoners;
+      S.rub += pay; addRep(S, 'kgb', 5 * fs.prisoners);
+      rep.prisoners = fs.prisoners;
+      addMessage(`El KGB ha recogido ${fs.prisoners} prisionero(s) en el punto de extracción. Pago: ${pay} ₽. «El Estado sabe ser agradecido.»`);
+    }
+    rep.recruits = [];
+    for (const rc of (fs && fs.recruits) || []) {
+      if (S.agents.length >= rosterCap()) { addMessage('Un recluta de la zona se ha quedado fuera: los barracones están llenos.'); continue; }
+      const a = createAgent(rng, { lvl: Math.max(1, Math.min(10, rc.lvl)), bg: 'afgano' });
+      a.origin = rc.from;
+      starterKit(a);
+      S.agents.push(a);
+      rep.recruits.push(agentName(a));
+      addMessage(`${agentName(a)}, antiguo ${rc.from === 'desertores' ? 'desertor' : 'merodeador'}, se presenta en el puesto. Habrá quien no se fíe.`);
+    }
   }
   rep.result = !anyOut ? 'fail' : rep.agents.every((r) => r.status === 'extraído') ? 'success' : 'partial';
   const msgs = {
@@ -362,6 +381,22 @@ export function eventZoneView(ev) {
   return { id: ev.id, name: Z.name, glyph: Z.glyph, desc: Z.desc, left: Math.max(1, ev.left - 1), pos: ev.pos };
 }
 
+// ---- KGB, Directorio 9 (fase 18): informes a cambio de rublos; vigila el trato con extranjeros
+export const KGB_WANTS = { intel: 1.3, docs: 1.1, blackbox: 1.2, foreigndiary: 1.6, relic: 0.8 };
+export function kgbStash() { return S.stash.filter((it) => KGB_WANTS[it.b]); }
+export function kgbPrice(it) { return Math.round(ITEMS[it.b].value * KGB_WANTS[it.b] * (it.q || 1) * (repOf(S, 'kgb') >= 50 ? 1.2 : 1)); }
+export function kgbDeliver(it) {
+  const i = S.stash.indexOf(it);
+  if (i < 0) return 0;
+  const p = kgbPrice(it);
+  S.stash.splice(i, 1);
+  S.rub += p; S.stats.rubTotal = (S.stats.rubTotal || 0) + p;
+  addRep(S, 'kgb', 3);
+  S.kgbReports = (S.kgbReports || 0) + 1;
+  return p;
+}
+export function foreignTrade(f) { return foreignTradeS(S, f); }
+
 export function totalCarried(a) { return Object.values(a.equip).filter(Boolean).length + a.bag.length; }
 
 // eventos de la base al empezar un nuevo día (data/events.js, disparador «baseDay»)
@@ -404,7 +439,7 @@ function awardHonors(exp, sq, a) {
   // rasgos adquiridos
   if (sq.minPct != null && sq.minPct < 0.05) gain('acquired', 'superviviente', ACQUIRED, '✚');
   if (a.rad >= 100) gain('acquired', 'irradiado', ACQUIRED, '✚');
-  if ((S.rep.rda || 0) >= 30 && exp.facSeen && exp.facSeen.rda) gain('acquired', 'rda', ACQUIRED, '✚');
+  if (repOf(S, 'rda') >= 60 && exp.facSeen && exp.facSeen.rda) gain('acquired', 'rda', ACQUIRED, '✚');
   if ((a.kills || 0) >= 50) gain('acquired', 'carnicero', ACQUIRED, '✚');
   if ((a.extractions || 0) >= 10) gain('acquired', 'veterano', ACQUIRED, '✚');
   if (others.length && others.every((o) => !o.out)) gain('acquired', 'solitario', ACQUIRED, '✚');

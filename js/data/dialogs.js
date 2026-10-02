@@ -7,6 +7,9 @@
 import { SURVIVOR_LINES } from './lore.js';
 import { S } from '../core/state.js';
 import { ITEMS } from './items.js';
+import { repOf, addRep, FACTIONS, squadAttitude, foreignTrade } from './factions.js';
+import { ACTORS, actorFaction } from './actors.js';
+import { createItem } from '../core/items.js';
 import { agentStats } from '../core/agents.js';
 
 const SURVIVOR_STORY = [
@@ -131,7 +134,7 @@ export const DIALOGS = {
         ],
       },
       buy: {
-        text: (c) => `«Precio de camaradas.»${(S.rep.rda || 0) >= 25 ? ' Os hace un guiño: sois amigos de la RDA y se nota en la cuenta.' : ''} Tenéis ${S.rub} ₽.`,
+        text: (c) => `«Precio de camaradas.»${repOf(S, 'rda') >= 50 ? ' Os hace un guiño: sois aliados de la RDA y se nota en la cuenta.' : ''} Tenéis ${S.rub} ₽.`,
         opts: () => [
           buyOpt('ai2', 60), buyOpt('ipp', 30, 2), buyOpt('antirad', 40, 2), buyOpt('ration', 25, 2),
           buyOpt('a_9x18', 25, 24), buyOpt('a_545', 55, 30), buyOpt('a_12', 40, 12), buyOpt('filter', 50),
@@ -160,7 +163,7 @@ export const DIALOGS = {
         opts: (c) => {
           const cost = medicCost(c);
           return [
-            { label: cost ? `CURAR A TODO EL EQUIPO (${cost} ₽)` : 'CURAR A TODO EL EQUIPO (GRATIS: SOIS AMIGOS DE LA RDA)', cond: { rub: ['>=', cost] }, hint: `no tenéis ${cost} ₽`, cls: 'good', turn: true, effects: [{ rub: -cost }, { run: (cc) => healTeam(cc, 1, 0) }, { log: 'La doctora Brandt cose, venda y maldice en alemán. El equipo sale como nuevo.', cls: 'good' }] },
+            { label: cost ? `CURAR A TODO EL EQUIPO (${cost} ₽)` : 'CURAR A TODO EL EQUIPO (GRATIS: SOIS ALIADOS DE LA RDA)', cond: { rub: ['>=', cost] }, hint: `no tenéis ${cost} ₽`, cls: 'good', turn: true, effects: [{ rub: -cost }, { run: (cc) => healTeam(cc, 1, 0) }, { log: 'La doctora Brandt cose, venda y maldice en alemán. El equipo sale como nuevo.', cls: 'good' }] },
             { label: `TRATAR LA RADIACIÓN (${cost + 30} ₽)`, cond: { rub: ['>=', cost + 30] }, hint: `no tenéis ${cost + 30} ₽`, turn: true, effects: [{ rub: -(cost + 30) }, { run: (cc) => healTeam(cc, 0, 45) }, { log: 'Yoduro, lavado gástrico y una charla muy seria sobre los dosímetros. −45 de radiación a todo el equipo.', cls: 'good' }] },
             { label: '[SANITARIO] AYUDARLA CON LOS HERIDOS', show: { spec: 'sanitario' }, turn: true, effects: [{ rep: ['rda', 6] }, { xp: 40 }, { give: { item: 'surgkit' } }, { log: '{agent} pasa una hora en la enfermería. La doctora le regala un kit quirúrgico «de los buenos».', cls: 'good' }] },
             { label: 'MARCHARSE' },
@@ -230,13 +233,56 @@ export const DIALOGS = {
       buy: {
         text: () => `«Material americano. Recién caído del cielo, como quien dice.» Tenéis ${S.rub} ₽.`,
         opts: () => [
-          buyOpt('m1911', 520), buyOpt('rem870', 950), buyOpt('m16', 1200), buyOpt('a_45', 45, 14), buyOpt('a_556', 70, 20), buyOpt('a_12', 45, 12), buyOpt('vodka', 30),
+          buyOpt('m1911', 520, undefined, 'contrabandistas'), buyOpt('rem870', 950, undefined, 'contrabandistas'), buyOpt('m16', 1200, undefined, 'contrabandistas'), buyOpt('a_45', 45, 14, 'contrabandistas'), buyOpt('a_556', 70, 20, 'contrabandistas'), buyOpt('a_12', 45, 12, 'contrabandistas'), buyOpt('vodka', 30, undefined, 'contrabandistas'),
           { label: 'VOLVER', goto: 'start' },
         ],
       },
       sell: {
         text: '«Pago en efectivo. Mejor que el Estado, peor que tu madre.»',
-        opts: () => [sellOpt('parts', 1), sellOpt('intel', 1), sellOpt('blackbox', 0.9), sellOpt('firecoat', 0.9), sellOpt('docs', 0.8), { label: 'VOLVER', goto: 'start' }],
+        opts: () => [sellOpt('parts', 1, 'contrabandistas'), sellOpt('intel', 1, 'contrabandistas'), sellOpt('blackbox', 0.9, 'contrabandistas'), sellOpt('firecoat', 0.9, 'contrabandistas'), sellOpt('docs', 0.8, 'contrabandistas'), { label: 'VOLVER', goto: 'start' }],
+      },
+    },
+  },
+
+  // ------------------------------------------------------------ Fase 18: encuentros con otras expediciones
+  encounter: {
+    title: (c) => (FACTIONS[facOf(c)] || {}).name ? FACTIONS[facOf(c)].name.toUpperCase() : 'ENCUENTRO',
+    speaker: (c) => (c.actor ? ACTORS[c.actor.type].name : ''),
+    color: (c) => (FACTIONS[facOf(c)] || {}).color || '#ff9a3c',
+    nodes: {
+      start: {
+        text: (c) => greeting(c),
+        opts: (c) => (hostileNow(c) ? hostileOpts(c) : friendlyOpts(c)),
+      },
+      trade: {
+        text: (c) => `${tradeLine(c)} Tenéis ${S.rub} ₽.${foreignNote(c)}`,
+        opts: (c) => [...(STOCK[facOf(c)] || []).map(([b, p, q]) => tradeBuy(c, b, p, q)), ...(BUYS[facOf(c)] || []).map(([b, k]) => tradeSell(c, b, k)), { label: 'VOLVER', goto: 'start' }],
+      },
+      recruit: {
+        text: '«¿Volver al Ejército? ¿Con vosotros?» El desertor se lo piensa. «Si me dais un fusil y una ración caliente… y nadie pregunta por qué me fui.»',
+        opts: [
+          { label: 'ACEPTADO: SE UNE AL PUESTO', cls: 'good', effects: [{ run: (c) => { if (c.actor) c.exp.recruitActor(c.actor); } }, { rep: ['desertores', 6] }, { log: 'El desertor se une a vosotros. Se presentará en la base cuando volváis.', cls: 'good' }] },
+          { label: 'MEJOR NO', goto: 'start' },
+        ],
+      },
+    },
+  },
+
+  prisoner: {
+    title: 'PRISIONERO',
+    speaker: (c) => (c.actor ? `${ACTORS[c.actor.type].name} · ${(FACTIONS[facOf(c)] || {}).name || ''}` : ''),
+    color: (c) => (FACTIONS[facOf(c)] || {}).color || '#ff9a3c',
+    nodes: {
+      start: {
+        text: (c) => `De rodillas, con las manos detrás de la cabeza. ${pick(PRISONER_LINES[facOf(c)] || PRISONER_LINES.default, c)} ¿Qué hacéis con él?`,
+        opts: (c) => [
+          { label: 'DEJARLO MARCHAR', cls: 'good', effects: [{ rep: [facOf(c), 5] }, { log: 'Le dejáis ir. Se aleja sin mirar atrás. Su gente se enterará de esto.', cls: 'good' }, { run: (cc) => cc.exp.dismissActor(cc.actor) }] },
+          { label: 'INTERROGARLO', turn: true, effects: [{ reveal: 40 }, { run: (cc) => { for (const o of cc.exp.enemies) if (actorFaction(o) === facOf(cc)) { o.seen = 1; cc.exp.explored[cc.exp.key(o.x, o.y)] = 1; } } }, { rep: [facOf(c), -3] }, { log: (cc) => `Habla. Marca en el plano las posiciones de los suyos (${cc.revealed || 0} casillas cartografiadas). Luego le soltáis.`, cls: 'o1' }, { run: (cc) => cc.exp.dismissActor(cc.actor) }] },
+          { label: 'REQUISAR SU EQUIPO', turn: true, effects: [{ run: (cc) => cc.exp.stripActor(cc.actor) }, { rep: [facOf(c), -6] }, { log: 'Le quitáis todo lo que lleva y le echáis a patadas.', cls: 'warn' }, { run: (cc) => { cc.exp.dismissActor(cc.actor); cc.exp.emit('loot', { floor: true, x: cc.actor.x, y: cc.actor.y }); } }] },
+          { label: '[COMISARIO] RECLUTARLO PARA EL PUESTO', show: [{ any: [{ spec: 'comisario' }, { squadFlag: 'negotiator' }] }, { test: (cc) => facOf(cc) === 'desertores' || facOf(cc) === 'merodeadores' }], cls: 'good', effects: [{ run: (cc) => cc.exp.recruitActor(cc.actor) }, { rep: [facOf(c), 6] }, { log: '«Patria o muerte, ¿no?» Se une a vosotros. Se presentará en la base.', cls: 'good' }] },
+          { label: 'ENTREGARLO AL KGB (150 ₽ AL VOLVER)', effects: [{ run: (cc) => cc.exp.takePrisoner(cc.actor) }, { rep: [facOf(c), -8] }, { log: 'Le atáis las manos. El KGB recogerá «el paquete» en el punto de extracción.', cls: 'warn' }] },
+          { label: 'EJECUTARLO', cls: 'bad', effects: [{ rep: [facOf(c), -15] }, { incFlag: 'executions' }, { agentFlag: 'executioner' }, { log: '{agent} aprieta el gatillo. Nadie dice nada durante un buen rato.', cls: 'bad' }, { run: (cc) => { cc.actor.surrendered = 0; cc.exp.killEnemy(cc.actor, cc.sq); } }] },
+        ],
       },
     },
   },
@@ -262,6 +308,23 @@ export const DIALOGS = {
       },
       sold: { text: '«Un placer, doctor. Volveremos.» El Volga se aleja levantando polvo radiactivo.', opts: [{ label: 'CERRAR' }] },
       refused: { text: '«Como quiera.» Apunta algo en una libreta pequeña. «Volveremos, doctor. Siempre volvemos.»', opts: [{ label: 'CERRAR' }] },
+    },
+  },
+
+  kgb_commissar: {
+    title: 'VISITA DEL DIRECTORIO 9', speaker: 'Comisario Orlov, KGB', color: '#e05050',
+    nodes: {
+      start: {
+        text: () => `El comisario deja una carpeta sobre la mesa sin sentarse. «He leído los informes, doctor. ${S.foreignTrade || 0} tratos con extranjeros. Suecos. Finlandeses. Contrabandistas.» Pasa una hoja. «¿Debo seguir leyendo, o prefiere que hablemos de su presupuesto?»`,
+        opts: [
+          { label: 'ACEPTAR LA SANCIÓN (−20% DE LOS RUBLOS)', effects: [{ run: () => { S.rub = Math.round(S.rub * 0.8); } }, { rep: ['kgb', 15] }, { baseMsg: 'Sanción del KGB: el puesto pierde el 20% de su presupuesto.' }], goto: 'done' },
+          { label: 'ENTREGARLE DOCUMENTOS DEL ALMACÉN', cond: { test: () => S.stash.some((it) => KGB_DOCS.includes(it.b)) }, hint: 'no hay informes, documentos ni diarios en el almacén', cls: 'good', effects: [{ run: () => { const i = S.stash.findIndex((it) => KGB_DOCS.includes(it.b)); if (i >= 0) S.stash.splice(i, 1); } }, { rep: ['kgb', 22] }, { baseMsg: 'Entregados documentos al KGB. El comisario Orlov se marcha satisfecho.' }], goto: 'done' },
+          { label: 'SOBORNARLE (300 ₽)', cond: { rub: ['>=', 300] }, hint: 'no tenéis 300 ₽', effects: [{ rub: -300 }, { rep: ['kgb', 12] }, { setFlag: 'kgbBribed' }], goto: 'done' },
+          { label: '[COMISARIO] HABLAR DE IDEOLOGÍA CON ÉL', show: { test: () => S.agents.some((a) => a.spec === 'comisario') }, cls: 'good', effects: [{ rep: ['kgb', 20] }, { baseMsg: 'Vuestro comisario y Orlov hablan dos horas de Lenin. El KGB se va convencido de vuestra lealtad.' }], goto: 'done' },
+          { label: 'NEGARLO TODO', cls: 'bad', effects: [{ run: () => { S.rub = Math.round(S.rub * 0.65); } }, { rep: ['kgb', -10] }, { baseMsg: 'El KGB recorta el presupuesto del puesto un 35%. «Volveremos, doctor.»' }], goto: 'done' },
+        ],
+      },
+      done: { text: '«Estamos en contacto, doctor.» El Volga negro se aleja. Nadie del puesto respira hasta que deja de oírse.', opts: [{ label: 'CERRAR' }] },
     },
   },
 
@@ -291,7 +354,7 @@ DIALOGS.survivor.nodes.start2.opts = DIALOGS.survivor.nodes.start.opts.slice(1);
 // ------------------------------------------------------------ utilidades de comercio (fase 17)
 const night = (c) => !!(c.exp && c.exp.isNight && c.exp.isNight());
 const pick = (list, c, seed) => list[Math.abs(((seed ?? 0) + ((c.obj && c.obj.x) || 0) * 7 + ((c.exp && c.exp.turn) || 0)) | 0) % list.length];
-const discount = (p) => Math.round(p * ((S.rep.rda || 0) >= 25 ? 0.8 : 1));
+const discount = (p) => Math.round(p * (repOf(S, 'rda') >= 50 ? 0.8 : 1));
 function countItem(c, b) { return c.a ? c.a.bag.filter((it) => it.b === b).reduce((n, it) => n + (it.q || 1), 0) : 0; }
 function takeItem(c, b, n) {
   for (const it of c.a.bag) {
@@ -303,20 +366,20 @@ function takeItem(c, b, n) {
   }
   c.a.bag = c.a.bag.filter((it) => !(it.b === b && it.q !== undefined && it.q <= 0));
 }
-function buyOpt(b, price, q) {
-  const p = discount(price), d = ITEMS[b];
-  return { label: `${d.name.toUpperCase()}${q ? ' ×' + q : ''} — ${p} ₽`, cond: { rub: ['>=', p] }, hint: `no tenéis ${p} ₽`, effects: [{ rub: -p }, { give: { item: b, q } }], goto: 'buy' };
+function buyOpt(b, price, q, fac = null) {
+  const p = fac ? price : discount(price), d = ITEMS[b];
+  return { label: `${d.name.toUpperCase()}${q ? ' ×' + q : ''} — ${p} ₽`, cond: { rub: ['>=', p] }, hint: `no tenéis ${p} ₽`, effects: [{ rub: -p }, { give: { item: b, q } }, ...(fac ? [{ run: () => foreignTrade(S, fac) }] : [])], goto: 'buy' };
 }
-function sellOpt(b, k) {
+function sellOpt(b, k, fac = null) {
   return {
     label: (c) => { const n = countItem(c, b); return `${ITEMS[b].name.toUpperCase()}${n ? ' ×' + n : ''} — ${Math.round(ITEMS[b].value * k)} ₽ c/u`; },
     show: { hasItem: b },
-    effects: [{ run: (c) => { const n = countItem(c, b); takeItem(c, b, n); S.rub += Math.round(ITEMS[b].value * k) * n; c.exp && c.exp.say(`Vendéis ${n} × ${ITEMS[b].name} por ${Math.round(ITEMS[b].value * k) * n} ₽.`, 'good'); } }],
+    effects: [{ run: (c) => { const n = countItem(c, b); takeItem(c, b, n); S.rub += Math.round(ITEMS[b].value * k) * n; if (fac) foreignTrade(S, fac); c.exp && c.exp.say(`Vendéis ${n} × ${ITEMS[b].name} por ${Math.round(ITEMS[b].value * k) * n} ₽.`, 'good'); } }],
     goto: 'sell',
   };
 }
 function medicCost(c) {
-  if ((S.rep.rda || 0) >= 25) return 0;
+  if (repOf(S, 'rda') >= 50) return 0;
   const team = c.exp ? c.exp.team : [];
   return 15 + team.reduce((n, q) => n + Math.max(0, agentStats(q.a).hpMaxEff - q.a.hp), 0);
 }
@@ -349,3 +412,102 @@ const RUMORS = [
   'El sótano del hospital n.º 126 de Prípiat: no toquéis la ropa. NO TOQUÉIS LA ROPA.',
   'Un convoy de la Stasi lleva tres días sin dar señales al sur de la central. Recompensa por la carga.',
 ];
+
+// ------------------------------------------------------------ encuentros (fase 18)
+const facOf = (c) => (c.actor ? actorFaction(c.actor) : (c.data && c.data.faction) || 'rda');
+const hostileNow = (c) => !!(c.exp && c.actor && c.exp.attitudeToSquad(c.actor) === 'hostile');
+const talked = (c, k) => !!(c.exp && c.exp.facState().talked[facOf(c) + ':' + k]);
+const markTalk = (k) => ({ run: (c) => { c.exp.facState().talked[facOf(c) + ':' + k] = 1; } });
+const nearMates = (c, r = 6) => (c.exp ? c.exp.enemies.filter((o) => !o.surrendered && actorFaction(o) === facOf(c) && Math.hypot(o.x - c.actor.x, o.y - c.actor.y) <= r) : []);
+const GREET = {
+  rda: ['«Genossen! ¡Camaradas! Por fin una cara amiga.» El soldado de la NVA baja el fusil.', '«Wismut, segunda patrulla. ¿Necesitáis algo? Vamos justos, pero compartimos.»'],
+  cuba: ['«¡Compañeros soviéticos! ¿Alguien herido? Siéntense, siéntense.»', '«Aquí abajo hace un frío que no es normal, chico. ¿Un tabaquito?»'],
+  checos: ['«Dobrý den. Grupo «Tatra». Si buscáis explosivos, habéis encontrado a los checos adecuados.»', '«Praga dice que somos aliados. Ostrava dice que primero se paga.»'],
+  suecia: ['«God dag. Somos científicos. Solo científicos.» El dosimetrista sueco no deja de mirar vuestras armas.', '«Nuestras lecturas… no tienen sentido. ¿Las vuestras sí?»'],
+  finlandia: ['No le habéis oído llegar. El finlandés os mira desde dos metros, inmóvil como un abedul. «Hei.»', '«Sisu. Significa no rendirse. Aquí abajo es lo único que funciona.»'],
+  yugo: ['«¡Prijatelji! Amigos. Todo se vende, todo se compra. Hoy, precios de amigo.»', '«Belgrado no está ni con Moscú ni con Washington. Está con quien paga.»'],
+  contrabandistas: ['«Sin preguntas, sin recibos.» El contrabandista os enseña la mercancía.'],
+  merodeadores: ['«Quietos ahí. Esto es nuestro territorio. Las mochilas al suelo… o hablamos de precio.»'],
+  desertores: ['«¡Alto! No disparéis.» Uniformes soviéticos rotos y miradas cansadas. «No queremos volver. Pero tampoco queremos morir aquí.»'],
+};
+function greeting(c) {
+  const f = facOf(c), v = repOf(S, f);
+  const g = pick(GREET[f] || ['«…»'], c);
+  const mood = v >= 50 ? ' Os saludan como a viejos amigos.' : v <= -15 && !hostileNow(c) ? ' Os miran con desconfianza.' : '';
+  return `${g}${mood} <span class="dimt">(${FACTIONS[f].name}: reputación ${v > 0 ? '+' : ''}${v})</span>`;
+}
+function hostileOpts(c) {
+  const f = facOf(c), lvl = (c.actor && c.actor.lvl) || 1, bribe = 40 + lvl * 15;
+  const threat = Math.min(0.85, 0.2 + 0.1 * (c.exp ? c.exp.team.length : 1) + ((c.a && (c.a.attr || {}).fue) || 3) / 40 + (c.exp && c.exp.team.some((q) => q.a.spec === 'comisario') ? 0.2 : 0));
+  return [
+    { label: `SOBORNARLES (${bribe} ₽)`, cond: { rub: ['>=', bribe] }, hint: `no tenéis ${bribe} ₽`, effects: [{ rub: -bribe }, { relation: [f, 'neutral'] }, { rep: [f, 8] }, { log: 'Cuentan los billetes dos veces y se apartan. «Por hoy, no os hemos visto.»', cls: 'good' }] },
+    { label: '[COMISARIO] HABLAR DE SOLDADO A SOLDADO', show: [{ any: [{ spec: 'comisario' }, { squadFlag: 'negotiator' }] }, { test: () => f === 'desertores' }], cls: 'good', effects: [{ relation: [f, 'neutral'] }, { rep: [f, 12] }], goto: 'recruit' },
+    { label: `AMENAZARLES (${Math.round(threat * 100)}%)`, effects: [{ run: (cc) => { if (Math.random() < threat) { cc.exp.relations = cc.exp.relations || {}; cc.exp.relations[['squad', f].sort().join('|')] = 'neutral'; addRep(S, f, -3); cc.exp.say('Se lo piensan mejor y retroceden. «Esta vez, no.»', 'good'); } else { cc.exp.say('«¿Ah, sí?» Echan mano a las armas.', 'bad'); cc.exp.interrupt = true; } } }] },
+    { label: 'PREPARARSE PARA COMBATIR', effects: [{ interrupt: true }] },
+  ];
+}
+function friendlyOpts(c) {
+  const f = facOf(c), v = repOf(S, f), allied = c.exp && c.actor && c.exp.attitudeToSquad(c.actor) === 'allied';
+  const mapCost = allied || v >= 15 ? 0 : 50;
+  const out = [];
+  if (f === 'contrabandistas') out.push({ label: 'VER LA MERCANCÍA', effects: [{ dialog: 'smuggler_trader' }] });
+  else if (STOCK[f]) out.push({ label: 'INTERCAMBIAR', goto: 'trade' });
+  out.push({ label: mapCost ? `COMPARTIR MAPAS (${mapCost} ₽)` : 'COMPARTIR MAPAS', show: { not: { test: (cc) => talked(cc, 'map') } }, cond: { rub: ['>=', mapCost] }, hint: `no tenéis ${mapCost} ₽`, turn: true, effects: [{ rub: -mapCost }, { reveal: 45 }, markTalk('map'), { rep: [f, 3] }, { log: (cc) => `Cambiáis planos y anotaciones (${cc.revealed || 0} casillas cartografiadas).`, cls: 'o1' }] });
+  out.push({ label: 'PEDIR AYUDA', show: { not: { test: (cc) => talked(cc, 'help') } }, cond: { test: () => allied || v >= 25 }, hint: 'no os conocen lo bastante (reputación 25)', effects: [markTalk('help'), { run: (cc) => { const m = nearMates(cc); for (const o of m) o.escort = 40; cc.exp.say(`${m.length} de ellos os acompañarán un rato.`, 'good'); } }, { rep: [f, -2] }] });
+  if (f === 'cuba') out.push({ label: 'TRATAMIENTO MÉDICO (20 ₽)', cond: { rub: ['>=', 20] }, hint: 'no tenéis 20 ₽', turn: true, effects: [{ rub: -20 }, { run: (cc) => healTeam(cc, 1, 20) }, { rep: [f, 2] }, { log: '«Esto no es nada, compañero.» Os cosen, os vendan y os quitan algo de radiación.', cls: 'good' }] });
+  if (f === 'suecia') out.push({ label: 'COMPARTIR LECTURAS DE RADIACIÓN', show: { not: { test: (cc) => talked(cc, 'data') } }, turn: true, effects: [markTalk('data'), { rep: [f, 6] }, { xp: 25 }, { give: { item: 'antirad', q: 2 } }, { run: () => foreignTrade(S, f) }, { log: 'Comparáis dosímetros. Os regalan yoduro potásico. (El KGB no aprobaría esto.)', cls: 'o1' }] });
+  if (f === 'desertores') out.push({ label: 'RECLUTAR A UNO', show: { any: [{ spec: 'comisario' }, { squadFlag: 'negotiator' }, { rep: ['desertores', '>=', 25] }] }, goto: 'recruit' });
+  if (!allied) out.push({ label: 'AMENAZAR', turn: true, effects: [{ run: (cc) => {
+    const def = ACTORS[cc.actor.type];
+    if (Math.random() < 0.45) { const b = (def.loot || [])[0]; if (b) cc.exp.addFloor(cc.actor.x, cc.actor.y, createItem(b, 0, undefined, ITEMS[b].cat === 'ammo' ? ITEMS[b].pack : undefined)); addRep(S, f, -10); cc.exp.say('Os entregan algo de mala gana. No lo olvidarán (−10 de reputación).', 'warn'); }
+    else { cc.exp.say('«¿Nos amenazáis? ¿Aquí abajo?»', 'bad'); cc.exp.provoke(f); }
+  } }] });
+  out.push({ label: 'DESPEDIRSE' });
+  return out;
+}
+const STOCK = {
+  rda: [['mpikm', 380], ['a_762x39', 30, 30], ['redflare', 45, 2], ['ai2', 55], ['antirad', 35, 2]],
+  cuba: [['gironkit', 90], ['habano', 35, 2], ['ipp', 25, 2], ['redflare', 50]],
+  checos: [['vz58', 480], ['skorpion', 340], ['cz75', 400], ['semtex', 150], ['a_9p', 45, 24]],
+  suecia: [['rados', 330], ['antirad', 30, 2], ['m45', 420], ['a_9p', 45, 24]],
+  finlandia: [['m62coat', 420], ['skirucksack', 380], ['mapcase', 60], ['rk62', 720], ['a_762x39', 35, 30]],
+  yugo: [['m70', 430], ['rakija', 30, 2], ['a_762x39', 35, 30], ['vodka', 25], ['mre', 40], ['habano', 40], ['a_9p', 50, 24]],
+  desertores: [['ak74', 360], ['a_545', 40, 30], ['rgd5', 45], ['ssh68', 70]],
+};
+const BUYS = {
+  rda: [['parts', 0.9], ['intel', 0.6]], cuba: [['parts', 0.8], ['vodka', 1]], checos: [['parts', 1]],
+  suecia: [['graphsample', 1.6], ['crystal', 1.3], ['essamp', 1]], finlandia: [['foreigndiary', 1.2], ['docs', 0.8]],
+  yugo: [['docs', 0.9], ['icon', 0.9], ['medal', 0.9], ['vodka', 1.1], ['parts', 0.9]], desertores: [['vodka', 1.4], ['ai2', 1]],
+};
+const TRADE_LINE = { rda: '«Material del Pacto, precio del Pacto.»', cuba: '«Lo que tenemos es suyo, compañero. Bueno… casi.»', checos: '«Calidad de Brno. No hay devoluciones.»', suecia: '«Pagamos bien por muestras. Muy bien.»', finlandia: '«Buen equipo para el frío. Y para el silencio.»', yugo: '«¡Precios del día! Mañana, otros.»', desertores: '«Lo que nos llevamos del cuartel. No preguntéis.»' };
+const tradeLine = (c) => TRADE_LINE[facOf(c)] || '«Echad un vistazo.»';
+const foreignNote = (c) => (FACTIONS[facOf(c)].bloc === 'varsovia' ? '' : ' <span class="warn">(El KGB anota cada trato con extranjeros.)</span>');
+function priceK(c) {
+  const f = facOf(c), v = repOf(S, f);
+  let k = v >= 50 ? 0.85 : v < 0 ? 1.25 : 1;
+  if (f === 'yugo') k *= 0.8 + ((S.day * 7 + 3) % 7) / 10; // precios variables
+  return k;
+}
+function tradeBuy(c, b, price, q) {
+  const f = facOf(c), p = Math.max(1, Math.round(price * priceK(c))), d = ITEMS[b];
+  return { label: `${d.name.toUpperCase()}${q ? ' ×' + q : ''} — ${p} ₽`, cond: { rub: ['>=', p] }, hint: `no tenéis ${p} ₽`, effects: [{ rub: -p }, { give: { item: b, q } }, { run: () => foreignTrade(S, f) }], goto: 'trade' };
+}
+function tradeSell(c, b, k) {
+  const f = facOf(c), unit = Math.round(ITEMS[b].value * k / priceK(c));
+  return {
+    label: (cc) => `VENDER ${ITEMS[b].name.toUpperCase()} ×${countItem(cc, b)} — ${unit} ₽ c/u`,
+    show: { hasItem: b },
+    effects: [{ run: (cc) => { const n = countItem(cc, b); takeItem(cc, b, n); S.rub += unit * n; foreignTrade(S, f); addRep(S, f, 1); cc.exp && cc.exp.say(`Vendéis ${n} × ${ITEMS[b].name} por ${unit * n} ₽.`, 'good'); } }],
+    goto: 'trade',
+  };
+}
+const PRISONER_LINES = {
+  default: ['«Tengo familia. Por favor.»', '«No sé nada, lo juro. Solo me pagaban por cargar cajas.»'],
+  usa: ['«Name, rank and serial number. That\'s all you get.» Luego, en un ruso torpe: «No… disparar.»', '«Tell my wife…» No termina la frase.'],
+  uk: ['«Ya está, ya está. Me rindo. ¿Tenéis té?», dice en un ruso de academia militar.'],
+  merodeadores: ['«¡Solo buscábamos chatarra! ¡Chatarra!»', '«Os lo devuelvo todo, todo. Y os digo dónde guardamos lo demás.»'],
+  desertores: ['«Me fui porque nos mandaban a morir. ¿Vosotros no os habéis ido aún?»', '«Fusiladme si queréis. Ya estoy medio muerto.»'],
+  culto: ['«La Ceniza os verá arder.» Sonríe con los dientes negros.'],
+};
+
+const KGB_DOCS = ['intel', 'docs', 'blackbox', 'foreigndiary'];

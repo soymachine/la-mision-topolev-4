@@ -17,7 +17,7 @@ import { RADIO } from '../data/lore.js';
 import { D8, FISTS, BLOCKING_OBJ, ORDERS, ESSENCE_COLOR } from './shared.js';
 import { ACTORS, actorDef, actorColor, actorFaction, isHuman } from '../data/actors.js';
 import { HUMANS, scaleHuman } from '../data/humans.js';
-import { FACTIONS, baseAttitude, ATTITUDE_TEXT } from '../data/factions.js';
+import { FACTIONS, baseAttitude, ATTITUDE_TEXT, squadAttitude, addRep } from '../data/factions.js';
 import { CombatPart } from './combat.js';
 import { UsePart } from './use.js';
 import { ExtractionPart } from './extraction.js';
@@ -26,6 +26,7 @@ import { EnvironmentPart } from './environment.js';
 import { StoryPart } from './story.js';
 import { AbilityPart } from './abilities.js';
 import { TerrainPart } from './terrain.js';
+import { FactionPart } from './factions.js';
 import { MODIFIERS, modEss, modRad, WEATHER } from '../data/modifiers.js';
 export { ORDERS, ESSENCE_COLOR };
 
@@ -180,7 +181,7 @@ export class Expedition {
       mapIdx: this.mapIdx, seed: this.seed, zoneDef: this.zoneDef || null, mods: this.mods || [], nFloors: this.nFloors || 1, floor: this.floor || 0, floorStore: this.floorStore || [],
       sense: this.sense, senseR: this.senseR, relations: this.relations || {},
       eventsDone: this.eventsDone || {}, facSeen: this.facSeen || {}, dlg: this.dlg || null, dlgQueue: this.dlgQueue || [],
-      patria: this.patria || 0, truceUsed: this.truceUsed || 0,
+      patria: this.patria || 0, truceUsed: this.truceUsed || 0, fac: this.fac || null,
       clock: this.clock ?? null, weather: this.weather || null, trainAt: this.trainAt || 0, raidAt: this.raidAt || 0, revealT: this.revealT || 0, antennaUsed: this.antennaUsed || 0,
       turn: this.turn, log: this.log.slice(-60), evac: this.evac, tally: this.tally,
       surgeAt: this.surgeAt, nextTemp: this.nextTemp, nextRadio: this.nextRadio, active: this.active,
@@ -361,6 +362,7 @@ export class Expedition {
     // gadgets, efectos temporales y talentos; essHeal es un umbral (cuanto menor, mejor)
     const vals = [];
     for (const g of this.gadgets(sq)) { const fl = gadgetExtras(g).flags; if (fl && fl[f]) vals.push(fl[f]); }
+    for (const k of ['armor', 'helmet']) { const it = sq.a.equip[k]; const fl = it && ITEMS[it.b].flags; if (fl && fl[f]) vals.push(fl[f]); }
     for (const b of sq.buffs || []) if (b.flags && b.flags[f]) vals.push(b.flags[f]);
     const t = talentFlag(sq.a, f);
     if (t) vals.push(t);
@@ -432,9 +434,11 @@ export class Expedition {
     if (fa === fb) return 'allied';
     const k = fa < fb ? fa + '|' + fb : fb + '|' + fa;
     if (this.relations && this.relations[k]) return this.relations[k];
+    if (fa === 'squad') return squadAttitude(S, fb);
+    if (fb === 'squad') return squadAttitude(S, fa);
     return baseAttitude(fa, fb);
   }
-  hostile(x, y) { return this.attitude(this.factionOf(x), this.factionOf(y)) === 'hostile'; }
+  hostile(x, y) { if (x.surrendered || y.surrendered) return false; return this.attitude(this.factionOf(x), this.factionOf(y)) === 'hostile'; }
   attitudeToSquad(e) { return this.attitude('squad', this.factionOf(e)); }
   // el escuadrón ataca a una facción no hostil: pasa a ser hostil durante la expedición
   provoke(faction) {
@@ -449,8 +453,7 @@ export class Expedition {
     this.relations = this.relations || {};
     const k = 'squad' < faction ? 'squad|' + faction : faction + '|squad';
     this.relations[k] = 'hostile';
-    S.rep = S.rep || {};
-    S.rep[faction] = (S.rep[faction] || 0) - (dipl ? 12 : 25);
+    addRep(S, faction, -(dipl ? 12 : 25));
     for (const o of this.enemies) if (actorFaction(o) === faction) { o.state = 'alerta'; o.mem = 15; }
     this.say(`⚠ Has atacado a ${FACTIONS[faction].name} (${FACTIONS[faction].short}). Ahora son <b class="bad">hostiles</b>.`, 'bad');
     this.fx.push({ type: 'alert' });
@@ -493,7 +496,9 @@ export class Expedition {
       const f = actorFaction(e);
       if (f === 'chebylitas' || (this.facSeen = this.facSeen || {})[f]) continue;
       this.facSeen[f] = 1;
+      (S.met = S.met || {})[f] = 1;
       if (this.trigger) this.trigger('seeFaction', { faction: f, type: e.type });
+      if (FACTIONS[f] && FACTIONS[f].negotiable && this.attitudeToSquad(e) === 'hostile' && this.cur) this.openDialog('encounter', this.cur, null, e);
     }
     if (fresh.length && !silent) {
       for (const att of ['hostile', 'neutral', 'allied']) {
@@ -552,6 +557,7 @@ export class Expedition {
         sq.lastMove = this.turn;
         return true;
       }
+      if (sq === this.cur && this.talkableAt(nx, ny)) return this.interactActor(sq, ent);
       if (sq === this.cur) this.say(`${this.enm(ent)} te bloquea el paso. (Para atacar a un neutral, apunta con <b>T</b>.)`, 'dimt');
       return false;
     }
@@ -716,7 +722,7 @@ export class Expedition {
 }
 
 // Mezcla de los módulos parciales en la clase principal
-for (const Part of [CombatPart, UsePart, ExtractionPart, AIPart, EnvironmentPart, StoryPart, AbilityPart, TerrainPart]) {
+for (const Part of [CombatPart, UsePart, ExtractionPart, AIPart, EnvironmentPart, StoryPart, AbilityPart, TerrainPart, FactionPart]) {
   for (const k of Object.getOwnPropertyNames(Part.prototype)) {
     if (k === 'constructor') continue;
     if (Object.prototype.hasOwnProperty.call(Expedition.prototype, k)) throw new Error('Método duplicado en Expedition: ' + k);

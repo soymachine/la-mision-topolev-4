@@ -8,6 +8,8 @@ export const T = {
   // fase 17: superficie y zonas nuevas
   GROUND: 38, GRASS: 39, ASPHALT: 40, PINE: 41, DUG: 42, CAR: 43, SWING: 44, HULL: 45, LATTICE: 46, ANTENNA: 47,
   BOAT: 48, ORGWALL: 49, CORIUM: 50, CELL: 51, FENCE: 52, ANTENNA_ON: 53,
+  // fase 18: restos de otras expediciones
+  TENT: 54, CAMPFIRE: 55,
 };
 
 // glyphs: variantes elegidas por hash de posición. fg: variaciones de naranja.
@@ -70,6 +72,9 @@ export const TILES = [
   { name: 'Reja de celda', walk: 0, opaque: 0, glyphs: ['╫', '#'], fg: ['#6a8aa0'], bg: '#050a0e', desc: 'Celda de contención. Un terminal la abre… si de verdad quieres abrirla.' },
   { name: 'Alambrada de la zona', walk: 0, opaque: 0, out: 1, glyphs: ['#', '╪', '#'], fg: ['#6a6a60', '#5a5a52'], desc: 'La valla de la zona de exclusión.' },
   { name: 'Antena activa', walk: 0, opaque: 0, glyphs: ['Ψ'], fg: ['#d0e8ff'], bg: '#0a2038', desc: 'La antena zumba. Todo lo que hay en la zona sabe que estáis aquí.' },
+  // ---- fase 18 ----
+  { name: 'Tienda de campaña', walk: 0, opaque: 1, cover: 0, glyphs: ['Λ'], fg: ['#8a9a6a', '#7a8a5a'], bg: '#0c1006', desc: 'Lona de otra expedición. Dentro no queda nadie.' },
+  { name: 'Hoguera', walk: 0, opaque: 0, light: 4, fuel: 1, glyphs: ['*'], fg: ['#ff8a1f'], bg: '#1a0a02', anim: 'campfire', desc: 'Brasas de un campamento reciente. Todavía dan luz.' },
 ];
 
 export const isWalk = (t) => TILES[t].walk === 1;

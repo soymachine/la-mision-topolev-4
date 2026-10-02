@@ -10,10 +10,10 @@ import { ESSENCE_COLOR } from '../exp/shared.js';
 
 export const FONT = '"JetBrains Mono", "DejaVu Sans Mono", Consolas, monospace';
 const hash = (x, y) => { let h = (x * 374761393 + y * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177; return (h ^ (h >>> 16)) >>> 0; };
-const OBJ_GLYPH = { vein: '✦', cache: '■', locker: '▤', crate: '□', corpse: '%', note: '?', survivor: '☺', shard: '✧', cart: 'Ш', trader: '₽', medic: '✚', board: '▦', archive: '▥', wreck: '✈' };
-const OBJ_NAME = { vein: 'Veta de esencia', cache: 'Alijo de suministros', locker: 'Taquilla', crate: 'Caja de material', corpse: 'Cadáver de liquidador', note: 'Nota', survivor: 'Superviviente', shard: 'Cristal de esencia incrustado', cart: 'Vagoneta', trader: 'Comerciante', medic: 'Enfermería', board: 'Tablón de anuncios', archive: 'Archivo del KGB', wreck: 'Restos del aparato' };
+const OBJ_GLYPH = { vein: '✦', cache: '■', locker: '▤', crate: '□', corpse: '%', note: '?', survivor: '☺', shard: '✧', cart: 'Ш', trader: '₽', medic: '✚', board: '▦', archive: '▥', wreck: '✈', radio: '☏' };
+const OBJ_NAME = { vein: 'Veta de esencia', cache: 'Alijo de suministros', locker: 'Taquilla', crate: 'Caja de material', corpse: 'Cadáver de liquidador', note: 'Nota', survivor: 'Superviviente', shard: 'Cristal de esencia incrustado', cart: 'Vagoneta', trader: 'Comerciante', medic: 'Enfermería', board: 'Tablón de anuncios', archive: 'Archivo del KGB', wreck: 'Restos del aparato', radio: 'Radio de campaña' };
 export { OBJ_NAME };
-const SOCIAL_COL = { trader: '#e6c86a', medic: '#ff6a6a', board: '#c8b48c', archive: '#e05050', wreck: '#b0b8c0' };
+const SOCIAL_COL = { trader: '#e6c86a', medic: '#ff6a6a', board: '#c8b48c', archive: '#e05050', wreck: '#b0b8c0', radio: '#5fd0ff' };
 
 export class MapRenderer {
   constructor(host) {
@@ -391,7 +391,12 @@ export class MapRenderer {
           ctx.fillStyle = `rgba(255,224,138,${0.07 * fl})`; ctx.fillRect(sx - cw, sy - ch, cw * 3, ch * 3);
           glyph(x, y, '☼', `rgba(255,224,138,${fl})`, '#1a1404', 1.05, true);
         } else if (an === 'graphite' && Math.sin(T_ * 2.5 + x * 1.7 + y) > 0.7) glyph(x, y, '▪', 'rgba(150,255,60,.55)', '#0a0a0a');
-        else if (an === 'breathe') {
+        else if (an === 'campfire') {
+          const fl = Math.sin(T_ * 9 + x * 3) * 0.5 + Math.sin(T_ * 14 + y) * 0.5;
+          const [sx, sy] = S(x, y);
+          ctx.fillStyle = `rgba(255,140,40,${0.06 + 0.03 * fl})`; ctx.fillRect(sx - cw * 2, sy - ch * 2, cw * 5, ch * 5);
+          glyph(x, y, fl > 0.3 ? '*' : fl > -0.3 ? '⁂' : '·', fl > 0.3 ? '#ffd23f' : '#ff8a1f', '#1a0a02', 1.05, true);
+        } else if (an === 'breathe') {
           // las paredes de las Raíces respiran: el glifo se dilata y se contrae
           const b = Math.sin(T_ * 1.4 + hashf(x, y) * 2 + (x + y) * 0.15);
           glyph(x, y, b > 0.5 ? '●' : b > -0.3 ? '○' : '◦', `rgb(${130 + b * 30 | 0},${60 + b * 12 | 0},${90 + b * 16 | 0})`, `rgb(${22 + b * 6 | 0},6,${10 + b * 3 | 0})`, 1 + b * 0.08);
@@ -426,7 +431,7 @@ export class MapRenderer {
         continue;
       }
       if (o.kind === 'note') { glyph(o.x, o.y, '?', o.opened ? (vis ? '#7a6a4a' : '#3a3020') : vis ? `rgba(240,225,170,${0.7 + 0.3 * Math.sin(T_ * 3 + o.x)})` : '#5a5030', null, 1, !o.opened); continue; }
-      if (SOCIAL_COL[o.kind]) { const done = (o.kind === 'archive' || o.kind === 'wreck') && o.opened && !(o.items && o.items.length);
+      if (SOCIAL_COL[o.kind]) { const done = (o.kind === 'archive' || o.kind === 'wreck' || o.kind === 'radio') && o.opened && !(o.items && o.items.length);
         glyph(o.x, o.y, OBJ_GLYPH[o.kind], vis ? (done ? '#6a6a5a' : SOCIAL_COL[o.kind]) : '#4a4a3a', vis ? '#140a02' : null, 1.1, vis && !done); continue; }
       if (o.kind === 'survivor') { glyph(o.x, o.y, '☺', vis ? `rgba(160,232,160,${0.75 + 0.25 * Math.sin(T_ * 2)})` : '#3a5a3a', null, 1.05, true); continue; }
       if (o.opened) col = vis ? '#6a4a2a' : '#3a2814';
@@ -528,11 +533,14 @@ export class MapRenderer {
       if (isHuman(en)) {
         const fd = FACTIONS[actorFaction(en)];
         if (fd.bg) { ctx.fillStyle = fd.bg; ctx.fillRect(sx, sy, cw, ch); }
-        const att = e.attitudeToSquad(en);
-        ctx.strokeStyle = att === 'hostile' ? 'rgba(255,59,48,.8)' : att === 'allied' ? 'rgba(61,220,107,.7)' : 'rgba(255,210,63,.6)';
+        const att = en.surrendered ? 'surr' : e.attitudeToSquad(en);
+        ctx.strokeStyle = att === 'surr' ? 'rgba(255,255,255,.75)' : att === 'hostile' ? 'rgba(255,59,48,.8)' : att === 'allied' ? 'rgba(61,220,107,.7)' : 'rgba(255,210,63,.6)';
         ctx.lineWidth = 1;
         ctx.strokeRect(sx + 0.5, sy + 0.5, cw - 1, ch - 1);
-      }
+        // bandera blanca (rendido) o escolta (os acompaña)
+        if (en.surrendered || en.escort > 0) { ctx.font = `${Math.round(this.fs * 0.6)}px ${FONT}`; ctx.fillStyle = en.surrendered ? '#ffffff' : '#3ddc6b'; ctx.fillText(en.surrendered ? '⚑' : '+', sx + cw * 0.85, sy + ch * 0.2); ctx.font = font; }
+        if (en.charmed) { ctx.strokeStyle = 'rgba(192,108,255,.8)'; ctx.strokeRect(sx + 1.5, sy + 1.5, cw - 3, ch - 3); }
+      } else if (en.charmed) { ctx.strokeStyle = 'rgba(192,108,255,.8)'; ctx.lineWidth = 1; ctx.strokeRect(sx + 0.5, sy + 0.5, cw - 1, ch - 1); }
       const breathe = en.state === 'dormido' ? 0.55 + 0.15 * Math.sin(T_ * 2 + en.x) : 1;
       if (def.boss) { ctx.shadowColor = col; ctx.shadowBlur = 14 + 6 * Math.sin(T_ * 3); }
       else if (en.lvl >= 7) { ctx.shadowColor = col; ctx.shadowBlur = 6; }

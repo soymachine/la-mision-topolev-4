@@ -15,7 +15,7 @@ import { astar } from '../exp/path.js';
 import { cheb, rng } from '../util/rng.js';
 import { sfx } from '../audio.js';
 import { uiFly } from './fx.js';
-import { NOTES } from '../data/lore.js';
+import { NOTES, FOREIGN_NOTES } from '../data/lore.js';
 import { showDialog } from './dialog.js';
 
 import { WEATHER } from '../data/modifiers.js';
@@ -623,6 +623,8 @@ export class ExpeditionUI {
     const c = e.cur;
     if (!m) return;
     this.r.hover = [m.cx, m.cy];
+    // apuntar a una persona no hostil: se dan cuenta (fase 18)
+    if (m.type === 'fire') { const en = e.enemyAt(m.cx, m.cy); if (en && e.isVisible(en.x, en.y)) e.aimAt(c, en); }
     const ov = { targetMode: true };
     if (m.type === 'ability') {
       ov.line = [c.x, c.y, m.cx, m.cy, !!e.enemyAt(m.cx, m.cy)];
@@ -769,7 +771,9 @@ export class ExpeditionUI {
       if (human) parts.push(`<div class="tt-row"><span class="dimt">Arma</span><span style="color:${en.w ? rarityColor(en.w.r) : ''}">${en.w ? esc(itemName(en.w)) : 'ninguna'}</span></div><div class="tt-row"><span class="dimt">Protección</span><span>${es.armor}</span></div><div class="tt-row"><span class="dimt">Esquiva</span><span>${es.ev}</span></div><div class="tt-lore">${esc(def.lore || '')}</div>`);
       else parts.push(`<div class="tt-row"><span class="dimt">Daño</span><span>${es.dmg[0]}–${es.dmg[1]}</span></div><div class="tt-row"><span class="dimt">Blindaje</span><span>${es.armor}</span></div><div class="tt-row"><span class="dimt">Esquiva</span><span>${es.ev}</span></div>`);
       if (def.abil.length) parts.push(`<div class="tt-aff">◆ ${def.abil.map((a) => ABIL_TEXT[a]).join(' · ')}</div>`);
-      if (att !== 'hostile') parts.push(`<div class="dimt">${att === 'allied' ? 'Aliado: choca con él para intercambiar posiciones.' : 'Neutral: no te atacará si no le atacas.'} Atacarle lo volverá hostil.</div>`);
+      if (en.surrendered) parts.push('<div class="warn">⚑ Rendido. Ponte a su lado y pulsa <b>F</b>: dejarlo ir, interrogarlo, requisarle, entregarlo al KGB…</div>');
+      else if (att !== 'hostile') parts.push(`<div class="dimt">${att === 'allied' ? 'Aliado: choca con él para intercambiar posiciones.' : 'Neutral: no te atacará si no le atacas.'} Atacarle lo volverá hostil.${human && fac.talk ? ' <b>F</b> a su lado para hablar.' : ''}${en.escort > 0 ? ` <span class="good">Os escolta (${en.escort} turnos).</span>` : ''}</div>`);
+      if (en.charmed) parts.push('<div class="bad">Azuzado por la Congregación de la Ceniza.</div>');
       const c = e.cur;
       if (c) {
         const r = e.canShoot(c, en);
@@ -787,7 +791,8 @@ export class ExpeditionUI {
       else if (obj.kind === 'note') parts.push(`<div class="tt-title" style="color:#f0e1aa">? Nota</div><div class="dimt">${obj.opened ? 'Ya leída.' : 'Papel arrugado.'} Ponte encima y pulsa <b>F</b>.</div>`);
       else if (obj.kind === 'survivor') parts.push('<div class="tt-title" style="color:#a0e8a0">☺ Superviviente</div><div class="dimt">Alguien sigue vivo aquí abajo. Ponte al lado y pulsa <b>F</b>.</div>');
       else if (SOCIAL_TIP[obj.kind]) parts.push(`<div class="tt-title o1">${OBJ_NAME[obj.kind]}</div><div class="dimt">${SOCIAL_TIP[obj.kind]} Adyacente + <b>F</b> o clic.</div>`);
-      else parts.push(`<div class="tt-title o1">${OBJ_NAME[obj.kind]}</div><div class="dimt">${!obj.opened ? 'Sin registrar. Adyacente + <b>F</b> o clic.' : obj.items.length ? `${obj.items.length} objeto(s) dentro.` : 'Vacío.'}</div>`);
+      else if (obj.kind === 'radio') parts.push(`<div class="tt-title cyan">☏ Radio de campaña</div><div class="dimt">${obj.opened ? 'Ya escuchada.' : 'De otra expedición. Adyacente + <b>F</b> para escuchar.'}</div>`);
+      else parts.push(`<div class="tt-title o1">${obj.label || OBJ_NAME[obj.kind]}</div>${obj.owner && !obj.opened ? `<div class="warn">Suministros de ${esc(FACTIONS[obj.owner].name)}: abrirla es robar.</div>` : ''}<div class="dimt">${!obj.opened ? 'Sin registrar. Adyacente + <b>F</b> o clic.' : obj.items.length ? `${obj.items.length} objeto(s) dentro.` : 'Vacío.'}</div>`);
     }
     if (vis && e.essence.get(k)) parts.push(`<div class="cyan">✦ ${e.essence.get(k)} de esencia</div>`);
     const fl = e.floorItems.get(k);
@@ -1019,6 +1024,12 @@ export class ExpeditionUI {
 
   // ------------------------------------------------------------ eventos narrativos
   openNote(o) {
+    if (o.fnote != null) {
+      const f = FOREIGN_NOTES[o.fnote % FOREIGN_NOTES.length];
+      sfx.type();
+      modal({ title: 'DIARIO DE OTRA EXPEDICIÓN', width: 'min(70ch, 92vw)', body: `<div class="dimt" style="font-style:italic;padding:.5em 1ch">«${esc(f.o)}»</div><div class="sep">${'─'.repeat(60)}</div><div class="dimt">Traducción (del ${esc(f.lang)}):</div><div class="msg-topolev" style="font-size:15px;line-height:1.6;padding:1em 1ch">${esc(f.t)}</div><div class="dimt" style="text-align:right">— ${esc(f.a)}</div>`, actions: [{ label: 'GUARDAR EN LA MEMORIA' }] });
+      return;
+    }
     const n = NOTES[o.note % NOTES.length];
     sfx.type();
     modal({ title: 'NOTA ENCONTRADA', width: 'min(70ch, 92vw)', body: `<div class="msg-topolev" style="font-size:15px;line-height:1.6;padding:1em 1ch">${esc(n.t)}</div><div class="dimt" style="text-align:right">— ${esc(n.a)}</div>`, actions: [{ label: 'GUARDAR EN LA MEMORIA' }] });

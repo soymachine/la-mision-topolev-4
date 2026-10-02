@@ -20,7 +20,7 @@ export const CAT_INFO = {
 export const AMMO_NAMES = {
   a_9x18: '9×18 mm', a_545: '5,45×39 mm', a_12: 'cal. 12', a_762: '7,62×54R', a_fuel: 'combustible', a_cell: 'celda de esencia',
   a_762x39: '7,62×39 mm', a_9x39: '9×39 mm', a_127: '12,7×108 mm', a_40: 'VOG-25 40 mm', a_rpg: 'cohete PG-7',
-  a_556: '5,56×45 mm', a_45: '.45 ACP', a_762n: '7,62×51 mm OTAN',
+  a_556: '5,56×45 mm', a_45: '.45 ACP', a_762n: '7,62×51 mm OTAN', a_9p: '9×19 mm Parabellum',
 };
 
 export const ITEMS = {
@@ -181,6 +181,24 @@ export const ITEMS = {
   // fase 17: botín de zonas nuevas
   parts: { cat: 'valuable', name: 'Piezas de recambio', glyph: '$', tier: 1, stack: 20, value: 35, desc: 'Engranajes, relés y placas de vehículos de los liquidadores. Material de fabricación.' },
   firecoat: { cat: 'valuable', name: 'Chaquetón de bombero de la primera noche', glyph: '$', tier: 4, value: 480, radioactive: 1, west: 1, desc: 'Del sótano del hospital n.º 126. Valiosísimo para la investigación… y todavía letal.' },
+  // ---- fase 18: equipo y objetos de otras expediciones (origin: facción; west: fuera de la intendencia y del botín general)
+  pvs5: { cat: 'helmet', name: 'Gafas de visión nocturna AN/PVS-5', glyph: '^', tier: 3, prot: 0, rad: 0, nv: 1, vision: 1, value: 900, west: 1, origin: 'usa', desc: 'A oscuras ves casi tan lejos como con luz, sin delatarte.' },
+  pasgt: { cat: 'helmet', name: 'Casco PASGT', glyph: '^', tier: 3, prot: 3, rad: 0, value: 520, west: 1, origin: 'usa', desc: 'Kevlar. Los soviéticos lo llaman «el casco alemán».' },
+  pasgtvest: { cat: 'armor', name: 'Chaleco PASGT', glyph: '[', tier: 3, prot: 5, rad: 5, ev: -1, value: 900, west: 1, origin: 'usa', desc: 'Chaleco antifragmentos de kevlar.' },
+  m62coat: { cat: 'armor', name: 'Abrigo de invierno M/62', glyph: '[', tier: 2, prot: 2, rad: 10, ev: 1, flags: { stealth: 1 }, value: 380, west: 1, origin: 'finlandia', desc: 'Abrigo blanco finlandés. Abriga, amortigua los pasos y se confunde con la ceniza.' },
+  skirucksack: { cat: 'backpack', name: 'Mochila de esquí finlandesa', glyph: '(', tier: 2, slots: 7, value: 340, west: 1, origin: 'finlandia', desc: '+7 huecos de mochila.' },
+  rados: { cat: 'gadget', name: 'Dosímetro sueco RDS', glyph: '¤', tier: 2, rad: 15, essence: 5, value: 300, west: 1, origin: 'suecia', desc: '+15% resistencia a la radiación y +5% esencia: avisa de los focos antes de pisarlos.' },
+  smock: { cat: 'armor', name: 'Guerrera de camuflaje DPM', glyph: '[', tier: 2, prot: 2, rad: 0, ev: 2, flags: { stealth: 1 }, value: 420, west: 1, origin: 'uk', desc: 'Camuflaje británico. Más difícil de ver y de acertar.' },
+  gironkit: { cat: 'consumable', name: 'Botiquín «Playa Girón»', glyph: '!', tier: 2, stack: 4, use: 'heal', heal: 30, cure: 1, radHeal: 10, value: 110, west: 1, origin: 'cuba', desc: 'Medicina cubana: cura 30, el veneno y 10 de radiación.' },
+  habano: { cat: 'consumable', name: 'Puro habano', glyph: '!', tier: 1, stack: 5, use: 'buff', buff: { name: 'Calma caribeña', turns: 15, mods: { acc: 4, prot: 1 } }, value: 40, west: 1, origin: 'cuba', desc: '+4 puntería y +1 protección durante 15 turnos. «Para los nervios, compañero.»' },
+  rakija: { cat: 'consumable', name: 'Rakija de ciruela', glyph: '!', tier: 1, stack: 5, use: 'heal', heal: 6, buff: { name: 'Rakija', turns: 12, mods: { prot: 2, acc: -2 } }, value: 30, west: 1, origin: 'yugo', desc: 'Cura 6; +2 protección y −2 puntería durante 12 turnos.' },
+  mre: { cat: 'consumable', name: 'Ración MRE', glyph: '!', tier: 1, stack: 5, use: 'heal', heal: 8, buff: { name: 'Comida caliente', turns: 25, mods: { regen: 1 } }, value: 35, west: 1, origin: 'usa', desc: '«Meal, Ready-to-Eat». Cura 8 y regenera 25 turnos.' },
+  semtex: { cat: 'consumable', name: 'Carga de Semtex', glyph: '•', tier: 3, stack: 3, use: 'throw', blast: 2, dmg: [16, 28], range: 5, noise: 18, value: 160, west: 1, origin: 'checos', desc: 'Explosivo plástico checo. Radio 2.' },
+  claymore: { cat: 'consumable', name: 'Mina M18 Claymore', glyph: '×', tier: 3, stack: 3, use: 'trap', trap: { dmg: [24, 36], blast: 2 }, range: 1.5, value: 190, west: 1, origin: 'uk', desc: '«Front toward enemy». Explota en radio 2 cuando algo hostil la pisa.' },
+  redflare: { cat: 'consumable', name: 'Bengala roja', glyph: '•', tier: 1, stack: 4, use: 'redflare', value: 45, west: 1, origin: 'rda', desc: 'Señal acordada con los aliados del Pacto: los que estén en la zona acuden a tu posición (y, si sois amigos de la RDA, llega una patrulla).' },
+  relic: { cat: 'valuable', name: 'Reliquia de la Ceniza', glyph: '$', tier: 3, value: 380, origin: 'culto', desc: 'Un hueso de chebylita tallado con espirales. Todavía brilla un poco.' },
+  ashrosary: { cat: 'gadget', name: 'Rosario de dientes', glyph: '¤', tier: 3, flags: { charmResist: 1 }, essence: 10, value: 450, west: 1, origin: 'culto', desc: '+10% esencia. Los sacerdotes de la Ceniza no pueden azuzar a los chebylitas contra quien lo lleva.' },
+  foreigndiary: { cat: 'valuable', name: 'Diario de otra expedición', glyph: '$', tier: 1, value: 60, desc: 'Lo que vieron otros. Al KGB le interesa todo.' },
   blackbox: { cat: 'valuable', name: 'Caja negra', glyph: '$', tier: 4, value: 650, west: 1, desc: 'Registrador de vuelo. Moscú pagará muy bien por lo que oyeron los pilotos.' },
   intel: { cat: 'valuable', name: 'Informes de inteligencia occidental', glyph: '$', tier: 4, value: 420, west: 1, desc: 'Mapas, fotos de satélite y nombres. Material para el KGB.' },
   docs: { cat: 'valuable', name: 'Documentos clasificados', glyph: '$', tier: 3, value: 150, desc: 'Sello del KGB. «Prueba de turbina, 25-IV-1986».' },

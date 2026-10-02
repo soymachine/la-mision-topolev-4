@@ -289,8 +289,37 @@ export class AIPart {
   humanAct(e) {
     const def = ACTORS[e.type];
     const ws = e.w ? itemStats(e.w) : FISTS;
+    // rendidos: no hacen nada (se interactúa con ellos con F)
+    if (e.surrendered) return;
     const [tgt, td] = this.pickTarget(e, def.alarm ? 9 : 12);
+    const wasAlert = e.state === 'alerta';
     if (tgt) { e.state = 'alerta'; e.mem = 12; e.lx = tgt.x; e.ly = tgt.y; }
+    // radio: al ver al enemigo avisa a su facción (una vez)
+    if (tgt && def.radio && !e.radioed && !wasAlert) {
+      e.radioed = 1;
+      let n = 0;
+      for (const o of this.enemies) if (o !== e && !o.surrendered && actorFaction(o) === actorFaction(e) && Math.hypot(o.x - e.x, o.y - e.y) <= 30 && o.state !== 'alerta') { o.state = 'alerta'; o.mem = 18; o.lx = tgt.x; o.ly = tgt.y; n++; }
+      if (n && this.isVisible(e.x, e.y)) this.say(`📻 ${this.enm(e)} grita por la radio: ${n} compañero(s) acuden.`, this.isSquad(tgt) ? 'warn' : 'dimt');
+    }
+    // sacerdotes de la Ceniza: azuzan a los chebylitas cercanos contra su objetivo
+    if (def.charm && tgt) {
+      e.cd = (e.cd || 0) - 1;
+      if (e.cd <= 0 && !(this.isSquad(tgt) && this.flag(tgt, 'charmResist'))) {
+        let n = 0;
+        for (const o of this.enemies) {
+          if (n >= 3 || o.charmed || actorFaction(o) !== 'chebylitas' || ACTORS[o.type].boss || Math.hypot(o.x - e.x, o.y - e.y) > 8 || !this.los(e.x, e.y, o.x, o.y)) continue;
+          o.faction = 'culto'; o.charmed = 1; o.state = 'alerta'; o.mem = 25; o.lx = tgt.x; o.ly = tgt.y; n++;
+          this.fx.push({ type: 'spawn', x: o.x, y: o.y });
+        }
+        e.cd = 7;
+        if (n) { if (this.isVisible(e.x, e.y)) this.say(`${this.enm(e)} entona un cántico: ${n} chebylita(s) se vuelven contra vosotros.`, 'bad'); return; }
+      }
+    }
+    // rendición: malherido y superado
+    if (tgt && def.surrender && e.hp < e.hpMax * 0.3 && !e.noSurrender) {
+      if (rng.chance(def.surrender * (this.isSquad(tgt) ? 1 : 0.3))) { this.surrender(e); return; }
+      e.noSurrender = rng.chance(0.5) ? 1 : 0; // si no se rinde ahora, quizá ya no lo haga
+    }
     // cámaras de vigilancia: dan la alarma a toda su facción
     if (def.alarm) {
       if (tgt && !(e.alarmT > 0)) {
@@ -320,6 +349,31 @@ export class AIPart {
       }
       const adj = cheb(e.x, e.y, tgt.x, tgt.y) <= 1;
       if (ws.wtype === 'melee') { if (adj) this.humanShoot(e, tgt, ws); else this.moveToward(e, tgt); return; }
+      // granadas: a media distancia, mejor si hay varios juntos y ningún amigo cerca
+      if (def.nade && !e.nadeUsed && td >= 2.5 && td <= 6 && this.los(e.x, e.y, tgt.x, tgt.y) && rng.chance(0.35)) {
+        const d = ITEMS[def.nade];
+        const r = d.blast || 1;
+        const friends = this.enemies.some((o) => o !== e && !this.hostile(e, o) && cheb(o.x, o.y, tgt.x, tgt.y) <= r);
+        const foes = this.combatants().filter((o) => this.hostile(e, o) && cheb(o.x, o.y, tgt.x, tgt.y) <= r).length;
+        if (!friends && (foes >= 2 || rng.chance(0.4))) {
+          e.nadeUsed = 1;
+          this.fx.push({ type: 'throw', x0: e.x, y0: e.y, x1: tgt.x, y1: tgt.y, glyph: '•' });
+          if (this.isVisible(e.x, e.y) || this.isVisible(tgt.x, tgt.y)) this.say(`💣 ¡${this.enm(e)} lanza ${d.name.toLowerCase().startsWith('carga') ? 'una carga de Semtex' : 'una granada'}!`, 'bad');
+          this.explode(tgt.x, tgt.y, r, d.dmg, e, d.fire || 0, 260, { noise: d.noise || 14 });
+          return;
+        }
+      }
+      // cobertura: si está al descubierto, busca una casilla a cubierto desde la que siga viendo al objetivo
+      if (def.cover && !adj && this.coverAgainst(tgt.x, tgt.y, e.x, e.y) === 0 && rng.chance(def.cover * 0.5)) {
+        let best = null, bc = 0;
+        for (const [dx, dy] of D8) {
+          const nx = e.x + dx, ny = e.y + dy;
+          if (!this.canEnemyStep(e, nx, ny)) continue;
+          const c = this.coverAgainst(tgt.x, tgt.y, nx, ny);
+          if (c > bc && this.los(nx, ny, tgt.x, tgt.y)) { bc = c; best = [nx, ny]; }
+        }
+        if (best) { this.enemyStepTo(e, best[0], best[1]); return; }
+      }
       if (td <= ws.range * 1.6) {
         // los tiradores prefieren mantener la distancia
         if (ws.scope && td < 3 && rng.chance(0.6) && this.stepAway(e, tgt)) return;
@@ -327,6 +381,14 @@ export class AIPart {
         return;
       }
       this.moveToward(e, tgt);
+      return;
+    }
+    // escolta: aliados que acompañan al escuadrón (bengala roja, «pedir ayuda»)
+    if (e.escort > 0 && this.cur) {
+      e.escort--;
+      if (!e.escort && this.isVisible(e.x, e.y)) this.say(`${this.enm(e)} se despide: «Hasta aquí llego, camaradas».`, 'dimt');
+      if (cheb(e.x, e.y, this.cur.x, this.cur.y) > 3) { if (!this.greedyStep(e, this.cur.x, this.cur.y)) this.randomStep(e); }
+      e.home = [e.x, e.y];
       return;
     }
     // sin objetivo: recuerda la última posición
@@ -340,6 +402,25 @@ export class AIPart {
     // vuelve cerca de su campamento y patrulla
     if (e.home && Math.hypot(e.home[0] - e.x, e.home[1] - e.y) > 10) { this.greedyStep(e, e.home[0], e.home[1]); return; }
     this.wander(e);
+  }
+  // un humano se rinde: deja de combatir y espera
+  surrender(e) {
+    e.surrendered = 1; e.state = 'errante'; e.mem = 0; e.escort = 0;
+    this.fx.push({ type: 'wake', x: e.x, y: e.y });
+    if (this.isVisible(e.x, e.y)) this.say(`🏳 ${this.enm(e)} tira el arma al suelo y levanta las manos: «¡Me rindo!» <span class="dimt">(F al lado para decidir qué hacer)</span>`, 'warn');
+    this.interrupt = true;
+    this.dirty = true;
+  }
+  // apuntar a un neutral (modo disparo): aviso y, si se insiste, hostilidad
+  aimAt(sq, e) {
+    if (!e || !HUMANS[e.type] || e.surrendered || this.hostile(sq, e)) return;
+    if (e.aimTurn === this.turn) return;
+    e.aimN = e.aimTurn != null && this.turn - e.aimTurn <= 8 ? (e.aimN || 0) + 1 : 1;
+    e.aimTurn = this.turn;
+    if (this.attitudeToSquad(e) === 'allied') return;
+    if (e.aimN === 1) this.say(`${this.enm(e)}: «¡Eh! ¡Baja el arma, camarada!»`, 'warn');
+    else if (e.aimN === 2) this.say(`${this.enm(e)} se lleva la mano al arma: «Última advertencia.»`, 'bad');
+    else { this.say(`${this.enm(e)} no espera más.`, 'bad'); this.provoke(actorFaction(e)); }
   }
   stepAway(e, t) {
     let best = null, bd = Math.hypot(t.x - e.x, t.y - e.y);

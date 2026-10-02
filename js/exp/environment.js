@@ -57,6 +57,7 @@ export class EnvironmentPart {
     this.terrainTick();
     if (this.ended) return;
     this.zoneTick();
+    this.factionTick();
     if (this.ended) return;
     // humo y detector
     for (let k = 0; k < N; k++) if (this.smoke[k]) this.smoke[k]--;

@@ -267,16 +267,20 @@ Se añade el concepto de **estrato**: *Superficie* (cielo abierto, día/noche, c
 | **La Congregación de la Ceniza** | — | Hostil | Culto que adora a los chebylitas; sus sacerdotes **controlan** chebylitas cercanos | Reliquias de esencia, lore |
 | **KGB, Directorio 9** | URSS | «Aliado» vigilante | No aparece en combate: exige informes, castiga la colaboración con extranjeros | Presupuesto, acceso a zonas, misiones secretas |
 
+- [x] Las 12 facciones (más chebylitas y el escuadrón), con 29 tipos de persona y patrullas propias.
+  - *Hecho:* `data/factions.js` (reputación inicial `rep0`, bloque, negociables, `squadAttitude`, actitudes entre facciones: Pacto contra OTAN, el culto contra todos salvo los chebylitas…), `data/humans.js` (`SQUADS`, `SQUAD_MIN_TIER`) y un `fpool` por zona en `data/world.js`: cada mapa tiene 0–2 patrullas de las facciones de su región (Metro-2 y «Presencia extranjera», varias). Avistarlas por primera vez lo comenta Topolev por radio.
+
 ### 18.2 Mecánicas de facción (L)
-- [ ] **Reputación** −100…+100 por facción, visible en la base (sala de radio). Umbrales: hostil / desconfiada / neutral / amistosa / aliada.
-- [ ] Neutrales que **se vuelven hostiles** si les disparas, si robas en sus alijos o si apuntas mucho tiempo a uno de ellos (aviso «¡Baja el arma, camarada!»).
-- [ ] Aliados que **combaten a tu lado** contra chebylitas y estadounidenses; se pueden llamar con una bengala roja.
-- [ ] **Combates entre terceros:** estadounidenses contra chebylitas, culto contra todos… El jugador puede esperar y rematar (y cosechar la esencia).
-- [ ] **IA humana:** cobertura, retirada con poca salud, rendición (capturar prisioneros: dilema moral y reputación), uso de granadas, alertar al resto con radio.
-- [ ] **Diálogos al encontrarse** (motor de la fase 13): intercambiar, compartir mapa, pedir ayuda, sobornar, amenazar, ignorar.
-- [ ] **Restos de expediciones** en todas las zonas: campamentos abandonados (tiendas `Λ`, hogueras `*`, radios), cadáveres con equipo extranjero, cajas OTAN, diarios en inglés/alemán/sueco (traducidos al leerlos).
-- [ ] **Equipo extranjero** (≈25 armas/objetos nuevos) con su propio tipo de munición (5,56 OTAN, 7,62 OTAN, .45 ACP, 9 mm Parabellum): escasa, solo de botín → dilema: ¿vale la pena usar un M16 sin repuestos?
-- [ ] Repercusión política: si el KGB descubre que comercias con suecos o finlandeses, baja el presupuesto o envía a un **comisario** a la base.
+- [x] **Reputación** −100…+100 por facción, visible en la base (sala de radio). Umbrales: hostil / desconfiada / neutral / amistosa / aliada.
+- [x] Neutrales que **se vuelven hostiles** si les disparas, si robas en sus alijos o si apuntas mucho tiempo a uno de ellos (aviso «¡Baja el arma, camarada!»).
+- [x] Aliados que **combaten a tu lado** contra chebylitas y estadounidenses; se pueden llamar con una bengala roja.
+- [x] **Combates entre terceros:** estadounidenses contra chebylitas, culto contra todos… El jugador puede esperar y rematar (y cosechar la esencia).
+- [x] **IA humana:** cobertura, retirada con poca salud, rendición (capturar prisioneros: dilema moral y reputación), uso de granadas, alertar al resto con radio.
+- [x] **Diálogos al encontrarse** (motor de la fase 13): intercambiar, compartir mapa, pedir ayuda, sobornar, amenazar, ignorar.
+- [x] **Restos de expediciones** en todas las zonas: campamentos abandonados (tiendas `Λ`, hogueras `*`, radios), cadáveres con equipo extranjero, cajas OTAN, diarios en inglés/alemán/sueco (traducidos al leerlos).
+- [x] **Equipo extranjero** (≈25 armas/objetos nuevos) con su propio tipo de munición (5,56 OTAN, 7,62 OTAN, .45 ACP, 9 mm Parabellum): escasa, solo de botín → dilema: ¿vale la pena usar un M16 sin repuestos?
+- [x] Repercusión política: si el KGB descubre que comercias con suecos o finlandeses, baja el presupuesto o envía a un **comisario** a la base.
+  - *Hecho:* reputación absoluta con umbrales (hostil/desconfiada/neutral/amistosa/aliada) y migración de partidas antiguas; pestaña **RADIO** en la base con cada facción, su postura y lo que ofrece. Neutrales hostiles si les disparas, si abres sus suministros (`owner`) delante de ellos o si les apuntas tres veces («¡Baja el arma, camarada!»). Bengala roja: los aliados escoltan al escuadrón y, con reputación ≥ 25, llega una patrulla de la RDA/Cuba/Checoslovaquia. IA humana (`exp/ai.js`): cobertura, retirada, granadas, aviso por radio, rendición (⚑) y sacerdotes que azuzan chebylitas. Prisioneros (`exp/factions.js`): dejar ir, interrogar, requisar, entregar al KGB (150 ₽), reclutar (Comisario) o ejecutar. Encuentros (`encounter`): comerciar con existencias propias de cada facción, compartir mapas, pedir ayuda, tratamiento cubano, lecturas suecas, sobornar o amenazar a merodeadores y desertores. Campamentos abandonados con tiendas, hoguera, radio ☏ (localiza a las patrullas), cajas OTAN y 10 diarios en inglés, alemán, sueco, finés, checo y serbocroata traducidos al leerlos. 31 objetos extranjeros: 14 armas (MPi-KM, vz. 58, Škorpion, M70, Rk 62, m/45, ČZ 75, L9A1, Sterling, MP5, SA80, M16A2, M60, L42A1), munición de 9 mm Parabellum y 16 objetos (visor nocturno, PASGT, abrigo M/62, Semtex, Claymore, bengala roja, botiquín «Playa Girón», reliquias…). KGB: paga informes, documentos y diarios; cada trato con extranjeros le resta confianza; por debajo de −25 manda al comisario Orlov; por encima de 50, envía fondos. Pruebas: sección de la fase 18 de `tests/systems.cjs`.
 
 ---
 
