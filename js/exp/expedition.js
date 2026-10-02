@@ -15,6 +15,9 @@ import { esc } from '../util/dom.js';
 import { RADIO } from '../data/lore.js';
 
 import { D8, FISTS, BLOCKING_OBJ, ORDERS, ESSENCE_COLOR } from './shared.js';
+import { ACTORS, actorDef, actorColor, actorFaction, isHuman } from '../data/actors.js';
+import { HUMANS, scaleHuman } from '../data/humans.js';
+import { FACTIONS, baseAttitude, ATTITUDE_TEXT } from '../data/factions.js';
 import { CombatPart } from './combat.js';
 import { UsePart } from './use.js';
 import { ExtractionPart } from './extraction.js';
@@ -111,7 +114,7 @@ export class Expedition {
       mapIdx: this.mapIdx, seed: this.seed, w: this.w, h: this.h, t: b64(this.t), sec: b64(this.sec), explored: b64(this.explored),
       sectors: this.sectors, exits: this.exits, pois: this.pois, objects: this.objects, vents: this.vents, start: this.start,
       rad: sparse(this.rad, 100), anomaly: an, gas: sparse(this.gas), fire: sparse(this.fire), smoke: sparse(this.smoke),
-      traps: this.traps, sense: this.sense, senseR: this.senseR,
+      traps: this.traps, sense: this.sense, senseR: this.senseR, relations: this.relations || {},
       floorItems: [...this.floorItems.entries()], essence: [...this.essence.entries()],
       turn: this.turn, log: this.log.slice(-60), evac: this.evac, pending: this.pending, flares: this.flares, tally: this.tally,
       surgeAt: this.surgeAt, nextTemp: this.nextTemp, nextRadio: this.nextRadio, active: this.active,
@@ -227,15 +230,59 @@ export class Expedition {
   weapon(sq) { return sq.a.equip[sq.cur] || null; }
   weaponStats(sq) { const w = this.weapon(sq); return w ? itemStats(w) : FISTS; }
 
-  spawnEnemy(type, lvl, x, y, state = 'alerta', poi = null) {
-    const def = ENEMIES[type];
-    const st = scaleEnemy(def, lvl);
-    const e = { uid: uid('e'), type, lvl, x, y, hp: st.hp, hpMax: st.hp, energy: rng.int(0, 99), state, mem: state === 'alerta' ? 15 : 0, poi, cd: 0, cd2: 0, poison: 0, burn: 0, seen: 0, kids: 0 };
+  // Actores no jugadores: chebylitas y personas de otras expediciones (lista this.enemies)
+  spawnEnemy(type, lvl, x, y, state = 'alerta', poi = null, faction = null) {
+    const def = ACTORS[type];
+    const human = !!HUMANS[type];
+    const st = human ? scaleHuman(def, lvl) : scaleEnemy(def, lvl);
+    const e = { uid: uid('e'), type, lvl, x, y, hp: st.hp, hpMax: st.hp, energy: rng.int(0, 99), state, mem: state === 'alerta' ? 15 : 0, poi, cd: 0, cd2: 0, poison: 0, burn: 0, seen: 0, kids: 0, faction: faction || def.faction || 'chebylitas' };
+    if (human) {
+      e.w = createItem(def.weapon, rng.chance(0.25) ? 1 : 0, rng);
+      e.ld = itemStats(e.w).mag || 0;
+      e.home = [x, y];
+      if (state === 'dormido') e.state = 'errante';
+    }
     this.enemies.push(e);
     if (this.occ) this.occ.set(this.key(x, y), e);
     return e;
   }
-  est(e) { if (!e._st || e._st.l !== e.lvl) e._st = { l: e.lvl, ...scaleEnemy(ENEMIES[e.type], e.lvl) }; return e._st; }
+  est(e) {
+    if (!e._st || e._st.l !== e.lvl) {
+      const def = ACTORS[e.type];
+      e._st = { l: e.lvl, ...(HUMANS[e.type] ? scaleHuman(def, e.lvl) : scaleEnemy(def, e.lvl)) };
+      if (HUMANS[e.type] && e.w) e._st.dmg = itemStats(e.w).dmg;
+    }
+    return e._st;
+  }
+  adef(e) { return ACTORS[e.type]; }
+
+  // ---------------------------------------------------------------- facciones
+  isSquad(x) { return !!(x && x.a && !x.type); }
+  factionOf(x) { return this.isSquad(x) ? 'squad' : actorFaction(x); }
+  attitude(fa, fb) {
+    if (fa === fb) return 'allied';
+    const k = fa < fb ? fa + '|' + fb : fb + '|' + fa;
+    if (this.relations && this.relations[k]) return this.relations[k];
+    return baseAttitude(fa, fb);
+  }
+  hostile(x, y) { return this.attitude(this.factionOf(x), this.factionOf(y)) === 'hostile'; }
+  attitudeToSquad(e) { return this.attitude('squad', this.factionOf(e)); }
+  // el escuadrón ataca a una facción no hostil: pasa a ser hostil durante la expedición
+  provoke(faction) {
+    if (faction === 'chebylitas' || this.attitude('squad', faction) === 'hostile') return;
+    this.relations = this.relations || {};
+    const k = 'squad' < faction ? 'squad|' + faction : faction + '|squad';
+    this.relations[k] = 'hostile';
+    S.rep = S.rep || {};
+    S.rep[faction] = (S.rep[faction] || 0) - 25;
+    for (const o of this.enemies) if (actorFaction(o) === faction) { o.state = 'alerta'; o.mem = 15; }
+    this.say(`⚠ Has atacado a ${FACTIONS[faction].name} (${FACTIONS[faction].short}). Ahora son <b class="bad">hostiles</b>.`, 'bad');
+    this.fx.push({ type: 'alert' });
+  }
+  // participantes de combate: agentes en el mapa + actores
+  combatants() { return [...this.team, ...this.enemies]; }
+  // ¿x puede ver a y? (distancia y línea de visión)
+  sees(x, y, range) { return Math.hypot(x.x - y.x, x.y - y.y) <= range && this.los(x.x, x.y, y.x, y.y); }
 
   // ---------------------------------------------------------------- visibilidad
   computeVisibility(silent = false) {
@@ -257,16 +304,20 @@ export class Expedition {
     const fresh = [];
     for (const e of this.enemies) {
       if (vis[this.key(e.x, e.y)]) {
-        if (!e.seen) { e.seen = 1; fresh.push(e); seeEnemy(e.type); }
+        if (!e.seen) { e.seen = 1; fresh.push(e); if (ENEMIES[e.type]) seeEnemy(e.type); }
       }
     }
     if (fresh.length && !silent) {
-      const groups = {};
-      for (const e of fresh) { const k = e.type + '|' + e.lvl; groups[k] = (groups[k] || 0) + 1; }
-      const txt = Object.entries(groups).map(([k, n]) => { const [tp, l] = k.split('|'); return `<span style="color:${enemyColor(ENEMIES[tp].hue, +l)}">${n > 1 ? n + '× ' : ''}${ENEMIES[tp].name} Nv ${l}</span>`; }).join(', ');
-      this.say(`¡Contacto! ${txt}`, 'warn');
-      this.interrupt = true;
-      this.fx.push({ type: 'alert' });
+      for (const att of ['hostile', 'neutral', 'allied']) {
+        const list = fresh.filter((e) => this.attitudeToSquad(e) === att);
+        if (!list.length) continue;
+        const groups = {};
+        for (const e of list) { const k = e.type + '|' + e.lvl + '|' + actorFaction(e); groups[k] = (groups[k] || 0) + 1; }
+        const txt = Object.entries(groups).map(([k, n]) => { const [tp, l, f] = k.split('|'); return `<span style="color:${actorColor({ type: tp, lvl: +l, faction: f })}">${n > 1 ? n + '× ' : ''}${ACTORS[tp].name} Nv ${l}</span>`; }).join(', ');
+        if (att === 'hostile') { this.say(`¡Contacto! ${txt}`, 'warn'); this.interrupt = true; this.fx.push({ type: 'alert' }); }
+        else if (att === 'neutral') { this.say(`Avistas a ${txt} <span class="warn">(neutral)</span>.`, 'o1'); this.interrupt = true; }
+        else this.say(`Aliados a la vista: ${txt}.`, 'good');
+      }
     }
     this.dirty = true;
     return fresh;
@@ -292,7 +343,20 @@ export class Expedition {
   tryMove(sq, nx, ny, bump) {
     if (!this.inb(nx, ny)) return false;
     const ent = this.entityAt(nx, ny);
-    if (ent && ent.type) { return this.attack(sq, ent); }
+    if (ent && ent.type) {
+      if (this.hostile(sq, ent)) return this.attack(sq, ent);
+      if (!bump) return false;
+      if (this.attitudeToSquad(ent) === 'allied') {
+        // intercambiar posición con un aliado
+        this.occ.delete(this.key(sq.x, sq.y)); this.occ.delete(this.key(ent.x, ent.y));
+        [sq.x, ent.x] = [ent.x, sq.x]; [sq.y, ent.y] = [ent.y, sq.y];
+        this.occ.set(this.key(sq.x, sq.y), sq); this.occ.set(this.key(ent.x, ent.y), ent);
+        sq.lastMove = this.turn;
+        return true;
+      }
+      if (sq === this.cur) this.say(`${this.enm(ent)} te bloquea el paso. (Para atacar a un neutral, apunta con <b>T</b>.)`, 'dimt');
+      return false;
+    }
     if (ent && ent.id) {
       if (!bump) return false;
       // intercambiar posición con un compañero
@@ -387,7 +451,7 @@ export class Expedition {
     for (const e of [...this.enemies]) {
       if (e.hp <= 0) continue;
       if (e.stun > 0) { e.stun--; e.energy = 0; continue; }
-      e.energy += ENEMIES[e.type].speed;
+      e.energy += ACTORS[e.type].speed;
       while (e.energy >= 100 && e.hp > 0 && !this.ended) {
         e.energy -= 100;
         this.enemyAct(e);

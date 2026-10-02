@@ -62,10 +62,11 @@ Hoy existen dos tipos de actor: agentes (`squad`) y chebylitas (`enemies`). Hace
   faction: 'chebylitas'|'squad'|'rda'|'usa'|…, def: 'lobo'|'npc_nva_rifleman'|'laika_m'…,
   x, y, hp, hpMax, lvl, stats, equip?, bag?, ai: { mode, target, memory, orders }, status: { stun, poison, burn, buffs } }
 ```
-- [ ] Tabla de **actitudes entre facciones** (`data/factions.js`): `hostile | neutral | allied` dinámica (cambia con la reputación y con lo que pase en la partida).
-- [ ] Selección de objetivos generalizada: cualquier actor ataca a cualquier otro hostil (los chebylitas atacan también a los americanos; los aliados de la RDA disparan a los chebylitas).
-- [ ] Los humanos usan **armas reales del catálogo** (`ITEMS`) con su munición, y sueltan su equipo al morir.
-- [ ] Migrar `enemies` y los compañeros de escuadrón al nuevo sistema sin cambiar el comportamiento actual.
+- [x] Tabla de **actitudes entre facciones** (`data/factions.js`): `hostile | neutral | allied` dinámica (cambia con la reputación y con lo que pase en la partida).
+- [x] Selección de objetivos generalizada: cualquier actor ataca a cualquier otro hostil (los chebylitas atacan también a los americanos; los aliados de la RDA disparan a los chebylitas).
+- [x] Los humanos usan **armas reales del catálogo** (`ITEMS`) con su munición, y sueltan su equipo al morir.
+- [x] Migrar `enemies` y los compañeros de escuadrón al nuevo sistema sin cambiar el comportamiento actual.
+  - *Hecho:* registro común `ACTORS` (`data/actors.js` = chebylitas + humanos de `data/humans.js`), facción por actor, `relations` serializadas, `provoke()` al atacar a neutrales/aliados (−25 de reputación). Los humanos aún **no aparecen** en los mapas normales (llegan en la fase 18); se generan desde la consola de depuración (13.5).
 
 ### 13.3 Motor de eventos y diálogos (M)
 - [ ] `data/events.js`: eventos con **disparador** (entrar en zona, ver facción, turno N, objeto recogido, agente herido, día X en la base), **condiciones** (flags, reputación, relaciones) y **efectos** (dar objeto, cambiar reputación, abrir diálogo, generar actores, marcar flag).

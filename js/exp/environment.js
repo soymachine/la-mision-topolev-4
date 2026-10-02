@@ -14,6 +14,7 @@ import { S, seeEnemy, killEnemy as bestiaryKill } from '../core/state.js';
 import { esc } from '../util/dom.js';
 import { RADIO } from '../data/lore.js';
 import { D8, FISTS, BLOCKING_OBJ, ESSENCE_COLOR } from './shared.js';
+import { ACTORS } from '../data/actors.js';
 
 export class EnvironmentPart {
   // ---------------------------------------------------------------- entorno
@@ -70,7 +71,7 @@ export class EnvironmentPart {
       let r = this.rad[k] + this.ambient + surge * 0.45;
       const tt = this.t[k];
       if ((tt === T.WATER || tt === T.DEEP) && this.flag(sq, 'waterproof')) r = Math.max(0, r - 0.5 - this.def.ambientRad * 0.5);
-      for (const e of this.enemies) if (ENEMIES[e.type].abil.includes('aura') && cheb(e.x, e.y, sq.x, sq.y) <= 2) r += 3 + e.lvl * 0.4;
+      for (const e of this.enemies) if (ACTORS[e.type].abil.includes('aura') && cheb(e.x, e.y, sq.x, sq.y) <= 2) r += 3 + e.lvl * 0.4;
       for (const it of a.bag) if (ITEMS[it.b].radioactive) r += 0.6;
       a.rad = Math.min(150, a.rad + r * (1 - st.rad / 100));
       if (a.rad >= 100) this.damageAgent(sq, 1, 'envenenamiento por radiación');
@@ -109,9 +110,9 @@ export class EnvironmentPart {
     // enemigos
     for (const e of [...this.enemies]) {
       const k = this.key(e.x, e.y);
-      const def = ENEMIES[e.type];
+      const def = ACTORS[e.type];
       if (this.fire[k]) e.burn = Math.max(e.burn, 2);
-      if (this.gas[k] && def.origin !== 'Hongo' && def.origin !== 'Planta' && def.origin !== 'Mineral') this.damageEnemy(e, Math.max(1, Math.floor(this.gas[k] / 3)), null);
+      if (this.gas[k] && !def.gasImmune && def.origin !== 'Hongo' && def.origin !== 'Planta' && def.origin !== 'Mineral') this.damageEnemy(e, Math.max(1, Math.floor(this.gas[k] / 3)), null);
       if (e.hp > 0 && this.anomaly[k] && rng.chance(0.4)) { this.fx.push({ type: 'zap', x: e.x, y: e.y }); this.damageEnemy(e, rng.int(4, 9), null); }
       if (e.hp > 0 && e.burn > 0) { e.burn--; this.damageEnemy(e, rng.int(2, 4), null); }
     }

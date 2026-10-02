@@ -14,6 +14,7 @@ import { S, seeEnemy, killEnemy as bestiaryKill } from '../core/state.js';
 import { esc } from '../util/dom.js';
 import { RADIO } from '../data/lore.js';
 import { D8, FISTS, BLOCKING_OBJ, ESSENCE_COLOR } from './shared.js';
+import { ACTORS } from '../data/actors.js';
 
 export class UsePart {
   // ---------------------------------------------------------------- objetos e interacción
@@ -282,7 +283,7 @@ export class UsePart {
     if (d.lure) {
       if (d.light) this.flares.push({ x: tx, y: ty, t: 20 });
       let n = 0;
-      for (const e of this.enemies) if (Math.hypot(e.x - tx, e.y - ty) <= d.lure && !ENEMIES[e.type].abil.includes('stationary')) { e.lure = { x: tx, y: ty, t: 10 }; if (e.state === 'dormido') e.state = 'errante'; n++; }
+      for (const e of this.enemies) if (Math.hypot(e.x - tx, e.y - ty) <= d.lure && !ACTORS[e.type].abil.includes('stationary')) { e.lure = { x: tx, y: ty, t: 10 }; if (e.state === 'dormido') e.state = 'errante'; n++; }
       this.say(`${this.nm(sq)} lanza ${d.name}. ${n ? 'Algo se mueve hacia allí...' : 'Nada parece reaccionar.'}`, 'o1');
       if (d.light) { this.fx.push({ type: 'flare', x: tx, y: ty, delay: 250 }); this.computeVisibility(); }
       return true;
@@ -304,7 +305,7 @@ export class UsePart {
     }
     if (d.stun) {
       let n = 0;
-      for (const e of this.enemies) if (Math.hypot(e.x - tx, e.y - ty) <= d.blast + 0.5 && this.los(tx, ty, e.x, e.y)) { e.stun = Math.max(e.stun || 0, ENEMIES[e.type].boss ? 1 : d.stun); if (e.state === 'dormido') e.state = 'alerta'; e.mem = 15; n++; }
+      for (const e of this.enemies) if (Math.hypot(e.x - tx, e.y - ty) <= d.blast + 0.5 && this.los(tx, ty, e.x, e.y)) { e.stun = Math.max(e.stun || 0, ACTORS[e.type].boss ? 1 : d.stun); if (e.state === 'dormido') e.state = 'alerta'; e.mem = 15; n++; }
       this.say(`${this.nm(sq)} lanza ${d.name}: ${n} chebylita(s) aturdido(s).`, 'o1');
       this.fx.push({ type: 'flash', x: tx, y: ty, r: d.blast, delay: 250 });
       this.noise(tx, ty, 12);

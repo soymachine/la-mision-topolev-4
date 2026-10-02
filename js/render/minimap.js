@@ -1,6 +1,7 @@
 // Minimapa / radar y mapa completo
 import { TILES, T } from '../data/tiles.js';
 import { ENEMIES, enemyColor } from '../data/enemies.js';
+import { actorColor } from '../data/actors.js';
 import { rarityColor } from '../core/items.js';
 import { FONT } from './ascii.js';
 
@@ -134,7 +135,7 @@ export class Minimap {
       const sensed = e.sense > 0 && e.team.some((q) => Math.hypot(q.x - en.x, q.y - en.y) <= e.senseR);
       if (!vis && !sensed && !(opts.radar >= 3 && en.state === 'errante')) continue;
       const [x, y] = P(en.x, en.y);
-      ctx.fillStyle = enemyColor(ENEMIES[en.type].hue, en.lvl);
+      ctx.fillStyle = actorColor(en);
       ctx.globalAlpha = vis ? 1 : 0.45 + 0.2 * Math.sin(T_ * 4);
       const r = Math.max(1.5, s * 0.6);
       ctx.fillRect(x - r, y - r, r * 2, r * 2);

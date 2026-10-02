@@ -4,6 +4,8 @@ import { MapRenderer, OBJ_NAME } from '../render/ascii.js';
 import { Minimap } from '../render/minimap.js';
 import { TILES, T } from '../data/tiles.js';
 import { ENEMIES, enemyColor, ABIL_TEXT } from '../data/enemies.js';
+import { ACTORS, actorColor, actorFaction, isHuman } from '../data/actors.js';
+import { FACTIONS, ATTITUDE_TEXT, ATTITUDE_CLASS } from '../data/factions.js';
 import { ITEMS, AMMO_NAMES } from '../data/items.js';
 import { itemName, itemStats, itemTooltip, itemHTML, rarityColor, mergeInto, sortItems } from '../core/items.js';
 import { agentStats, agentName, EQUIP_SLOTS, canEquip, bagCapacity, traitOf } from '../core/agents.js';
@@ -490,7 +492,7 @@ export class ExpeditionUI {
   visibleEnemies() {
     const e = this.exp;
     const c = e.cur;
-    return e.enemies.filter((en) => e.isVisible(en.x, en.y)).sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y));
+    return e.enemies.filter((en) => e.isVisible(en.x, en.y) && e.hostile(c, en)).sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y));
   }
   enterFire() {
     const list = this.visibleEnemies();
@@ -540,12 +542,20 @@ export class ExpeditionUI {
     }
     const en = e.enemyAt(x, y);
     if (!en || !e.isVisible(x, y)) { e.say('No hay objetivo ahí.', 'dimt'); return; }
+    if (!e.hostile(e.cur, en)) { this.confirmAttack(en); return; }
     e.act((sq) => e.attack(sq, en));
     if (this.mode) {
       const list = this.visibleEnemies();
       if (!list.length) this.cancelMode();
       else { this.mode.list = list; if (!list.includes(en)) { this.mode.i = 0; this.mode.cx = list[0].x; this.mode.cy = list[0].y; } this.updateTargetOverlay(); }
     }
+  }
+  async confirmAttack(en) {
+    const e = this.exp;
+    const fac = FACTIONS[actorFaction(en)];
+    const att = e.attitudeToSquad(en);
+    const ok = await confirmBox('¿ABRIR FUEGO?', `<b style="color:${fac.color}">${esc(ACTORS[en.type].name)}</b> pertenece a <b>${esc(fac.name)}</b> (${esc(fac.country)}), que es <span class="${ATTITUDE_CLASS[att]}">${ATTITUDE_TEXT[att]}</span>.<br><br>Si le atacas, toda su facción se volverá <b class="bad">hostil</b> durante esta expedición y tu reputación con ella bajará.`, 'ABRIR FUEGO', 'NO', true);
+    if (ok && !e.ended) { if (e.canShoot(e.cur, en) === 'ok') e.act((sq) => e.attack(sq, en)); else e.attack(e.cur, en); }
   }
   updateTargetOverlay() {
     const m = this.mode;
@@ -616,6 +626,11 @@ export class ExpeditionUI {
     if (this.mode) { this.fireAt(x, y); return; }
     const c = e.cur;
     const en = e.enemyAt(x, y);
+    if (en && e.isVisible(x, y) && !e.hostile(c, en)) {
+      if (e.attitudeToSquad(en) === 'allied') this.startTravel(x, y, true);
+      else this.confirmAttack(en);
+      return;
+    }
     if (en && e.isVisible(x, y)) {
       const r = e.canShoot(c, en);
       if (r === 'ok') { if (this.canAct()) e.act((sq) => e.attack(sq, en)); return; }
@@ -678,14 +693,19 @@ export class ExpeditionUI {
     const parts = [];
     const en = vis ? e.enemyAt(x, y) : null;
     if (en) {
-      const def = ENEMIES[en.type];
-      const col = enemyColor(def.hue, en.lvl);
+      const def = ACTORS[en.type];
+      const col = actorColor(en);
       const es = e.est(en);
+      const att = e.attitudeToSquad(en);
+      const human = isHuman(en);
+      const fac = FACTIONS[actorFaction(en)];
       parts.push(`<div class="tt-title" style="color:${col}">${def.glyph} ${def.name}${def.boss ? ' ☠' : ''}</div>`);
-      parts.push(`<div class="tt-sub">Nivel <b style="color:${col}">${en.lvl}</b> · ${def.origin} · <span class="${en.state === 'alerta' ? 'bad' : 'dimt'}">${en.stun > 0 ? `aturdido (${en.stun})` : STATE_TXT[en.state]}</span></div>`);
+      parts.push(`<div class="tt-sub">Nivel <b style="color:${col}">${en.lvl}</b> · ${human ? `<span style="color:${fac.color}">${esc(fac.short)}</span>` : def.origin} · <span class="${ATTITUDE_CLASS[att]}">${ATTITUDE_TEXT[att]}</span> · <span class="${en.state === 'alerta' ? 'bad' : 'dimt'}">${en.stun > 0 ? `aturdido (${en.stun})` : STATE_TXT[en.state]}</span></div>`);
       parts.push(`<div class="tt-row"><span>Salud</span><span>${hpBar(en.hp, en.hpMax, 12)} ${en.hp}/${en.hpMax}</span></div>`);
-      parts.push(`<div class="tt-row"><span class="dimt">Daño</span><span>${es.dmg[0]}–${es.dmg[1]}</span></div><div class="tt-row"><span class="dimt">Blindaje</span><span>${es.armor}</span></div><div class="tt-row"><span class="dimt">Esquiva</span><span>${es.ev}</span></div>`);
+      if (human) parts.push(`<div class="tt-row"><span class="dimt">Arma</span><span style="color:${en.w ? rarityColor(en.w.r) : ''}">${en.w ? esc(itemName(en.w)) : 'ninguna'}</span></div><div class="tt-row"><span class="dimt">Protección</span><span>${es.armor}</span></div><div class="tt-row"><span class="dimt">Esquiva</span><span>${es.ev}</span></div><div class="tt-lore">${esc(def.lore || '')}</div>`);
+      else parts.push(`<div class="tt-row"><span class="dimt">Daño</span><span>${es.dmg[0]}–${es.dmg[1]}</span></div><div class="tt-row"><span class="dimt">Blindaje</span><span>${es.armor}</span></div><div class="tt-row"><span class="dimt">Esquiva</span><span>${es.ev}</span></div>`);
       if (def.abil.length) parts.push(`<div class="tt-aff">◆ ${def.abil.map((a) => ABIL_TEXT[a]).join(' · ')}</div>`);
+      if (att !== 'hostile') parts.push(`<div class="dimt">${att === 'allied' ? 'Aliado: choca con él para intercambiar posiciones.' : 'Neutral: no te atacará si no le atacas.'} Atacarle lo volverá hostil.</div>`);
       const c = e.cur;
       if (c) {
         const r = e.canShoot(c, en);

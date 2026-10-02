@@ -14,6 +14,8 @@ import { S, seeEnemy, killEnemy as bestiaryKill } from '../core/state.js';
 import { esc } from '../util/dom.js';
 import { RADIO } from '../data/lore.js';
 import { D8, FISTS, BLOCKING_OBJ, ESSENCE_COLOR } from './shared.js';
+import { ACTORS, actorColor, actorFaction, isHuman } from '../data/actors.js';
+import { HUMANS } from '../data/humans.js';
 
 export class CombatPart {
   // ---------------------------------------------------------------- combate
@@ -51,6 +53,7 @@ export class CombatPart {
       }
       return false;
     }
+    if (!this.hostile(sq, e)) this.provoke(actorFaction(e));
     const w = this.weapon(sq);
     let ws = this.weaponStats(sq);
     const real = ws;
@@ -187,10 +190,12 @@ export class CombatPart {
     this.fire[k] = Math.max(this.fire[k], n);
   }
 
-  enm(e) { return `<span style="color:${enemyColor(ENEMIES[e.type].hue, e.lvl)}">${ENEMIES[e.type].name}</span>`; }
+  enm(e) { return `<span style="color:${actorColor(e)}">${ACTORS[e.type].name}</span>`; }
 
   damageEnemy(e, dmg, src, crit = false, delay = 0) {
     if (e.hp <= 0) return;
+    if (src && this.isSquad(src) && !this.hostile(src, e)) this.provoke(actorFaction(e));
+    if (src && src.type && src !== e) { e.lastAttacker = src.uid; }
     e.hp -= dmg;
     this.tally.dmgDealt += dmg;
     this.fx.push({ type: 'dmg', x: e.x, y: e.y, n: dmg, crit, delay, color: crit ? '#ffffff' : '#ffd23f' });
@@ -200,30 +205,39 @@ export class CombatPart {
   }
 
   killEnemy(e, src, delay = 0) {
-    const def = ENEMIES[e.type];
+    const def = ACTORS[e.type];
+    const human = !!HUMANS[e.type];
     const es = this.est(e);
     e.hp = 0;
     const ei = this.enemies.indexOf(e);
     if (ei < 0) return;
     this.enemies.splice(ei, 1);
     if (this.occ.get(this.key(e.x, e.y)) === e) this.occ.delete(this.key(e.x, e.y));
-    this.fx.push({ type: 'kill', x: e.x, y: e.y, glyph: def.glyph, color: enemyColor(def.hue, e.lvl), delay, boss: !!def.boss });
+    this.fx.push({ type: 'kill', x: e.x, y: e.y, glyph: def.glyph, color: actorColor(e), delay, boss: !!def.boss });
+    // personas: sueltan su arma, algo de munición y lo que llevaran
+    if (human) {
+      if (e.w) { e.w.ld = Math.max(0, Math.min(e.ld || 0, itemStats(e.w).mag || 0)); this.addFloor(e.x, e.y, e.w); }
+      const ws = e.w ? itemStats(e.w) : null;
+      if (ws && ws.ammo && rng.chance(0.7)) this.addFloor(e.x, e.y, createItem(ws.ammo, 0, rng, Math.max(4, Math.round((ITEMS[ws.ammo].pack || 10) * rng.float(0.3, 0.8)))));
+      for (const b of def.loot || []) if (rng.chance(0.35)) this.addFloor(e.x, e.y, createItem(b, 0, rng, ITEMS[b].stack > 1 ? (ITEMS[b].cat === 'ammo' ? Math.round(ITEMS[b].pack * 0.6) : 1) : undefined));
+      if (rng.chance(0.15 + e.lvl * 0.02)) this.addFloor(e.x, e.y, rollLoot(e.lvl, rng, { rarityBonus: 0.3 }));
+    }
     // esencia
-    let ess = rng.int(es.ess[0], es.ess[1]);
+    let ess = human ? 0 : rng.int(es.ess[0], es.ess[1]);
     if (e.spawned) ess = Math.ceil(ess * 0.3);
     if (this._essBoost) ess = Math.round(ess * (1 + this._essBoost / 100));
     const k = this.key(e.x, e.y);
-    this.essence.set(k, (this.essence.get(k) || 0) + ess);
+    if (ess > 0) this.essence.set(k, (this.essence.get(k) || 0) + ess);
     // botín
-    const dropChance = def.boss ? 1 : 0.08 + e.lvl * 0.012;
+    const dropChance = human ? 0 : def.boss ? 1 : 0.08 + e.lvl * 0.012;
     if (rng.chance(dropChance)) {
       const n = def.boss ? 2 + rng.int(0, 1) : 1;
       for (let i = 0; i < n; i++) this.addFloor(e.x, e.y, rollLoot(e.lvl, rng, { rarityBonus: def.boss ? 0.8 : 0 }));
     }
     if (def.boss) this.addFloor(e.x, e.y, createItem('crystal', rng.int(2, 4), rng));
-    this.tally.kills++;
-    S.stats.kills++;
-    bestiaryKill(e.type);
+    const bySquad = !src || this.isSquad(src);
+    if (bySquad) { this.tally.kills++; S.stats.kills++; }
+    if (!human && bySquad) bestiaryKill(e.type);
     if (src && src.id && this.inMap(src)) {
       const kh = this.flag(src, 'killHeal');
       if (kh) { const st = this.ast(src); src.a.hp = Math.min(st.hpMaxEff, src.a.hp + kh); this.fx.push({ type: 'heal', x: src.x, y: src.y }); }
@@ -237,7 +251,8 @@ export class CombatPart {
       const ups = giveXp(src.a, es.xp);
       if (ups) { this.say(`★ ${this.nm(src)} sube a nivel ${src.a.lvl}.`, 'good'); this.fx.push({ type: 'levelup', x: src.x, y: src.y }); }
     }
-    this.say(`${src && src.id ? this.nm(src) + ' elimina' : 'Muere'} ${this.enm(e)} (Nv ${e.lvl}).`, def.boss ? 'warn' : '');
+    if (src && src.type) { if (this.isVisible(e.x, e.y)) this.say(`${this.enm(src)} abate a ${this.enm(e)} (Nv ${e.lvl}).`, 'dimt'); }
+    else this.say(`${src && src.id ? this.nm(src) + ' elimina' : 'Muere'} ${this.enm(e)} (Nv ${e.lvl}).`, def.boss ? 'warn' : '');
     if (def.boss) this.say(`☠ ¡${def.name} ha caído! Su esencia brilla en el suelo.`, 'warn');
     // nido despejado
     if (e.poi != null && this.pois[e.poi] && this.pois[e.poi].type === 'nest') {
@@ -330,6 +345,6 @@ export class CombatPart {
     if (this.isVisible(e.x, e.y)) this.say(`¡${this.enm(e)} pisa ${ITEMS[t.b].name}!`, 'o1');
     if (t.blast) this.explode(e.x, e.y, t.blast, t.dmg, null, 0, 0);
     else { this.fx.push({ type: 'slash', x0: e.x, y0: e.y, x1: e.x, y1: e.y }); this.damageEnemy(e, rng.int(t.dmg[0], t.dmg[1]), null); }
-    if (t.stun && e.hp > 0) e.stun = Math.max(e.stun || 0, ENEMIES[e.type].boss ? 1 : t.stun);
+    if (t.stun && e.hp > 0) e.stun = Math.max(e.stun || 0, ACTORS[e.type].boss ? 1 : t.stun);
   }
 }

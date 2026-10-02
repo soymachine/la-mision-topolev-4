@@ -1,6 +1,8 @@
 // Renderer ASCII en canvas: capa estática cacheada (terreno) + capa dinámica (entidades, efectos)
 import { TILES, T } from '../data/tiles.js';
 import { ENEMIES, enemyColor } from '../data/enemies.js';
+import { ACTORS, actorColor, actorFaction, isHuman } from '../data/actors.js';
+import { FACTIONS } from '../data/factions.js';
 import { hexToRgb, rng, clamp } from '../util/rng.js';
 import { Particles } from './particles.js';
 import { rarityColor, itemGlyph } from '../core/items.js';
@@ -462,9 +464,9 @@ export class MapRenderer {
         if (e.visible[en.y * e.w + en.x]) continue;
         if (!e.team.some((q) => Math.hypot(q.x - en.x, q.y - en.y) <= e.senseR)) continue;
         if (en.x < x0 || en.x > x1 || en.y < y0 || en.y > y1) continue;
-        const def = ENEMIES[en.type];
+        const def = ACTORS[en.type];
         ctx.globalAlpha = 0.35 + 0.2 * Math.sin(T_ * 4 + en.x);
-        glyph(en.x, en.y, def.glyph, enemyColor(def.hue, en.lvl), null, 1, true);
+        glyph(en.x, en.y, def.glyph, actorColor(en), null, 1, true);
         ctx.globalAlpha = 1;
       }
     }
@@ -473,17 +475,26 @@ export class MapRenderer {
     for (const en of e.enemies) {
       const k = en.y * e.w + en.x;
       if (!e.visible[k]) { this.pos.delete(en.uid); continue; }
-      const def = ENEMIES[en.type];
+      const def = ACTORS[en.type];
       const p = this.rpos(en.uid, en.x, en.y, dt);
       let rx = p.x, ry = p.y;
       if (lunge) {
         const l = lunge.get(en.x + ',' + en.y);
         if (l) { const t = (now - l.t) / 160; if (t < 1) { const s = Math.sin(t * Math.PI); rx += l.dx * s; ry += l.dy * s; } else lunge.delete(en.x + ',' + en.y); }
       }
-      const col = enemyColor(def.hue, en.lvl);
+      const col = actorColor(en);
       const fl = this.flashes.get('c' + en.x + ',' + en.y);
       const flashing = fl && fl > now;
       const [sx, sy] = S(rx, ry);
+      // personas: fondo con el color de su facción y marca de actitud
+      if (isHuman(en)) {
+        const fd = FACTIONS[actorFaction(en)];
+        if (fd.bg) { ctx.fillStyle = fd.bg; ctx.fillRect(sx, sy, cw, ch); }
+        const att = e.attitudeToSquad(en);
+        ctx.strokeStyle = att === 'hostile' ? 'rgba(255,59,48,.8)' : att === 'allied' ? 'rgba(61,220,107,.7)' : 'rgba(255,210,63,.6)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(sx + 0.5, sy + 0.5, cw - 1, ch - 1);
+      }
       const breathe = en.state === 'dormido' ? 0.55 + 0.15 * Math.sin(T_ * 2 + en.x) : 1;
       if (def.boss) { ctx.shadowColor = col; ctx.shadowBlur = 14 + 6 * Math.sin(T_ * 3); }
       else if (en.lvl >= 7) { ctx.shadowColor = col; ctx.shadowBlur = 6; }
