@@ -288,14 +288,24 @@ export class BaseUI {
   }
   contractsBox(body) {
     const C2 = S.contracts;
-    body.append(el('div', { class: 'h', text: `ENCARGOS EN MARCHA (${C2.active.length}/3)` }));
+    body.append(el('div', { class: 'h', text: `ENCARGOS EN MARCHA (${C2.active.filter((c) => !c.special).length}/3)` }));
     if (!C2.active.length) body.append(el('div', { class: 'dimt', text: 'Ninguno. Acepta alguno de los que se ofrecen abajo.' }));
     for (const c of C2.active) {
       const d = ST.CONTRACTS[c.id];
       const z = ST.contractZone(c);
-      const row = el('div', { class: 'contract' }, el('div', { html: `<b>${esc(d.name)}</b> <span class="dimt">· ${esc(ST.GIVER_NAME(d.giver))}${z ? ` · ${esc(MAPS[mapIndex(z)].name)}` : ''}</span>${c.done || ST.contractMet(c) ? ' <span class="good">✓ listo para cobrar al volver</span>' : ''}` }), el('div', { class: 'dimt', text: d.desc + (c.who ? ` (${c.who})` : '') }),
-        el('button', { class: 'btn small', onclick: async () => { if (await confirmBox('ABANDONAR ENCARGO', `¿Abandonar «${esc(d.name)}»? Quien os lo encargó no lo olvidará.`, 'ABANDONAR', 'SEGUIR')) { ST.dropContract(c.id); save(); this.render(); } } }, 'ABANDONAR'));
+      const spm = d.special ? MODIFIERS[d.special] : null;
+      const row = el('div', { class: `contract${spm ? ' special' : ''}` }, el('div', { html: `${spm ? `<span style="color:${spm.color}">${esc(spm.glyph)}</span> ` : ''}<b>${esc(d.name)}</b> <span class="dimt">· ${esc(ST.GIVER_NAME(d.giver))}${z ? ` · ${esc(MAPS[mapIndex(z)].name)}` : ''}${spm ? ' · solo hoy' : ''}</span>${c.done || ST.contractMet(c) ? ' <span class="good">✓ listo para cobrar al volver</span>' : ''}` }), el('div', { class: 'dimt', text: d.desc + (c.who ? ` (${c.who})` : '') }),
+        el('button', { class: 'btn small', onclick: async () => { if (await confirmBox('ABANDONAR ENCARGO', d.special ? `¿Abandonar «${esc(d.name)}»? Era solo para hoy: nadie os lo tendrá en cuenta.` : `¿Abandonar «${esc(d.name)}»? Quien os lo encargó no lo olvidará.`, 'ABANDONAR', 'SEGUIR')) { ST.dropContract(c.id); save(); this.render(); } } }, 'ABANDONAR'));
       body.append(row);
+    }
+    // encargo especial del día (fase 16.4): ligado a un modificador de zona
+    const sp = ST.specialOffer();
+    if (sp) {
+      const d = ST.CONTRACTS[sp.id], M = MODIFIERS[sp.mod], R = sp.reward;
+      const rw = [R.rub ? `${R.rub} ₽` : '', R.ess ? `${R.ess} ✦` : '', R.rep ? `rep. ${R.rep[1] > 0 ? '+' : ''}${R.rep[1]}` : '', R.trust ? `confianza +${R.trust}` : ''].filter(Boolean).join(' · ');
+      body.append(el('div', { class: 'h', style: { marginTop: '.6em', color: '#ffd23f' }, text: '◎ ENCARGO ESPECIAL · SOLO HOY' }));
+      body.append(el('div', { class: 'contract offer special' }, el('div', { html: `<span style="color:${M.color}">${esc(M.glyph)} ${esc(M.name)}</span> · <b>${esc(d.name)}</b> <span class="dimt">· ${esc(ST.GIVER_NAME(d.giver))} · ${esc(ST.specialZone(sp).name)}</span>` }), el('div', { class: 'dimt', text: d.desc }), el('div', { class: 'good', text: 'Recompensa: ' + rw }),
+        el('button', { class: 'btn small primary', onclick: () => { const r2 = ST.acceptContract(sp.id); if (r2.ok) { sfx.click(); toast(`Encargo especial aceptado: ${d.name}`, 'good'); save(); this.render(); } else { sfx.error(); toast(r2.msg, 'bad'); } } }, 'ACEPTAR')));
     }
     const offers = ST.contractOffers();
     if (offers.length) body.append(el('div', { class: 'h', style: { marginTop: '.6em' }, text: 'SE OFRECEN HOY' }));
@@ -561,6 +571,8 @@ export class BaseUI {
       const M = MODIFIERS[id];
       box.append(el('div', { class: 'mod-row', html: `<span style="color:${M.color}"><b>${esc(M.glyph)} ${esc(M.name)}</b></span> <span class="bad">▼ ${esc(M.risk)}</span> <span class="good">▲ ${esc(M.reward)}</span>` }));
     }
+    const sp = S.contracts.active.find((c) => c.special && c.zone === MAPS[i].id && c.day === S.day);
+    if (sp) box.append(el('div', { html: `<span style="color:#ffd23f">◎ Encargo especial: <b>${esc(ST.CONTRACTS[sp.id].name)}</b></span> <span class="dimt">· solo hoy</span>` }));
     box.append(el('div', { class: 'dimt', text: 'Cambian cada día (cada expedición).' }));
     return box;
   }
@@ -884,7 +896,8 @@ export class BaseUI {
       const avg = (m.lvl[0] + m.lvl[1]) / 2;
       const card = el('div', { class: `mapcard ${i === this.selMap && !this.selEvent ? 'sel' : ''} ${locked ? 'locked' : ''}` });
       const zm = locked ? [] : C.zoneMods(i);
-      const zmHtml = zm.map((id) => `<span style="color:${MODIFIERS[id].color}" title="${esc(MODIFIERS[id].name)}">${MODIFIERS[id].glyph}</span>`).join(' ');
+      const spHere = !locked && S.contracts.active.some((c) => c.special && c.zone === m.id && c.day === S.day);
+      const zmHtml = zm.map((id) => `<span style="color:${MODIFIERS[id].color}" title="${esc(MODIFIERS[id].name)}">${MODIFIERS[id].glyph}</span>`).join(' ') + (spHere ? ' <span style="color:#ffd23f" title="Encargo especial de hoy">◎</span>' : '');
       card.innerHTML = `<div class="o2">${locked ? '▒' : m.stratum === 'sup' ? '◆' : m.social ? '☭' : '▼'}</div><div><b>${locked ? '???' : m.name}</b><div class="dimt">${locked ? `Extrae con éxito de ${m.req.map((r) => MAPS.find((z) => z.id === r).short).join(' o ')}` : STRATA[m.stratum] + ' · ' + floorsFor(i) + ' piso(s) · ' + (S.cleared[m.id] || 0) + ' extracciones'}</div>${zmHtml ? `<div class="zone-mods">${zmHtml}</div>` : ''}</div><div class="dif" style="color:${diffColor(avg)}">Nv ${m.lvl[0]}–${m.lvl[1]}<br>${skulls(avg)}</div>`;
       if (!locked) card.addEventListener('click', () => { this.selMap = i; this.selEvent = null; sfx.click(); this.render(); });
       L.body.append(card);

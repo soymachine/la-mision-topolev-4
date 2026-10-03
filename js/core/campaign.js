@@ -9,7 +9,7 @@ import { ACQUIRED, MEDALS, woundCost, RETIRE_LEVEL, MAX_INSTRUCTORS, INSTRUCTOR_
 import { SPECS } from '../data/specs.js';
 import { rollZoneMods } from '../data/modifiers.js';
 import { FACTIONS, repOf, addRep, foreignTrade as foreignTradeS } from '../data/factions.js';
-import { addStress, addAff, trust, chronicle, comedorScene, completeContracts, checkActs, familyLetter } from './story.js';
+import { addStress, addAff, trust, chronicle, comedorScene, completeContracts, checkActs, familyLetter, expireSpecials } from './story.js';
 import { baseDayTick, placeBuilding, demandK, noteSale, attackResult, defenseDef } from './basecore.js';
 
 // modificadores de cada zona para hoy (fase 16.4)
@@ -387,6 +387,7 @@ export function nextDay() {
   baseDayEvents();
   tickEventZones();
   const enf = S.modules.enfermeria;
+  expireSpecials(); // fase 16.4: los encargos especiales solo valen un día
   baseDayTick(); // fase 21: investigación, celdas, edificios, cuotas, estaciones, historia, operaciones, ataques
   // fase 20: descanso (y banya), cartas de casa, adicciones
   if (Math.random() < 0.15) familyLetter();

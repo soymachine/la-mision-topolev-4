@@ -476,6 +476,7 @@ export class HelpScreen {
 <h2>ENCARGOS, COLECCIONES Y RADIO</h2>
 <ul>
 <li>En CUARTEL hay <b>encargos</b> del personal y de las facciones (hasta 3 a la vez): entregar objetos, fotografiar, capturar, escoltar, sabotear o rescatar. Se cobran al volver.</li>
+<li>Cada día puede haber un <b>encargo especial</b> ligado a las condiciones de una zona (apagón, niebla, pulso temprano…): solo vale ese día, se marca con <span style="color:#ffd23f">◎</span> en el mapa y en la lista de zonas, y paga más cuanto más peligrosa es la zona.</li>
 <li>Las notas forman <b>8 colecciones</b>; completar una da una recompensa (ARCHIVO). La radio intercepta a veces transmisiones extranjeras que marcan un <b>alijo</b> en el mapa.</li>
 </ul>
 

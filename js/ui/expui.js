@@ -838,6 +838,7 @@ export class ExpeditionUI {
     if (obj) {
       if (obj.kind === 'vein') parts.push(`<div class="tt-title cyan">✦ Veta de esencia</div><div class="dimt">${obj.amount > 0 ? `Quedan ~${obj.amount} ✦. Ponte al lado y pulsa <b>F</b> para extraer (hace ruido).` : 'Agotada.'}</div>`);
       else if (obj.kind === 'note') parts.push(`<div class="tt-title" style="color:#f0e1aa">? Nota</div><div class="dimt">${obj.opened ? 'Ya leída.' : 'Papel arrugado.'} Ponte encima y pulsa <b>F</b>.</div>`);
+      else if (obj.kind === 'objective') parts.push(`<div class="tt-title" style="color:#ffd23f">◎ ${esc(obj.label)}</div><div class="dimt">${obj.opened ? 'Hecho.' : 'Objetivo del encargo especial. Adyacente + <b>F</b>.'}</div>`);
       else if (obj.kind === 'survivor') parts.push('<div class="tt-title" style="color:#a0e8a0">☺ Superviviente</div><div class="dimt">Alguien sigue vivo aquí abajo. Ponte al lado y pulsa <b>F</b>.</div>');
       else if (SOCIAL_TIP[obj.kind]) parts.push(`<div class="tt-title o1">${OBJ_NAME[obj.kind]}</div><div class="dimt">${SOCIAL_TIP[obj.kind]} Adyacente + <b>F</b> o clic.</div>`);
       else if (obj.kind === 'radio') parts.push(`<div class="tt-title cyan">☏ Radio de campaña</div><div class="dimt">${obj.opened ? 'Ya escuchada.' : 'De otra expedición. Adyacente + <b>F</b> para escuchar.'}</div>`);

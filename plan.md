@@ -158,7 +158,7 @@ O órdenes del escuadrón · I inventario · M mapa · Espacio esperar · ? ayud
 - Fase 13 (cimientos técnicos) completada: partes de la expedición, facciones y personas, motor de eventos/diálogos, guardado v2 con 3 ranuras y consola de depuración.
 - Fase 14 completada: contenedores de seguridad (KGB, Kolyma, Matrioska) y ascenso de agentes (atributos + talentos).
 - Fase 15 completada: atributos 1–10, trasfondos, 7 especializaciones con árboles de talentos y habilidades activas, rasgos adquiridos, condecoraciones, heridas y retiro como instructor.
-- Fase 16 completada: casillas con mecánica (cobertura, destructibles, puertas blindadas, terminales…), 2–3 pisos por zona, luz y oscuridad, modificadores de zona diarios.
+- Fase 16 completada: casillas con mecánica (cobertura, destructibles, puertas blindadas, terminales…), 2–3 pisos por zona, luz y oscuridad, modificadores de zona diarios y (tras la fase 20) encargos especiales de un día ligados a cada modificador.
 - Fase 17 completada: 12 zonas nuevas (6 de superficie con día/noche y clima, 6 de subsuelo), mapa ASCII de la región con progresión por requisitos, campamento social Wismut, equipo occidental y zonas de evento temporales.
 - Fase 18 completada: 12 facciones con reputación (pestaña RADIO), IA humana (cobertura, granadas, radio, rendición), encuentros y prisioneros, bengala roja, campamentos abandonados con diarios extranjeros, 31 objetos extranjeros y el KGB vigilando.
 - Fase 19 completada: ranura COMPAÑERO y Garaje, perro robot Laika-M con órdenes y módulos, 5 drones (tecla D) y 12 gadgets creativos (torreta, jaula, cámara, desfibrilador, gancho, soldadura, ruido blanco, centelleo, grabadora, sonda sísmica, camuflaje, paraguas).

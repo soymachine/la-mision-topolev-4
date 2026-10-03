@@ -978,7 +978,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
       const d0 = Math.hypot(w.x - p.x, w.y - p.y);
       e.cur = p; out.why = `cur=${e.cur === p} vis=${e.isVisible(w.x, w.y)} hostil=${e.hostile(p, w)}`;
       e.act((s) => e.tryMove(s, w.x, w.y, true));
-      out.fled = Math.hypot(w.x - p.x, w.y - p.y) > d0 || w.hp === w.hpMax;
+      out.fled = e.log.some((l) => /huye presa del pánico/.test(l.s)) && Math.hypot(w.x - p.x, w.y - p.y) >= d0; // huye (o se queda acorralado), pero no ataca
       p.buffs = [];
       e.dismissActor(w);
       // duelo: muere un amigo
@@ -1079,6 +1079,77 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
       return { def: e.def.id, att, won, rub: S.rub - rub0, attack: S.attack, rep: !!rep };
     });
     ok(df.def === 'defensa' && df.att >= 3 && df.won && df.attack === null && df.rub >= 200, `defensa de la base: ${df.att} atacantes rechazados (+${df.rub} ₽)`);
+    // encargos especiales ligados a los modificadores (fase 16.4)
+    const spc = await N.evaluate(async () => {
+      const S = window.__topolev.S; const ST = await import('./js/core/story.js'); const C = await import('./js/core/campaign.js');
+      const W = await import('./js/data/world.js'); const I = await import('./js/core/items.js'); const { rng } = await import('./js/util/rng.js');
+      const out = {};
+      S.attack = null; S.pendingDialogs = []; S.contracts.active = [];
+      for (const a of S.agents) { a.hp = 300; a.awayUntil = 0; a.bag = []; }
+      const go = (sp) => { const e = C.launchExpedition(W.mapIndex(sp.zone), S.agents.slice(0, 2)); e.god = true; return e; };
+      const finish = (e) => { for (const sq of [...e.team]) e.extract(sq); e.checkActive(); const r0 = S.rub; C.finalizeExpedition(e); S.attack = null; S.pendingDialogs = []; return S.rub - r0; };
+      // 1) veta madre: recoger 120 ✦ en una salida
+      S.forceMods = ['vetamadre']; S.contracts.special = null;
+      const sp = ST.specialOffer();
+      out.offer = !!sp && sp.id === 'sp_vetamadre' && sp.reward.rub >= 200;
+      out.accept = ST.acceptContract(sp.id).ok && S.contracts.active.some((c) => c.special === 'vetamadre') && !ST.specialOffer();
+      const e1 = go(sp);
+      out.notMet = !(e1.fac && e1.fac.contracts && e1.fac.contracts.sp_vetamadre);
+      e1.tally.essence = 130; e1.contractTick();
+      out.met = !!(e1.fac.contracts && e1.fac.contracts.sp_vetamadre) && e1.log.some((l) => /La veta madre/.test(l.s));
+      out.paid1 = finish(e1) >= sp.reward.rub && !S.contracts.active.some((c) => c.special) && !S.contracts.done.includes('sp_vetamadre');
+      // 2) presencia extranjera: coger el microfilm y sacarlo de la zona
+      S.forceMods = ['extranjeros']; S.contracts.special = null;
+      const kgb0 = S.rep.kgb || 0;
+      const sp2 = ST.specialOffer(); ST.acceptContract(sp2.id);
+      const e2 = go(sp2);
+      const o = e2.objects.find((x) => x.kind === 'objective');
+      out.obj = !!o && e2.pois.some((p) => p.x === o.x && p.y === o.y);
+      const q = e2.team[0];
+      e2.useObjective(q, o);
+      out.carried = q.a.bag.some((it) => it.contract === sp2.id && it.b === 'objcase');
+      out.notYet = !(e2.facState().contracts || {})[sp2.id];
+      out.paid2 = finish(e2) >= sp2.reward.rub && (S.rep.kgb || 0) > kgb0 && !S.agents.some((a) => a.bag.some((it) => it.contract)) && !S.stash.some((it) => it.contract);
+      // 3) caduca al pasar el día (sin penalización)
+      S.forceMods = ['pulso']; S.contracts.special = null;
+      const t0 = S.trust;
+      const sp3 = ST.specialOffer(); ST.acceptContract(sp3.id);
+      C.nextDay(); S.attack = null; S.pendingDialogs = [];
+      out.expired = !S.contracts.active.some((c) => c.special) && S.messages.some((m) => /caducado/.test(m.text)) && S.trust === t0;
+      // los objetos de encargo y las jaulas llenas no salen como botín
+      let bad = 0; for (let i = 0; i < 3000; i++) { const it = I.rollLoot(9, rng, { rarityBonus: 0.5 }); if (it.b === 'objcase' || it.b === 'cagefull') bad++; }
+      out.noLoot = bad === 0;
+      // todos los encargos especiales se generan en su zona (y los de usar un objeto se cumplen)
+      out.bad = [];
+      for (const mod of Object.keys(ST.SPECIALS)) {
+        S.forceMods = [mod]; S.contracts.special = null; S.contracts.active = [];
+        const s4 = ST.specialOffer();
+        if (!s4) { out.bad.push(mod + ' (sin oferta)'); continue; }
+        ST.acceptContract(s4.id);
+        const e = go(s4); const d = ST.SPECIALS[mod];
+        let good = e.log.some((l) => /Encargo especial/.test(l.s));
+        if (d.kind === 'activate' || d.kind === 'retrieve') {
+          const o = e.objects.find((x) => x.kind === 'objective');
+          good = good && !!o;
+          if (o && d.kind === 'activate') { e.useObjective(e.team[0], o); good = good && !!(e.facState().contracts || {})[s4.id]; }
+        }
+        if (d.kind === 'pulse') { e.turn = e.surgeAt + d.wait; e.contractTick(); good = good && !!(e.facState().contracts || {})[s4.id]; }
+        if (d.kind === 'kills') { e.tally.kills = d.n; e.contractTick(); good = good && !!(e.facState().contracts || {})[s4.id]; }
+        if (!good) out.bad.push(mod);
+        finish(e);
+      }
+      S.contracts.special = null;
+      return out;
+    });
+    ok(spc.offer && spc.accept, 'encargo especial del día ligado al modificador de una zona');
+    ok(spc.notMet && spc.met && spc.paid1, 'veta madre: 120 ✦ en una salida → encargo cobrado');
+    ok(spc.obj && spc.carried && spc.notYet && spc.paid2, 'presencia extranjera: el objeto marcado sale de la zona y se cobra (y se retira)');
+    ok(spc.expired, 'el encargo especial caduca al pasar el día, sin penalización');
+    ok(spc.noLoot, 'los objetos de encargo y las jaulas llenas no salen como botín');
+    ok(!spc.bad.length, `los 11 encargos especiales se generan y se cumplen${spc.bad.length ? ' (fallan: ' + spc.bad.join(', ') + ')' : ''}`);
+    await N.click('.tab:has-text("CUARTEL")'); await N.waitForTimeout(250);
+    ok(await N.evaluate(() => document.body.innerText.includes('ENCARGO ESPECIAL')), 'CUARTEL ofrece el encargo especial');
+    await N.evaluate(() => { window.__topolev.S.forceMods = null; window.__topolev.S.attack = null; window.__topolev.S.pendingDialogs = []; });
     // pestañas nuevas sin errores
     await N.reload(); await N.waitForTimeout(800); await N.click('text=CONTINUAR').catch(() => {}); await N.waitForTimeout(800); await nClose();
     for (const t of ['CUARTEL', 'INVESTIGACIÓN', 'INTENDENCIA', 'EXPEDICIÓN', 'ARCHIVO']) { await N.click(`.tab:has-text("${t}")`).catch(() => {}); await N.waitForTimeout(200); }

@@ -8,6 +8,7 @@ import { FACTIONS, addRep, repOf } from '../data/factions.js';
 import { createItem } from './items.js';
 import { NOTES, COLLECTIONS } from '../data/lore.js';
 import { rng } from '../util/rng.js';
+import { MODIFIERS, rollZoneMods } from '../data/modifiers.js';
 
 const pick = (l) => l[Math.floor(Math.random() * l.length)];
 
@@ -207,13 +208,30 @@ export const CONTRACTS = {
   cuba_meds: { giver: 'cuba', name: 'Medicinas para Kiev', desc: 'La Brigada «Playa Girón» necesita 2 botiquines AI-2 para el hospital de Kiev.', kind: 'deliver', item: 'ai2', n: 2, reward: { rub: 200, rep: ['cuba', 15], item: ['gironkit', 'Botiquín de la doctora Pérez'] } },
   kravets_intel: { giver: 'kravets', name: 'Papeles para la trastienda', desc: 'El sargento Kravets tiene un comprador para 2 informes de inteligencia occidental. Sin preguntas.', kind: 'deliver', item: 'intel', n: 2, reward: { rub: 1100, rep: ['kgb', -8] } },
 };
+// encargos especiales (fase 16.4): uno al día, ligado a un modificador de zona de ese día y válido solo hoy.
+// activate: rearmar/usar el objeto marcado · retrieve: coger el objeto marcado y sacarlo de la zona
+// kills / essence: abatir o recoger tanto en una sola salida · pulse: aguantar el pulso del reactor y salir vivos
+export const SPECIALS = {
+  apagon: { giver: 'zhdanov', name: 'Luz en el apagón', kind: 'activate', label: 'Cuadro eléctrico de emergencia', act: 'rearma el cuadro eléctrico: las luces de emergencia parpadean y vuelven', desc: 'Con la zona a oscuras, el Comité quiere rearmado el cuadro eléctrico de emergencia (marcado en el radar). Buscadlo a tientas.', reward: { rub: 320, rep: ['kgb', 4] } },
+  inundacion: { giver: 'topolev', name: 'Agua de la crecida', kind: 'activate', label: 'Punto de muestreo', act: 'llena tres frascos de agua de la crecida', desc: 'Topolev quiere muestras del agua de la crecida antes de que baje. El punto de muestreo está marcado en el radar.', reward: { rub: 220, ess: 25, trust: 3 } },
+  tormenta: { giver: 'topolev', name: 'Ojos en la tormenta', kind: 'retrieve', label: 'Registrador de campo', item: 'Registrador «Tormenta»', desc: 'Un registrador de campo lleva días grabando la tormenta electromagnética. Recuperadlo y sacadlo de la zona. Sin radar: habrá que encontrarlo a ojo.', reward: { rub: 380, ess: 20, trust: 3 } },
+  esporas: { giver: 'orlova', name: 'Un esporangio intacto', kind: 'retrieve', label: 'Esporangio intacto', item: 'Esporangio en un frasco', desc: 'La Dra. Orlova necesita un esporangio intacto para preparar un antídoto. Hay uno marcado en el radar; traedlo sin romperlo.', reward: { rub: 300, ess: 20 } },
+  inquietos: { giver: 'zhdanov', name: 'Escarmiento', kind: 'kills', n: 12, desc: 'Con los nidos despiertos, el Comisario quiere un escarmiento: abatid 12 chebylitas en una sola salida y volved para contarlo.', reward: { rub: 420, rep: ['kgb', 5] } },
+  vetamadre: { giver: 'topolev', name: 'La veta madre', kind: 'essence', n: 120, desc: 'Hoy la veta madre aflora. Recoged al menos 120 ✦ en una sola salida y volved con ellos.', reward: { rub: 200, ess: 40, trust: 4 } },
+  extranjeros: { giver: 'kgb', name: 'El buzón muerto', kind: 'retrieve', label: 'Buzón muerto', item: 'Microfilm de un buzón muerto', desc: 'El KGB sabe que una expedición extranjera usa un buzón muerto en esta zona. Traed el microfilm antes de que lo recojan ellos.', reward: { rub: 600, rep: ['kgb', 8] } },
+  lluvia: { giver: 'topolev', name: 'Lluvia negra', kind: 'activate', label: 'Pluviómetro', act: 'vacía el pluviómetro en un frasco de plomo: el agua está tibia y brilla', desc: 'Topolev quiere medir la lluvia radiactiva de hoy. El pluviómetro está marcado en el radar.', reward: { rub: 260, ess: 30 } },
+  niebla: { giver: 'orlova', name: 'Perdidos en la niebla', kind: 'retrieve', label: 'Mochila de la patrulla', item: 'Mochila con los registros de dosis', desc: 'Una patrulla de liquidadores se perdió en la niebla y dejó atrás su mochila con los registros de dosis. Orlova la necesita.', reward: { rub: 280, ess: 15 } },
+  pulso: { giver: 'topolev', name: 'Lecturas del pulso', kind: 'pulse', wait: 15, desc: 'Quedaos en la zona hasta que llegue el pulso del reactor (y 15 turnos más) para que los dosímetros lo registren. Después, salid vivos.', reward: { rub: 500, ess: 50, trust: 5 } },
+  helada: { giver: 'babai', name: 'Bajo el hielo', kind: 'retrieve', label: 'Camión atrapado en el hielo', item: 'Caja de repuestos congelada', desc: 'Babai sabe de un camión de repuestos atrapado por la helada. Romped el hielo y traed la caja.', reward: { rub: 300, ess: 15 } },
+};
+for (const [m, d] of Object.entries(SPECIALS)) CONTRACTS['sp_' + m] = { ...d, special: m };
 export const GIVER_NAME = (g) => (STAFF[g] ? STAFF[g].name : FACTIONS[g] ? FACTIONS[g].name : g);
 // ofertas del día (3 al azar entre las disponibles)
 export function contractOffers() {
   const C = S.contracts;
   if (C.offers && C.offersDay === S.day) return C.offers;
   const busy = new Set([...C.active.map((c) => c.id), ...C.done]);
-  const pool = Object.keys(CONTRACTS).filter((id) => !busy.has(id) && contractAvailable(id));
+  const pool = Object.keys(CONTRACTS).filter((id) => !CONTRACTS[id].special && !busy.has(id) && contractAvailable(id));
   const offers = [];
   while (offers.length < 3 && pool.length) offers.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
   C.offers = offers; C.offersDay = S.day;
@@ -227,7 +245,8 @@ function contractAvailable(id) {
 }
 export function acceptContract(id) {
   const C = S.contracts;
-  if (C.active.length >= 3) return { ok: false, msg: 'Ya tenéis 3 encargos en marcha.' };
+  if (CONTRACTS[id].special) return acceptSpecial();
+  if (C.active.filter((c) => !c.special).length >= 3) return { ok: false, msg: 'Ya tenéis 3 encargos en marcha.' };
   const c = { id, day: S.day };
   if (CONTRACTS[id].kind === 'missing') {
     const open = MAPS.filter((m, i) => zoneOpen(S, i) && m.id !== 'wismut');
@@ -265,15 +284,16 @@ export function completeContracts() {
         if (it.q > mv) it.q -= mv; else S.stash.splice(S.stash.indexOf(it), 1);
       }
     }
-    const r = d.reward;
+    const r = c.reward || d.reward;
     const got = [];
+    if (d.special) dropObjective(c.id);
     if (r.rub) { S.rub += r.rub; got.push(`${r.rub} ₽`); }
     if (r.ess) { S.ess += r.ess; got.push(`${r.ess} ✦`); }
     if (r.rep) { addRep(S, r.rep[0], r.rep[1]); got.push(`reputación ${FACTIONS[r.rep[0]].short} ${r.rep[1] > 0 ? '+' : ''}${r.rep[1]}`); }
     if (r.trust) { trust(r.trust); got.push(`confianza de Topolev +${r.trust}`); }
     if (r.item) { const it = createItem(r.item[0], 4, rng); it.nm = r.item[1]; S.stash.push(it); got.push(`«${r.item[1]}»`); }
     C.active.splice(C.active.indexOf(c), 1);
-    C.done.push(c.id);
+    if (!d.special) C.done.push(c.id); else C.specialsDone = (C.specialsDone || 0) + 1;
     addMessage(`Encargo cumplido: «${d.name}». ${GIVER_NAME(d.giver)} os entrega ${got.join(', ')}.`);
     chronicle(`Encargo cumplido: «${d.name}».`);
     done.push(d.name);
@@ -286,6 +306,58 @@ export function dropContract(id) {
   if (i < 0) return;
   C.active.splice(i, 1);
   const d = CONTRACTS[id];
+  if (d.special) { dropObjective(id); return; } // sin penalización: era solo para hoy
   if (d.giver === 'topolev') trust(-4, 'abandonáis su encargo');
   if (FACTIONS[d.giver]) addRep(S, d.giver, -5);
+}
+
+// ---------------------------------------------------------------- encargos especiales (fase 16.4)
+const todayMods = (i) => (S.forceMods ? [...S.forceMods] : rollZoneMods(S.created >>> 0, S.day, i));
+export const specialZone = (c) => MAPS[mapIndex(c.zone)];
+// la oferta especial del día: una zona abierta con un modificador que tenga encargo (se decide una vez al día)
+export function specialOffer() {
+  const C = S.contracts;
+  if (C.special && C.special.day === S.day) return C.special.id ? C.special : null;
+  const cands = [];
+  MAPS.forEach((m, i) => {
+    if (m.social || !zoneOpen(S, i)) return;
+    for (const mod of todayMods(i)) if (SPECIALS[mod] && contractAvailable('sp_' + mod)) cands.push({ zone: m.id, mod });
+  });
+  const ch = cands.length ? pick(cands) : null;
+  C.special = ch ? { day: S.day, id: 'sp_' + ch.mod, mod: ch.mod, zone: ch.zone, reward: specialReward(ch.mod, ch.zone) } : { day: S.day, id: null };
+  return C.special.id ? C.special : null;
+}
+// la recompensa crece con el nivel de la zona
+export function specialReward(mod, zone) {
+  const r = { ...SPECIALS[mod].reward };
+  const k = 1 + 0.1 * (MAPS[mapIndex(zone)].lvl[1] - 1);
+  if (r.rub) r.rub = Math.round(r.rub * k / 10) * 10;
+  if (r.ess) r.ess = Math.round(r.ess * k);
+  return r;
+}
+function acceptSpecial() {
+  const C = S.contracts;
+  const sp = specialOffer();
+  if (!sp) return { ok: false, msg: 'Hoy no hay encargo especial.' };
+  if (C.active.some((c) => c.special)) return { ok: false, msg: 'Ya tenéis un encargo especial en marcha.' };
+  C.active.push({ id: sp.id, day: S.day, special: sp.mod, zone: sp.zone, reward: sp.reward });
+  C.special = { day: S.day, id: null }; // aceptado: ya no se ofrece
+  chronicle(`Encargo especial aceptado: «${CONTRACTS[sp.id].name}» en ${specialZone(sp).name} (${MODIFIERS[sp.mod].name}).`);
+  return { ok: true };
+}
+// al pasar el día, los especiales sin cumplir caducan
+export function expireSpecials() {
+  const C = S.contracts;
+  for (const c of [...C.active]) {
+    if (!c.special || c.day >= S.day) continue;
+    C.active.splice(C.active.indexOf(c), 1);
+    dropObjective(c.id);
+    addMessage(`Encargo especial «${CONTRACTS[c.id].name}» caducado: ${specialZone(c).name} ya no está como ayer.`);
+  }
+}
+// retira los objetos de encargo que queden en el almacén y las mochilas
+function dropObjective(id) {
+  const keep = (it) => !(it && it.contract === id);
+  S.stash = S.stash.filter(keep);
+  for (const a of S.agents) a.bag = a.bag.filter(keep);
 }

@@ -159,7 +159,7 @@ Al llegar a nivel 5 el agente elige una **especialización**. Cada una tiene un 
 
 ---
 
-## FASE 16 — Mundo: casillas con sentido y nuevas reglas de mapa ✔ (salvo los contratos, que dependen de la fase 20)
+## FASE 16 — Mundo: casillas con sentido y nuevas reglas de mapa ✔
 
 ### 16.1 Casillas nuevas con mecánica (L)
 Cada casilla tiene propósito táctico, no solo decorativo:
@@ -207,7 +207,8 @@ Cada casilla tiene propósito táctico, no solo decorativo:
 Cada día, cada zona sale con 0–2 modificadores (visibles al elegir destino), que cambian riesgo y recompensa:
 - [x] Modificadores (`data/modifiers.js`, deterministas por día y zona): Apagón, Inundación, Tormenta electromagnética (sin radar), Plaga de esporas, Nidos inquietos, Veta madre, Presencia extranjera (las otras expediciones aparecen por fin en los mapas), Lluvia radiactiva, Niebla, Pulso temprano y Helada. Se ven en EXPEDICIÓN y en el registro; la consola los fuerza con `mods`.
 - «Apagón» (sin luz, +botín), «Inundación» (más agua), «Tormenta electromagnética» (sin radar), «Plaga de esporas», «Nidos inquietos» (los nidos empiezan despiertos), «Veta madre» (×1,5 esencia), «Presencia extranjera» (facciones garantizadas), «Lluvia radiactiva» (superficie), «Niebla», «Pulso temprano».
-- [ ] Contratos especiales con objetivo (ver fase 20) asociados a modificadores.
+- [x] Contratos especiales con objetivo (ver fase 20) asociados a modificadores.
+  - *Hecho:* `core/story.js · SPECIALS`: un encargo por modificador (11). CUARTEL ofrece uno al día en una zona abierta con ese modificador; solo vale ese día (caduca al pasar el día, sin penalización), no ocupa hueco de los 3 encargos normales y la recompensa sube un 10% por nivel de zona. Objetivos: rearmar o usar un objeto marcado (apagón, inundación, lluvia), coger un objeto y sacarlo de la zona (tormenta, sin radar; esporas, presencia extranjera, niebla, helada), abatir 12 chebylitas (nidos inquietos), recoger 120 ✦ (veta madre) o aguantar el pulso 15 turnos (pulso temprano). Se marca con ◎ en el mapa, en la lista de zonas y en las condiciones de hoy.
 
 ---
 
@@ -365,7 +366,7 @@ Homenaje a Laika: chasis de cuatro patas de la Academia de Ciencias.
 ### 20.5 Misiones y contratos (M)
 - [x] Encargos de los personajes de la base y de las facciones: recuperar la caja negra de un helicóptero, escoltar a un científico sueco hasta una extracción, fotografiar al Pastor de Ceniza, capturar vivo un Lobo de grafito, sabotear la estación Fénix, encontrar a un agente desaparecido (¡vivo!).
 - [x] Recompensas: rublos, reputación, objetos únicos con nombre propio, piezas del arco principal.
-  - *Hecho:* 9 encargos en `core/story.js · CONTRACTS` (caja negra, escolta sueca, foto del Pastor, lobo vivo, sabotaje en Fénix, agente desaparecido, muestras para Wismut, medicinas cubanas, papeles para Kravets). CUARTEL ofrece 3 al día, hasta 3 activos; el científico, la carga y el desaparecido aparecen en su zona (`spawnContractStuff`). Recompensas: rublos, esencia, reputación, confianza y objetos con nombre propio. (Los contratos ligados a modificadores de zona de la fase 16 siguen pendientes.)
+  - *Hecho:* 9 encargos en `core/story.js · CONTRACTS` (caja negra, escolta sueca, foto del Pastor, lobo vivo, sabotaje en Fénix, agente desaparecido, muestras para Wismut, medicinas cubanas, papeles para Kravets). CUARTEL ofrece 3 al día, hasta 3 activos; el científico, la carga y el desaparecido aparecen en su zona (`spawnContractStuff`). Recompensas: rublos, esencia, reputación, confianza y objetos con nombre propio. Los encargos especiales ligados a los modificadores de zona están en la fase 16.4.
 
 ### 20.6 Más contenido de texto (M)
 - [x] 80+ notas organizadas en **colecciones** (Diario del operario de turno, Expedientes del Objeto 7, Cartas de Prípiat, Informes de la CIA traducidos…): completar una colección da una recompensa.

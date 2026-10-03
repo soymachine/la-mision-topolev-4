@@ -430,6 +430,7 @@ body.no-crt #crt { display: none; }
 .comedor { margin: .3em 0; font-style: italic; }
 .contract { border: 1px solid var(--o5); padding: .4em 1ch; margin: .4em 0; }
 .contract.offer { border-style: dashed; }
+.contract.special { border-color: #ffd23f; box-shadow: inset 0 0 0 1px rgba(255,210,63,.15); }
 .epitaph { padding-left: 2ch; font-style: italic; color: var(--o2); font-size: 12px; }
 .chronicle { white-space: pre-wrap; font-size: 13px; line-height: 1.5; margin: 0; }
 .note-entry { border-bottom: 1px dotted var(--o5); padding: .5em 0; }

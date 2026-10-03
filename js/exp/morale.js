@@ -7,6 +7,8 @@ import { addStress, addAff, affOf, affState, memorialEntry, CONTRACTS, contractZ
 import { esc } from '../util/dom.js';
 import { INTERCEPTS } from '../data/lore.js';
 import { FACTIONS } from '../data/factions.js';
+import { createItem, mergeInto } from '../core/items.js';
+import { bagCapacity } from '../core/agents.js';
 
 const AFFLICTIONS = {
   panico: { name: 'Pánico', turns: 2, desc: 'huye del enemigo más cercano' },
@@ -142,6 +144,7 @@ export class MoralePart {
     for (const c of list) {
       if (contractZone(c) !== this.def.id || this.floor) continue;
       const d = CONTRACTS[c.id];
+      if (d.special) { if (c.day === S.day) this.spawnSpecial(c, d); continue; }
       const spot = this.farSpot(20);
       if (!spot) continue;
       if (d.kind === 'escort') {
@@ -161,6 +164,39 @@ export class MoralePart {
       }
     }
   }
+  // encargo especial del día (fase 16.4): objeto marcado o un objetivo que se vigila cada turno
+  spawnSpecial(c, d) {
+    if (d.kind === 'activate' || d.kind === 'retrieve') {
+      const spot = this.farSpot(18) || this.farSpot(10);
+      if (!spot) return;
+      const o = { kind: 'objective', x: spot[0], y: spot[1], opened: false, items: [], contract: c.id, label: d.label, goal: d.kind };
+      this.objects.push(o); this.objMap.set(this.key(o.x, o.y), o);
+      this.pois.push({ type: 'cache', x: o.x, y: o.y, lvl: this.def.lvl[1], name: `${d.label} (encargo)`, best: 3 });
+    }
+    const where = (this.mods || []).includes('tormenta') ? 'en algún punto del mapa (sin radar: a ojo)' : 'marcado en el radar';
+    const goal = d.kind === 'activate' ? `${d.label.toLowerCase()} ${where}` : d.kind === 'retrieve' ? `${d.label.toLowerCase()} ${where}; sacad lo que guarda` : d.kind === 'kills' ? `abatid ${d.n} chebylitas` : d.kind === 'essence' ? `recoged ${d.n} ✦` : `aguantad el pulso del reactor ${d.wait} turnos`;
+    this.say(`★ Encargo especial «${d.name}»: ${goal}. Solo hoy.`, 'o1');
+  }
+  // objeto de un encargo especial: se usa (F) o se coge
+  useObjective(sq, o) {
+    const d = CONTRACTS[o.contract];
+    o.opened = true; this.dirty = true;
+    this.pois = this.pois.filter((p) => !(p.x === o.x && p.y === o.y));
+    if (o.goal === 'retrieve') {
+      const it = createItem('objcase', 0, rng); it.nm = d.item; it.contract = o.contract;
+      if (mergeInto(sq.a.bag, it, bagCapacity(sq.a))) { this.addFloor(sq.x, sq.y, it); this.say(`La mochila de ${this.nm(sq)} está llena: «${esc(d.item)}» queda en el suelo.`, 'warn'); }
+      else this.say(`★ ${this.nm(sq)} recoge «${esc(d.item)}». Ahora, a una extracción con ello.`, 'good');
+    } else {
+      this.specialMet(o.contract, `${this.nm(sq)} ${d.act}`);
+    }
+    return true;
+  }
+  specialMet(id, why) {
+    const f = this.facState();
+    if (f.contracts && f.contracts[id]) return;
+    f.contracts = { ...(f.contracts || {}), [id]: 1 };
+    this.say(`★ ${why}. Encargo «${CONTRACTS[id].name}» cumplido: volved vivos para cobrarlo.`, 'good');
+  }
   farSpot(minD) {
     for (let i = 0; i < 400; i++) {
       const x = rng.int(2, this.w - 3), y = rng.int(2, this.h - 3);
@@ -173,6 +209,14 @@ export class MoralePart {
   }
   // cada turno: el sueco se une al escuadrón cuando alguien llega a su lado
   contractTick() {
+    // objetivos de los encargos especiales que se cumplen solos (bajas, esencia, pulso)
+    for (const c of (S.contracts && S.contracts.active) || []) {
+      if (!c.special || c.zone !== this.def.id || c.day !== S.day) continue;
+      const d = CONTRACTS[c.id];
+      if (d.kind === 'kills' && this.tally.kills >= d.n) this.specialMet(c.id, `${d.n} chebylitas abatidos`);
+      else if (d.kind === 'essence' && this.tally.essence >= d.n) this.specialMet(c.id, `${d.n} ✦ recogidos`);
+      else if (d.kind === 'pulse' && this.turn >= this.surgeAt + d.wait) this.specialMet(c.id, 'Los dosímetros han registrado el pulso');
+    }
     for (const e of this.enemies) {
       if (!e.vip || e.escort > 0) continue;
       if (this.team.some((q) => cheb(q.x, q.y, e.x, e.y) <= 1)) {
@@ -183,6 +227,8 @@ export class MoralePart {
   }
   // al extraer a un agente: el sueco escoltado sale con él
   contractOnExtract(sq) {
+    // lo que pide un encargo especial sale de la zona con este agente
+    for (const it of sq.a.bag) if (it && it.contract && CONTRACTS[it.contract] && CONTRACTS[it.contract].kind === 'retrieve') this.specialMet(it.contract, `«${esc(it.nm)}» sale de la zona`);
     for (const e of [...this.enemies]) {
       if (!e.vip || !(e.escort > 0) || cheb(e.x, e.y, sq.x, sq.y) > 3) continue;
       this.dismissActor(e);

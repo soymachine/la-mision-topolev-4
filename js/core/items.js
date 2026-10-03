@@ -231,8 +231,8 @@ export function rollLoot(level, g = grng, opts = {}) {
   const catW = { ...CAT_W, ...(opts.catW || {}) };
   const cat = g.weighted(Object.keys(catW), (k) => catW[k]);
   const cap = Math.min(5, tierCap(level) + (opts.tierBonus || 0));
-  let pool = Object.entries(ITEMS).filter(([, d]) => d.cat === cat && d.tier <= cap && (opts.west || !d.west));
-  if (!pool.length) pool = Object.entries(ITEMS).filter(([, d]) => d.cat === 'valuable');
+  let pool = Object.entries(ITEMS).filter(([, d]) => d.cat === cat && d.tier <= cap && (opts.west || !d.west) && !d.noLoot);
+  if (!pool.length) pool = Object.entries(ITEMS).filter(([, d]) => d.cat === 'valuable' && !d.noLoot);
   const [b, d] = g.weighted(pool, ([, dd]) => 1 + dd.tier * 0.6 + (dd.tier === cap ? 1 : 0));
   const r = rollRarity(level, g, opts.rarityBonus || 0);
   let q;

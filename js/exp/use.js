@@ -32,7 +32,7 @@ export class UsePart {
         const o = this.objAt(sq.x + dx, sq.y + dy);
         if (!o) continue;
         if (o.kind === 'cart') continue;
-        const usable = o.kind === 'vein' || o.kind === 'shard' ? o.amount > 0 : o.kind === 'note' ? dx === 0 && dy === 0 : o.kind === 'survivor' || OBJ_DIALOG[o.kind] ? true : o.kind === 'radio' || o.kind === 'sabotage' ? !o.opened : !o.opened || (o.items && o.items.length);
+        const usable = o.kind === 'vein' || o.kind === 'shard' ? o.amount > 0 : o.kind === 'note' ? dx === 0 && dy === 0 : o.kind === 'survivor' || OBJ_DIALOG[o.kind] ? true : o.kind === 'radio' || o.kind === 'sabotage' || o.kind === 'objective' ? !o.opened : !o.opened || (o.items && o.items.length);
         if (usable) return this.interactObj(sq, o);
       }
       // 2b. personas: prisioneros y gente con la que se puede hablar
@@ -61,6 +61,7 @@ export class UsePart {
     if (o.kind === 'vein' || o.kind === 'shard') return this.mine(sq, o);
     if (o.kind === 'radio') return this.listenRadio(sq, o);
     if (o.kind === 'sabotage') return o.opened ? false : this.sabotage(sq, o);
+    if (o.kind === 'objective') return o.opened ? false : this.useObjective(sq, o);
     if (o.kind === 'survivor' && o.missing) return this.rescueMissing(sq, o);
     if (o.kind === 'note') {
       // diarios de otras expediciones: se traducen al leerlos y el KGB los quiere

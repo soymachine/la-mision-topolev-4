@@ -230,7 +230,7 @@ sec('Mundo', 'modificadores', 'Modificadores de zona', Object.keys(MODIFIERS).le
   { h: 'Modificador', v: (m) => `<span class="nm" style="color:${m.color}">${esc(m.name)}</span> <span class="desc">${m.id}</span>`, s: (m) => m.name },
   { h: 'Riesgo', v: (m) => `<span style="color:var(--bad)">▼ ${esc(m.risk)}</span>` },
   { h: 'Recompensa', v: (m) => `<span style="color:var(--good)">▲ ${esc(m.reward)}</span>` },
-]), 'Cada día, cada zona sale con 0–2 modificadores (los mismos para toda la jornada). Se ven en EXPEDICIÓN al elegir destino. El primer día la primera zona no tiene ninguno.');
+]), 'Cada día, cada zona sale con 0–2 modificadores (los mismos para toda la jornada). Se ven en EXPEDICIÓN al elegir destino. El primer día la primera zona no tiene ninguno. Cada modificador tiene un encargo especial asociado (ver «Encargos»): CUARTEL ofrece uno al día.');
 
 // ----- BASE -----
 sec('Mundo', 'clima', 'Clima de superficie', Object.keys(WEATHER).length, () => table(Object.entries(WEATHER).map(([id, w]) => ({ id, ...w })), [
@@ -280,9 +280,9 @@ sec('Campaña', 'comedor', 'Comedor, cartas y epitafios', Object.values(COMEDOR)
 sec('Campaña', 'encargos', 'Encargos', Object.keys(CONTRACTS).length, () => table(Object.entries(CONTRACTS).map(([id, c]) => ({ id, ...c })), [
   { h: 'Encargo', v: (c) => `<span class="nm">${esc(c.name)}</span><div class="desc">${esc(c.desc)}</div>`, s: (c) => c.name },
   { h: 'Quién', v: (c) => esc(GIVER_NAME(c.giver)), s: (c) => c.giver },
-  { h: 'Tipo', v: (c) => tag(c.kind, 'c') + (c.zone ? tag(MAPS[mapIndex(c.zone)] ? MAPS[mapIndex(c.zone)].name : c.zone) : ''), s: (c) => c.kind },
+  { h: 'Tipo', v: (c) => tag(c.kind, 'c') + (c.special ? `<span style="color:${MODIFIERS[c.special].color}">${tag('especial · ' + MODIFIERS[c.special].glyph + ' ' + MODIFIERS[c.special].name)}</span>` : '') + (c.zone ? tag(MAPS[mapIndex(c.zone)] ? MAPS[mapIndex(c.zone)].name : c.zone) : ''), s: (c) => (c.special ? 'z' : '') + c.kind },
   { h: 'Recompensa', v: (c) => rewText(c.reward) },
-]), 'CUARTEL ofrece 3 encargos al día (máximo 3 aceptados). Entregar: el objeto tiene que estar en el almacén al volver. Fotografía y captura: con la cámara Zenit-E o la jaula. Escolta, sabotaje y desaparecido: el objetivo aparece en su zona (el desaparecido, en cualquiera).');
+]), 'CUARTEL ofrece 3 encargos al día (máximo 3 aceptados). Entregar: el objeto tiene que estar en el almacén al volver. Fotografía y captura: con la cámara Zenit-E o la jaula. Escolta, sabotaje y desaparecido: el objetivo aparece en su zona (el desaparecido, en cualquiera). Encargos especiales (fase 16.4): uno al día en una zona abierta que tenga ese modificador; solo valen ese día, no ocupan hueco de los 3, no se penaliza abandonarlos y la recompensa sube un 10% por nivel de zona. activate: usar el objeto marcado (◎); retrieve: cogerlo y sacarlo de la zona; kills / essence: en una sola salida; pulse: seguir en la zona hasta 15 turnos después del pulso. Siempre hay que volver vivos.');
 sec('Campaña', 'colecciones', 'Colecciones de notas', Object.keys(COLLECTIONS).length, () => table(Object.entries(COLLECTIONS).map(([id, c]) => ({ id, ...c, n: NOTES.filter((x) => x.col === id).length })), [
   { h: 'Colección', v: (c) => `<span class="nm">${esc(c.name)}</span><div class="desc">${esc(c.desc)}</div>`, s: (c) => c.name },
   { h: 'Notas', v: (c) => c.n, s: (c) => c.n, num: 1 },

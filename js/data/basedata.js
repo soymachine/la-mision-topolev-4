@@ -19,6 +19,8 @@ export const MATERIALS = {
   electronica: { cat: 'material', name: 'Componentes electrónicos', glyph: '%', tier: 1, stack: 30, value: 12, desc: 'Válvulas, resistencias y relés de fabricación soviética.' },
   plomo: { cat: 'material', name: 'Tela de plomo', glyph: '%', tier: 1, stack: 20, value: 15, desc: 'Lona impregnada de plomo. Para trajes y blindajes.' },
   tejido: { cat: 'material', name: 'Tejido chebylita', glyph: '%', tier: 1, stack: 30, value: 10, desc: 'Fibras, escamas y glándulas. Para medicinas e investigación.' },
+  // objeto de un encargo especial (fase 16.4): no sale como botín; se retira al cobrar o al caducar
+  objcase: { cat: 'valuable', name: 'Objeto de encargo', glyph: '¤', tier: 0, stack: 1, value: 30, noLoot: 1, desc: 'Lo que pide el encargo especial de hoy. Sacadlo de la zona con vida.' },
   // objetos fabricables nuevos
   dronekit: { cat: 'consumable', name: 'Kit de reparación de drones', glyph: '!', tier: 2, stack: 3, use: 'dronekit', value: 120, desc: 'Repara 50% de la salud del perro robot adyacente o de un dron recién recogido.' },
   dronebat: { cat: 'material', name: 'Batería de litio para drones', glyph: '%', tier: 2, stack: 5, value: 90, desc: 'En la base: +20 turnos de batería a un dron (se instala en el Taller de fabricación).' },
