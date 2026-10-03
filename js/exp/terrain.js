@@ -79,13 +79,21 @@ export class TerrainPart {
 
   // ---------------------------------------------------------------- cobertura
   // −% de impacto si el objetivo está detrás de una casilla de cobertura (vista desde el tirador)
-  coverAgainst(fx, fy, tx, ty) {
-    if (cheb(fx, fy, tx, ty) <= 1) return 0;
-    const pts = line(tx, ty, fx, fy);
-    const p = pts[1];
-    if (!p) return 0;
-    const td = TILES[this.tile(p[0], p[1])];
-    return td.cover || 0;
+  coverAgainst(fx, fy, tx, ty) { return this.coverInfo(fx, fy, tx, ty).pct; }
+  // fase 23.1: nivel de cobertura de una casilla (0 ninguna, 1 media, 2 total)
+  coverLvlOf(x, y) {
+    if (!this.inb(x, y)) return 0;
+    const td = TILES[this.tile(x, y)];
+    return td.cover ? td.coverLvl || (td.cover >= 40 ? 2 : 1) : 0;
+  }
+  // cobertura del objetivo frente al tirador: la casilla junto al objetivo en la línea de tiro.
+  // Flanqueo: el objetivo está pegado a una cobertura, pero la línea de tiro no la cruza.
+  coverCell(fx, fy, tx, ty) { return cheb(fx, fy, tx, ty) <= 1 ? null : line(tx, ty, fx, fy)[1] || null; }
+  coverInfo(fx, fy, tx, ty) {
+    if (cheb(fx, fy, tx, ty) <= 1) return { pct: 0, lvl: 0, flank: false };
+    const p = line(tx, ty, fx, fy)[1];
+    if (p && this.coverLvlOf(p[0], p[1])) return { pct: TILES[this.tile(p[0], p[1])].cover, lvl: this.coverLvlOf(p[0], p[1]), flank: false };
+    return { pct: 0, lvl: 0, flank: D8.some(([dx, dy]) => this.coverLvlOf(tx + dx, ty + dy) > 0) };
   }
 
   // ---------------------------------------------------------------- destructibles

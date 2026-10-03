@@ -601,6 +601,10 @@ export class MapRenderer {
       ctx.font = fontB;
       ctx.fillText('@', sx + cw / 2, sy + ch / 2 + 1);
       ctx.shadowBlur = 0; ctx.font = font;
+      // fase 23.1: a cubierto frente al enemigo visible más peligroso (▄ media, █ total)
+      let cvl = 0;
+      for (const o of e.enemies) { if (cvl === 2 || !e.visible[o.y * e.w + o.x] || !e.hostile(sq, o)) continue; cvl = Math.max(cvl, e.coverLvlOf(...(e.coverCell(o.x, o.y, sq.x, sq.y) || [-1, -1]))); }
+      if (cvl) { ctx.font = `${Math.round(this.fs * 0.5)}px ${FONT}`; ctx.fillStyle = cvl === 2 ? '#3ddc6b' : '#b8f53d'; ctx.fillText(cvl === 2 ? '█' : '▄', sx + cw * 0.15, sy + ch * 0.2); ctx.font = font; }
       const st = e.ast(sq);
       const f = Math.max(0, sq.a.hp / st.hpMaxEff);
       if (f < 1) {

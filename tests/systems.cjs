@@ -1359,6 +1359,63 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     await ctx9.close();
   }
 
+  console.log('· Fase 23: combate táctico');
+  {
+    const ctx10 = await b.newContext({ viewport: { width: 1440, height: 860 } });
+    const K = await ctx10.newPage();
+    K.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
+    K.on('console', (m) => { if ((m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) || m.type() === 'warning') errs.push(m.text()); });
+    const kClose = async () => { for (let i = 0; i < 6 && (await K.$('.modal')); i++) { await K.keyboard.press('Escape'); await K.waitForTimeout(150); } };
+    await K.goto(URL); await K.waitForTimeout(800);
+    await K.click('text=NUEVA PARTIDA'); await K.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await K.click('#screen-intro'); await K.click('text=COMENZAR');
+    await K.waitForTimeout(300);
+    await K.click('.tab:has-text("EXPEDICIÓN")'); await K.waitForTimeout(200);
+    for (let i = 0; i < 2; i++) { const rows = await K.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+    await K.click('text=LANZAR EXPEDICIÓN'); await K.waitForTimeout(300);
+    if (await K.$('.modal-back >> text=LANZAR')) await K.click('.modal-back >> text=LANZAR');
+    await K.waitForTimeout(800); await kClose();
+    // arena de pruebas iluminada (igual que en la fase 22): escuadrón en el extremo izquierdo
+    await K.evaluate(async () => {
+      const e = window.__topolev.exp; const { TILES } = await import('./js/data/tiles.js');
+      window.__tile = (name) => TILES.findIndex((t) => t.name === name);
+      for (const a of window.__topolev.S.agents) { a.baseHp = 300; a.hp = 600; }
+      window.__clr = () => { for (const x of [...e.enemies]) if (!e.isComp(x)) e.dismissActor(x); if (e.dlg) e.closeDialog(); e.dlgQueue = []; };
+      window.__clr();
+      const AW = 44, AH = 18, x0 = Math.max(1, Math.min(e.w - AW - 2, e.cur.x - 4)), y0 = Math.max(1, Math.min(e.h - AH - 2, e.cur.y - 9));
+      const inA = (x, y) => x >= x0 && x < x0 + AW && y >= y0 && y < y0 + AH;
+      window.__floor = () => { for (let y = y0; y < y0 + AH; y++) for (let x = x0; x < x0 + AW; x++) { const k = e.key(x, y); e.t[k] = 2; e.rad[k] = 0; e.gas[k] = 0; e.fire[k] = 0; e.anomaly[k] = 0; e.floorItems.delete(k); } };
+      window.__floor();
+      for (const o of e.objects.filter((o) => inA(o.x, o.y))) e.objMap.delete(e.key(o.x, o.y));
+      e.objects = e.objects.filter((o) => !inA(o.x, o.y)); e.mines = (e.mines || []).filter((m) => !inA(m.x, m.y));
+      const ax = x0 + 3, ay = y0 + 9;
+      window.__home = () => e.team.forEach((q, i) => e.moveEntity(q, ax, ay + i * 2));
+      window.__home();
+      e.agentLight = () => true; e.lightDirty = true; e.dmap = null; e.computeVisibility(true);
+      window.__P = (dx, dy) => [ax + dx, ay + dy];
+      window.__set = (dx, dy, tile) => { const [x, y] = window.__P(dx, dy); e.t[e.key(x, y)] = tile; e.dirty = true; };
+    });
+    // 23.1 cobertura media/total y flanqueo
+    const cv = await K.evaluate(() => {
+      const e = window.__topolev.exp; const sq = e.cur; const out = {}; window.__clr(); window.__home();
+      const [tx, ty] = window.__P(6, 0);
+      const en = e.spawnEnemy('lobo', 3, tx, ty, 'dormido'); en._st = null; e.est(en).ev = 40; // esquiva alta: sin topes en el % de impacto
+      const h0 = e.hitChance(sq, en);
+      window.__set(5, 0, window.__tile('Sacos terreros')); const c2 = e.coverInfo(sq.x, sq.y, tx, ty); const h2 = e.hitChance(sq, en);
+      window.__set(5, 0, window.__tile('Consola / muro bajo')); const c1 = e.coverInfo(sq.x, sq.y, tx, ty); const h1 = e.hitChance(sq, en);
+      window.__set(5, 0, 2); window.__set(6, 1, window.__tile('Sacos terreros')); const cf = e.coverInfo(sq.x, sq.y, tx, ty); const hf = e.hitChance(sq, en);
+      out.lvls = c2.lvl === 2 && c1.lvl === 1 && h2 < h1 && h1 < h0;
+      out.flank = cf.flank && cf.pct === 0 && hf === h0 + 15;
+      // el enemigo a distancia también respeta la cobertura del agente
+      window.__set(6, 1, 2); window.__set(1, 0, window.__tile('Sacos terreros'));
+      out.agentCover = e.coverInfo(tx, ty, sq.x, sq.y).lvl === 2;
+      window.__set(1, 0, 2); window.__clr();
+      return out;
+    });
+    ok(cv.lvls, 'cobertura media (−25%) y total (−45%) según la casilla');
+    ok(cv.flank && cv.agentCover, 'flanqueo: sin cobertura y +15% de impacto; los agentes también se cubren');
+    await ctx10.close();
+  }
+
   console.log(errs.length ? 'ERRORES:\n' + errs.join('\n') : '  ✓ sin errores en consola');
   await b.close();
   if (fails || errs.length) { console.log(`FALLOS: ${fails}`); process.exit(1); }

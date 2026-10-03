@@ -28,7 +28,9 @@ export class CombatPart {
     let h = ws.acc + st.acc * 2 - es.ev;
     if (e.stun > 0) h += 15;
     if (e.marked > 0 && this.isSquad(sq)) h += e.markPct || 25;
-    h -= this.coverAgainst(sq.x, sq.y, e.x, e.y);
+    const cv = this.coverInfo(sq.x, sq.y, e.x, e.y); // fase 23.1: cobertura y flanqueo
+    h -= cv.pct;
+    if (cv.flank && ws.wtype !== 'melee') h += 15;
     if (sq.a) {
       if (isHuman(e)) h += this.flag(sq, 'vsHuman');
       if (e.type === 'lobo') h += this.flag(sq, 'vsLobo');
@@ -117,7 +119,8 @@ export class CombatPart {
     if (melee) dmg *= 1 + (st.meleePct || 0) / 100;
     dmg *= 1 + (st.dmgPct || 0) / 100;
     if (ws.wtype === 'shotgun' && d > ws.range) dmg *= Math.max(0.35, 1 - 0.18 * (d - ws.range));
-    const crit = rng.chance((ws.crit + (st.crit || 0)) / 100);
+    const flank = !melee && this.coverInfo(sq.x, sq.y, e.x, e.y).flank ? 10 : 0; // flanqueo: +10% de crítico
+    const crit = rng.chance((ws.crit + (st.crit || 0) + flank) / 100);
     if (crit) dmg *= 1.8 * (1 + (sq.a ? this.flag(sq, 'critDmg') : 0) / 100);
     const es = this.est(e);
     if (sq.a && S.photos && S.photos[e.type]) dmg *= 1.1; // ficha fotográfica (Zenit-E)

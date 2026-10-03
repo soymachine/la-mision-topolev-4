@@ -832,11 +832,16 @@ export class ExpeditionUI {
         const r = e.canShoot(c, en);
         const why = { ok: '', melee: ' (acércate)', empty: ' (recarga)', range: ' (fuera de alcance)', los: ' (sin línea de tiro)' }[r];
         const hc = e.hitChance(c, en);
-        parts.push(`<div class="tt-row"><span>Impacto</span><span class="${hc >= 60 ? 'good' : hc >= 35 ? 'warn' : 'bad'}">${hc}%${why}</span></div>`);
+        // fase 23.1: cobertura del objetivo y flanqueo
+        const cv = e.coverInfo(c.x, c.y, en.x, en.y);
+        const cvTxt = cv.lvl === 2 ? ` <span class="bad">[█] total −${cv.pct}%</span>` : cv.lvl === 1 ? ` <span class="warn">[▄] media −${cv.pct}%</span>` : cv.flank ? ' <span class="good">[⇄ flanco +15%]</span>' : '';
+        parts.push(`<div class="tt-row"><span>Impacto</span><span class="${hc >= 60 ? 'good' : hc >= 35 ? 'warn' : 'bad'}">${hc}%${why}${cvTxt}</span></div>`);
       }
     }
     const ag = vis ? e.agentAt(x, y) : null;
-    if (ag) { const st = agentStats(ag.a); parts.push(`<div class="tt-title" style="color:${ag.a.color}">@ ${esc(agentName(ag.a))}</div><div>Salud ${ag.a.hp}/${st.hpMaxEff} · Rad ${Math.round(ag.a.rad)}</div>`); }
+    // cobertura del agente frente al enemigo visible más cercano
+    const agCover = ag && e.enemies.filter((o) => e.seen(o) && e.hostile(ag, o)).map((o) => e.coverInfo(o.x, o.y, ag.x, ag.y)).sort((p, q) => q.lvl - p.lvl)[0];
+    if (ag) { const st = agentStats(ag.a); parts.push(`<div class="tt-title" style="color:${ag.a.color}">@ ${esc(agentName(ag.a))}</div><div>Salud ${ag.a.hp}/${st.hpMaxEff} · Rad ${Math.round(ag.a.rad)}</div>${agCover && agCover.lvl ? `<div class="good">${agCover.lvl === 2 ? '[█] A cubierto (total)' : '[▄] A cubierto (media)'}</div>` : agCover && agCover.flank ? '<div class="bad">[⇄] ¡Te flanquean!</div>' : ''}`); }
     if (ex) parts.push(`<div class="tt-title cyan">⌂ ${esc(ex.name)}</div><div class="dimt">${ex.perm ? 'Extracción permanente.' : `Extracción temporal: ${ex.expires - e.turn} turnos.`} Entra en la zona y pulsa <b>F</b>.</div>`);
     const obj = e.objAt(x, y);
     if (obj) {

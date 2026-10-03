@@ -382,6 +382,7 @@ export class HelpScreen {
 <li>El % de impacto depende del arma, la puntería del agente, la distancia respecto al alcance del arma y la esquiva del objetivo. Las escopetas pierden daño a distancia; los fusiles de tirador odian la corta distancia.</li>
 <li>Los disparos hacen <b>ruido</b> y despiertan a los nidos cercanos. Las armas cuerpo a cuerpo son silenciosas.</li>
 <li>La armadura resta daño a cada golpe. La agilidad hace que te fallen más.</li>
+<li><b>Cobertura</b>: detrás de sacos terreros o un coche (<b>total</b>, −45%) o de una consola o un murete (<b>media</b>, −25%) te aciertan menos; en el mapa lo indica ▄/█ sobre el agente. Si disparas desde un lado y la cobertura no queda en medio, lo <b>flanqueas</b>: sin cobertura, +15% de impacto y +10% de crítico. El tooltip de impacto lo muestra ([▄] [█] [⇄]). Los humanos también intentan flanquearte.</li>
 </ul>
 
 <h2>MODS DE ARMAS</h2>

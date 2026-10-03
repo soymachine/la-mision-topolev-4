@@ -285,7 +285,8 @@ export class AIPart {
     const st = this.est(e);
     const dfn = this.defenseOf(t);
     const d = Math.hypot(t.x - e.x, t.y - e.y);
-    const hc = clamp(st.acc - dfn.ev - Math.max(0, d - 4) * 3 - this.coverAgainst(e.x, e.y, t.x, t.y), 5, 95);
+    const cv = this.coverInfo(e.x, e.y, t.x, t.y);
+    const hc = clamp(st.acc - dfn.ev - Math.max(0, d - 4) * 3 - cv.pct + (cv.flank ? 15 : 0), 5, 95);
     const hit = rng.int(1, 100) <= hc;
     this.fx.push({ type: 'ebolt', x0: e.x, y0: e.y, x1: t.x, y1: t.y, hit, color: actorColor(e, Math.max(6, e.lvl)) });
     if (!hit) { this.fx.push({ type: 'miss', x: t.x, y: t.y, delay: 140 }); return; }
@@ -376,6 +377,11 @@ export class AIPart {
           return;
         }
       }
+      // fase 23.1: si el agente está a cubierto, intenta flanquearlo (una casilla desde la que su cobertura no cuente)
+      if (def.cover && !adj && this.isSquad(tgt) && this.coverAgainst(e.x, e.y, tgt.x, tgt.y) > 0 && rng.chance(0.45)) {
+        const fl = rng.shuffle([...D8]).map(([dx, dy]) => [e.x + dx, e.y + dy]).find(([nx, ny]) => this.canEnemyStep(e, nx, ny) && this.coverAgainst(nx, ny, tgt.x, tgt.y) === 0 && this.los(nx, ny, tgt.x, tgt.y));
+        if (fl) { this.enemyStepTo(e, fl[0], fl[1]); return; }
+      }
       // cobertura: si está al descubierto, busca una casilla a cubierto desde la que siga viendo al objetivo
       if (def.cover && !adj && this.coverAgainst(tgt.x, tgt.y, e.x, e.y) === 0 && rng.chance(def.cover * 0.5)) {
         let best = null, bc = 0;
@@ -459,7 +465,7 @@ export class AIPart {
       let hc = ws.acc + st.acc * 2 - dfn.ev;
       if (!melee && d > ws.range) hc -= (d - ws.range) * 7;
       if (ws.scope && d < 2) hc -= 20;
-      if (!melee) hc -= this.coverAgainst(e.x, e.y, t.x, t.y);
+      if (!melee) { const cv = this.coverInfo(e.x, e.y, t.x, t.y); hc -= cv.pct; if (cv.flank) hc += 15; }
       hc = clamp(Math.round(hc), 5, 95);
       const hit = rng.int(1, 100) <= hc;
       this.fx.push({ type: melee ? 'slash' : 'shot', x0: e.x, y0: e.y, x1: t.x, y1: t.y, hit, delay: i * 70, wtype: ws.wtype });

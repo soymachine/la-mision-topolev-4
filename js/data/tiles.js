@@ -29,7 +29,7 @@ export const TILES = [
   // ---- fase 16 ----
   // cover: −% de impacto contra quien está detrás · shoot: se puede disparar (se rompe) · noise: ruido al pisarla
   // slip: resbala · quiet: amortigua los pasos · fuel: inflamable · use: se activa con F estando al lado · light: radio de luz
-  { name: 'Sacos terreros', walk: 0, opaque: 0, cover: 25, glyphs: ['▄'], fg: ['#b08a52', '#a07c48'], bg: '#120b04', desc: 'Cobertura media: −25% de impacto a quien se cubre detrás.' },
+  { name: 'Sacos terreros', walk: 0, opaque: 0, cover: 45, coverLvl: 2, glyphs: ['▄'], fg: ['#b08a52', '#a07c48'], bg: '#120b04', desc: 'Cobertura total: −45% de impacto a quien se cubre detrás (si no le flanquean).' },
   { name: 'Consola / muro bajo', walk: 0, opaque: 0, cover: 25, glyphs: ['▬'], fg: ['#c9893c', '#b47a34'], bg: '#170c03', desc: 'Cobertura media. No se puede atravesar.' },
   { name: 'Barril de combustible', walk: 0, opaque: 0, cover: 15, shoot: 'barrel', glyphs: ['◘'], fg: ['#e0502a'], bg: '#1a0602', desc: 'Dispárale: explota (radio 2) e incendia.' },
   { name: 'Charco de aceite', walk: 1, opaque: 0, slip: 1, fuel: 1, glyphs: ['≋'], fg: ['#4a3a2a', '#3e3224'], bg: '#0a0704', desc: 'Inflamable. Resbala: cruzarlo cuesta un turno más.' },
@@ -61,7 +61,7 @@ export const TILES = [
   { name: 'Asfalto agrietado', walk: 1, opaque: 0, out: 1, glyphs: ['·', '.', '·', ':'], fg: ['#5a5650', '#4e4a46'] },
   { name: 'Pino rojo', walk: 0, opaque: 0, half: 1, out: 1, glyphs: ['♠', '♣', '♠'], fg: ['#a8441a', '#943c16', '#b44c1e'], desc: 'Pinos muertos color óxido. Tapan la visión a medias.' },
   { name: 'Tierra removida', walk: 1, opaque: 0, out: 1, use: 'dig', glyphs: ['÷', '≈', '∴'], fg: ['#8a5a2a', '#7a4e24'], bg: '#100a04', desc: 'Una fosa de enterramiento. Muy radiactiva. Se puede excavar (F): a veces hay algo.' },
-  { name: 'Coche oxidado', walk: 0, opaque: 0, cover: 25, out: 1, glyphs: ['▬', '◘', '▀'], fg: ['#8a5a3a', '#7a6a5a', '#946040'], bg: '#100804', desc: 'Un «Moskvich» abandonado. Buena cobertura.' },
+  { name: 'Coche oxidado', walk: 0, opaque: 0, cover: 45, coverLvl: 2, out: 1, glyphs: ['▬', '◘', '▀'], fg: ['#8a5a3a', '#7a6a5a', '#946040'], bg: '#100804', desc: 'Un «Moskvich» abandonado. Cobertura total (−45%), salvo si te flanquean.' },
   { name: 'Columpio', walk: 0, opaque: 0, out: 1, glyphs: ['Ħ'], fg: ['#c8a050'], desc: 'Chirría cuando pasas al lado. Todo lo que hay cerca lo oye.' },
   { name: 'Chapa metálica', walk: 0, opaque: 1, glyphs: ['▒', '▓', '▒'], fg: ['#7a7468', '#6a645a', '#847c70'], bg: '#141210', desc: 'Vagones, cabinas y carrocerías.' },
   { name: 'Celosía metálica', walk: 0, opaque: 0, cover: 10, out: 1, glyphs: ['╳', '╫', '╳'], fg: ['#8aa0b8', '#7a90a8'], desc: 'La estructura de la antena. Algo de cobertura.' },
