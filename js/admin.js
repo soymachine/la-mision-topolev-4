@@ -214,6 +214,14 @@ sec('Objetos', 'botin', 'Botín', byCat('valuable').length, () => table(byCat('v
 // ----- SISTEMAS -----
 sec('Sistemas', 'rarezas', 'Rarezas', R.length, renderRarities);
 sec('Sistemas', 'afijos', 'Propiedades (afijos)', AFFIXES.length, renderAffixes);
+sec('Sistemas', 'sigilo', 'Detección y sigilo', 6, () => table([
+  { m: 'Agachado (tecla C)', v: '−3 casillas', n: 'Uno de cada dos pasos cuesta un turno más.' },
+  { m: 'Quieto (no te moviste el turno anterior)', v: '−2 casillas', n: '' },
+  { m: 'Linterna encendida', v: '+3 casillas', n: 'A oscuras sin linterna, ×0,65.' },
+  { m: 'Arena / niebla', v: '−2 / −1', n: 'Ya existían (fases 16 y 17).' },
+  { m: 'Ataque por la espalda', v: 'crítico seguro', n: 'Cuerpo a cuerpo a un enemigo dormido o errante sin memoria de ti (no jefes).' },
+  { m: 'Emboscada (orden EMBOSCADA)', v: '+20% impacto', n: 'Una vez; luego el compañero pasa a MANTENER.' },
+], [{ h: 'Situación', v: (r) => esc(r.m) }, { h: 'Efecto', v: (r) => esc(r.v) }, { h: 'Notas', v: (r) => `<span class="desc">${esc(r.n)}</span>` }]), 'Fase 23.2. Los modificadores de distancia de detección solo cuentan para los enemigos que aún no están en alerta (dormidos o errantes). Los chebylitas sigilosos (fase 22) emboscan: su primer golpe hace ×1,5.');
 sec('Sistemas', 'nombres', 'Nombres de objetos', MYTHIC_NAMES.length + EPITHETS.length + UNCOMMON_SUFFIX.length + RARE_SUFFIX.length, renderItemNames);
 
 // ----- MUNDO -----

@@ -37,7 +37,7 @@ export class AIPart {
         const d = Math.hypot(e.x - sq.x, e.y - sq.y);
         if (d < bd && this.canShoot(sq, e) === 'ok' && (ws.wtype !== 'melee' ? d <= ws.range * 1.5 : true)) { best = e; bd = d; }
       }
-      if (best) { this.attack(sq, best); return; }
+      if (best) { if (sq.order === 'emboscada') this.ambushFire(sq, best); else this.attack(sq, best); return; }
       // recargar si está vacío y hay enemigos cerca
       if (w && ws.mag && w.ld < ws.mag * 0.3 && this.ammoFor(sq) > 0) { this.reload(sq, true); return; }
       // cambiar a la otra arma si esta está seca
@@ -46,7 +46,7 @@ export class AIPart {
         if (a.equip[other]) { sq.cur = other; return; }
       }
     }
-    if (sq.order === 'mantener') return;
+    if (sq.order === 'mantener' || sq.order === 'emboscada') return;
     // seguir al líder (o acudir a la evacuación)
     let lead = this.cur;
     let near = 2;
@@ -107,7 +107,8 @@ export class AIPart {
       if (!this.hostile(e, c)) continue;
       if (c.a && d > 1.5 && this.flag(c, 'vanish')) continue; // Desaparecer (Explorador)
       // sigilo: talentos/gadgets, arena (amortigua los pasos); luz: a oscuras cuesta más verte, la linterna te delata
-      let sg = dormant && this.isSquad(c) ? Math.max(1, sight - this.flag(c, 'stealth') - (this.tile(c.x, c.y) === T.SAND ? 2 : 0) - ((this.mods || []).includes('niebla') ? 1 : 0)) : sight;
+      // fase 23.2: agachado (−3) y quieto (−2) también cuentan para quien aún no está en alerta
+      let sg = (dormant || e.state === 'errante') && this.isSquad(c) ? Math.max(1, sight - this.flag(c, 'stealth') - (this.tile(c.x, c.y) === T.SAND ? 2 : 0) - ((this.mods || []).includes('niebla') ? 1 : 0) - this.stealthBonus(c)) : sight;
       if (c.a) {
         const lit = this.isLit(c.x, c.y), lamp = this.agentLight(c);
         if (lamp) sg += 3;
@@ -265,6 +266,8 @@ export class AIPart {
     this.fx.push({ type: 'bite', x0: e.x, y0: e.y, x1: t.x, y1: t.y, color: actorColor(e) });
     if (rng.int(1, 100) > hc) { this.fx.push({ type: 'miss', x: t.x, y: t.y, delay: 80 }); return; }
     mult *= this.ecoMeleeMult(e, t);
+    // fase 23.2: emboscada enemiga (un chebylita sigiloso que no habíais visto)
+    if (this.isSquad(t) && this.has(e, 'stealth') && !e.ambushed) { e.ambushed = 1; mult *= 1.5; this.say(`¡Emboscada! ${this.enm(e)} sale de la nada.`, 'bad'); }
     let dmg = Math.round(rng.int(st.dmg[0], st.dmg[1]) * mult);
     dmg = Math.max(1, dmg - dfn.prot);
     if (!this.isSquad(t)) { this.damageEnemy(t, dmg, e, false, 80); return; }

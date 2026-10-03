@@ -287,6 +287,9 @@ export class ExpeditionUI {
       for (const b of sq.buffs || []) chips.push(`<span class="status-chip warn" title="${esc(b.name)}">${esc(b.name.toUpperCase().slice(0, 12))} ${b.turns}</span>`);
       if (sq.autoUsed === false && e.flag && e.inMap(sq) && e.flag(sq, 'autoInject')) chips.push('<span class="status-chip cyan">💉</span>');
       if (a.rad >= 100) chips.push('<span class="status-chip bad pulse-red">RAD!</span>');
+      // fase 23.2: agachado y detección
+      if (e.inMap(sq) && sq.crouch) chips.push('<span class="status-chip cyan" title="Agachado (C): más difícil de ver, más lento">▂ AGACHADO</span>');
+      if (e.inMap(sq)) { const dt = e.detectionOf(sq); chips.push(dt === 'visto' ? '<span class="status-chip bad" title="Algún enemigo en alerta te ve">👁 VISTO</span>' : dt === 'oido' ? '<span class="status-chip warn" title="Hay enemigos en alerta cerca, pero no te ven">👂 OÍDO</span>' : '<span class="status-chip good" title="Ningún enemigo en alerta sabe dónde estás">· OCULTO</span>'); }
       if ((a.stress || 0) >= 45) chips.push(`<span class="status-chip ${a.stress >= 70 ? 'bad' : 'warn'}" title="Estrés">EST ${Math.round(a.stress)}</span>`);
       const card = el('div', { class: `agent-card ${sq === e.cur ? 'active' : ''} ${!sq.alive ? 'dead' : sq.out ? 'gone' : ''}` });
       card.innerHTML = `
@@ -483,6 +486,7 @@ export class ExpeditionUI {
       case 'h': ev.preventDefault(); this.quickHeal(); break;
       case 'v': ev.preventDefault(); this.useAbility(); break;
       case 'l': ev.preventDefault(); e.toggleLight(e.cur); this.refresh(); break;
+      case 'c': ev.preventDefault(); e.toggleCrouch(e.cur); this.refresh(); break;
       case 'd': ev.preventDefault(); this.companionKey(); break;
       case 'b': ev.preventDefault(); this.quickGrenade(); break;
       case 'i': ev.preventDefault(); this.openInventory(); break;

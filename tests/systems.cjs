@@ -1413,6 +1413,49 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     });
     ok(cv.lvls, 'cobertura media (−25%) y total (−45%) según la casilla');
     ok(cv.flank && cv.agentCover, 'flanqueo: sin cobertura y +15% de impacto; los agentes también se cubren');
+    // 23.2 sigilo real: agacharse, quieto, ataque por la espalda y emboscadas
+    const sg = await K.evaluate(() => {
+      const e = window.__topolev.exp; const sq = e.cur; const out = {}; window.__clr(); window.__home();
+      // detección: un lobo errante a 10 casillas ve al agente que se mueve, pero no al agachado y quieto
+      const [lx, ly] = window.__P(10, 0); // (en la arena todos llevan luz: +3 a la distancia de detección)
+      const lobo = e.spawnEnemy('lobo', 3, lx, ly, 'errante');
+      sq.crouch = false; sq.lastMove = e.turn; const [t1] = e.pickTarget(lobo, 11);
+      sq.crouch = true; sq.lastMove = e.turn - 5; const [t2] = e.pickTarget(lobo, 11);
+      out.detect = t1 === sq && t2 !== sq && e.stealthBonus(sq) === 5;
+      // agachado: uno de cada dos pasos cuesta un turno más
+      sq.crouchStep = false; const turn0 = e.turn; e.moveDir(0, -1); e.moveDir(0, 1);
+      out.slow = e.turn - turn0 === 3;
+      sq.crouch = false; e.dismissActor(lobo); window.__home();
+      // indicador de detección
+      out.hiddenState = e.detectionOf(sq) === 'oculto';
+      const [ax, ay] = window.__P(4, 0); const al = e.spawnEnemy('lobo', 3, ax, ay, 'alerta');
+      out.seenState = e.detectionOf(sq) === 'visto'; e.dismissActor(al);
+      // ataque por la espalda: cuerpo a cuerpo contra un dormido = crítico seguro
+      const [bx, by] = window.__P(1, 0); const dor = e.spawnEnemy('golem', 5, bx, by, 'dormido');
+      const ws = { ...e.weaponStats(sq), wtype: 'melee', crit: 0, dmg: [5, 5] };
+      let crits = 0; for (let i = 0; i < 5; i++) { dor.state = 'dormido'; dor.mem = 0; if (e.rollDmg(ws, e.ast(sq), sq, dor, true, 1).crit) crits++; }
+      dor.state = 'alerta'; const awake = e.rollDmg({ ...ws }, e.ast(sq), sq, dor, true, 1).crit;
+      out.backstab = crits === 5 && !awake; e.dismissActor(dor);
+      // emboscada de un compañero: dispara con +20% al primero que entra a tiro y vuelve a «mantener»
+      const q2 = e.team.find((q) => q !== sq);
+      if (q2) {
+        q2.order = 'emboscada'; const [ex, ey] = window.__P(4, 2); const tg = e.spawnEnemy('rata', 1, ex, ey, 'dormido'); tg.hp = tg.hpMax = 999;
+        const w = e.weapon(q2); if (w) w.ld = Math.max(w.ld, 5);
+        e.companionAct(q2);
+        out.ambush = q2.order === 'mantener' && q2.buffs.some((b) => b.name === 'Emboscada');
+        e.dismissActor(tg); q2.order = 'seguir';
+      } else out.ambush = true;
+      // emboscada enemiga: el primer golpe de un liquidador hueco hace ×1,5
+      const [hx, hy] = window.__P(1, 1); const hu = e.spawnEnemy('hueco', 6, hx, hy, 'alerta');
+      out.enemyAmbush = !hu.ambushed && e.ecoMeleeMult(hu, sq) >= 1; // (el salto ya es ×2)
+      e.god = true; e.enemyMelee(hu, sq); out.enemyAmbush = out.enemyAmbush && hu.ambushed === 1;
+      e.dismissActor(hu); window.__clr();
+      return out;
+    });
+    ok(sg.detect && sg.slow, `agachado y quieto cuesta más que te vean; agachado se avanza más despacio${sg.detect && sg.slow ? '' : ' ' + JSON.stringify(sg)}`);
+    ok(sg.hiddenState && sg.seenState, 'indicador de detección: oculto / visto');
+    ok(sg.backstab, 'ataque por la espalda: crítico seguro contra un enemigo que no sabe que estás ahí');
+    ok(sg.ambush && sg.enemyAmbush, `emboscadas: la orden EMBOSCADA del compañero y el primer golpe del liquidador hueco${sg.ambush && sg.enemyAmbush ? '' : ' ' + JSON.stringify(sg)}`);
     await ctx10.close();
   }
 

@@ -30,6 +30,7 @@ import { FactionPart } from './factions.js';
 import { CompanionPart } from './companions.js';
 import { MoralePart } from './morale.js';
 import { EcologyPart } from './ecology.js';
+import { TacticsPart } from './tactics.js';
 import { zoneWorld, reactorAlert } from '../core/ecosys.js';
 import { unreadNote } from '../core/story.js';
 import { seasonOf } from '../data/basedata.js';
@@ -522,7 +523,7 @@ export class Expedition {
     // enemigos recién vistos
     const fresh = [];
     for (const e of this.enemies) {
-      if (vis[this.key(e.x, e.y)]) {
+      if (vis[this.key(e.x, e.y)] && !this.hidden(e)) {
         if (!e.seen) { e.seen = 1; fresh.push(e); if (ENEMIES[e.type]) seeEnemy(e.type); if (ENEMIES[e.type] && ENEMIES[e.type].boss) this.moraleOnBoss(e); }
       }
     }
@@ -638,6 +639,8 @@ export class Expedition {
     if (tt === T.DOOR) { this.t[this.key(nx, ny)] = T.DOOR_OPEN; this.fx.push({ type: 'door', x: nx, y: ny }); }
     this.moveEntity(sq, nx, ny);
     if (this.onStep(sq, true)) this.extraTurn = 1;
+    // fase 23.2: agachado, uno de cada dos pasos cuesta un turno más
+    if (sq.crouch) { sq.crouchStep = !sq.crouchStep; if (sq.crouchStep) this.extraTurn = 1; }
     if (this.surface) this.creak(sq);
     this.onAgentEnter(sq);
     return true;
@@ -782,7 +785,7 @@ export class Expedition {
 }
 
 // Mezcla de los módulos parciales en la clase principal
-for (const Part of [CombatPart, UsePart, ExtractionPart, AIPart, EnvironmentPart, StoryPart, AbilityPart, TerrainPart, FactionPart, CompanionPart, MoralePart, EcologyPart]) {
+for (const Part of [CombatPart, UsePart, ExtractionPart, AIPart, EnvironmentPart, StoryPart, AbilityPart, TerrainPart, FactionPart, CompanionPart, MoralePart, EcologyPart, TacticsPart]) {
   for (const k of Object.getOwnPropertyNames(Part.prototype)) {
     if (k === 'constructor') continue;
     if (Object.prototype.hasOwnProperty.call(Expedition.prototype, k)) throw new Error('Método duplicado en Expedition: ' + k);

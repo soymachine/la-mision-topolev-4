@@ -365,6 +365,7 @@ export class HelpScreen {
 <span>V</span><span>Habilidad de la especialización (con objetivo: apunta y confirma)</span>
 <span>D</span><span>Compañero mecánico: órdenes del perro, lanzar o recoger drones (Eco y Kamikadze: elige destino)</span>
 <span>L</span><span>Encender / apagar la linterna</span>
+<span>C</span><span>Agacharse / ponerse de pie (más difícil de ver, más lento)</span>
 <span>B</span><span>Lanzar granada / objeto arrojadizo (o colocar trampas desde el inventario)</span>
 <span>I</span><span>Inventario (arrastrar y soltar para equipar, soltar o dar a compañeros)</span>
 <span>Tab · 1-4</span><span>Cambiar de agente controlado</span>
@@ -383,6 +384,7 @@ export class HelpScreen {
 <li>Los disparos hacen <b>ruido</b> y despiertan a los nidos cercanos. Las armas cuerpo a cuerpo son silenciosas.</li>
 <li>La armadura resta daño a cada golpe. La agilidad hace que te fallen más.</li>
 <li><b>Cobertura</b>: detrás de sacos terreros o un coche (<b>total</b>, −45%) o de una consola o un murete (<b>media</b>, −25%) te aciertan menos; en el mapa lo indica ▄/█ sobre el agente. Si disparas desde un lado y la cobertura no queda en medio, lo <b>flanqueas</b>: sin cobertura, +15% de impacto y +10% de crítico. El tooltip de impacto lo muestra ([▄] [█] [⇄]). Los humanos también intentan flanquearte.</li>
+<li><b>Sigilo</b>: los enemigos que aún no están en alerta te detectan desde más cerca si estás <b>agachado</b> (C, −3; uno de cada dos pasos cuesta un turno más) o <b>quieto</b> (−2); la linterna te delata (+3). La tarjeta de cada agente dice si está <b>oculto</b>, <b>oído</b> o <b>visto</b>. Un golpe cuerpo a cuerpo a un enemigo que no sabe que estás ahí (dormido o errante) es un <b>ataque por la espalda</b>: crítico seguro. La orden <b>EMBOSCADA</b> (O) deja al compañero quieto hasta que algo entra a tiro: primer disparo con +20%. Ojo: los chebylitas sigilosos también emboscan (primer golpe ×1,5).</li>
 </ul>
 
 <h2>MODS DE ARMAS</h2>

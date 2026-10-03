@@ -120,7 +120,10 @@ export class CombatPart {
     dmg *= 1 + (st.dmgPct || 0) / 100;
     if (ws.wtype === 'shotgun' && d > ws.range) dmg *= Math.max(0.35, 1 - 0.18 * (d - ws.range));
     const flank = !melee && this.coverInfo(sq.x, sq.y, e.x, e.y).flank ? 10 : 0; // flanqueo: +10% de crítico
-    const crit = rng.chance((ws.crit + (st.crit || 0) + flank) / 100);
+    // fase 23.2: ataque por la espalda (cuerpo a cuerpo a un enemigo que no sabe que estás ahí) = crítico seguro
+    const back = melee && sq.a && this.unaware(e) && !ACTORS[e.type].boss;
+    if (back) this.say(`🗡 ¡Ataque por la espalda de ${this.nm(sq)}!`, 'o1');
+    const crit = back || rng.chance((ws.crit + (st.crit || 0) + flank) / 100);
     if (crit) dmg *= 1.8 * (1 + (sq.a ? this.flag(sq, 'critDmg') : 0) / 100);
     const es = this.est(e);
     if (sq.a && S.photos && S.photos[e.type]) dmg *= 1.1; // ficha fotográfica (Zenit-E)
