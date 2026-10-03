@@ -11,7 +11,7 @@ import { addStress, addAff } from '../core/story.js';
 
 export class TacticsPart {
   // ---------------------------------------------------------------- sigilo (23.2)
-  // agacharse (tecla C): cuesta más que te vean, pero cada dos pasos se pierde un turno
+  // agacharse (tecla K por defecto): cuesta más que te vean, pero cada dos pasos se pierde un turno
   toggleCrouch(sq = this.cur) {
     if (!sq || !this.inMap(sq)) return false;
     sq.crouch = !sq.crouch; sq.crouchStep = false;
@@ -121,7 +121,7 @@ export class TacticsPart {
 
   // ---------------------------------------------------------------- fuego de supresión (23.4)
   canSuppress(sq) { const ws = this.weaponStats(sq); return ['smg', 'rifle', 'mg'].includes(ws.wtype) && (ws.mag || 0) >= 15 && !ws.scope; }
-  // tecla Z: ráfaga larga sobre el objetivo; poco daño, pero quien esté a 1 casilla queda suprimido 2 turnos
+  // tecla P por defecto: ráfaga larga sobre el objetivo; poco daño, pero quien esté a 1 casilla queda suprimido 2 turnos
   suppress(sq, tgt) {
     if (!tgt || !this.canSuppress(sq)) { if (sq === this.cur) this.say('Hace falta un arma automática (subfusil, fusil o ametralladora) para el fuego de supresión.', 'dimt'); return false; }
     const w = this.weapon(sq); const ws = this.weaponStats(sq);

@@ -1644,6 +1644,39 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     ok(await A.evaluate(() => !!document.querySelector('.map-canvas')), 'el mapa se dibuja con el modo daltónico y el alto contraste');
     // volver a dejarlos como estaban
     await A.evaluate(async () => { const { settings, saveSettings } = await import('./js/core/state.js'); settings.colorblind = false; settings.contrast = false; saveSettings(); });
+    // 24.2 controles: K agacharse (antes C chocaba con la diagonal), D mueve; remapear y restaurar
+    await A.evaluate(() => { const e = window.__topolev.exp; for (const x of [...e.enemies]) if (!e.isComp(x)) e.dismissActor(x); if (e.dlg) e.closeDialog(); e.dlgQueue = []; window.__topolev.debug.run('god'); });
+    for (let i = 0; i < 6 && (await A.$('.modal')); i++) { await A.keyboard.press('Escape'); await A.waitForTimeout(150); }
+    await A.keyboard.press('k'); await A.waitForTimeout(100);
+    const kc = await A.evaluate(() => !!window.__topolev.exp.cur.crouch);
+    await A.keyboard.press('k'); await A.waitForTimeout(100);
+    const kc2 = await A.evaluate(() => !window.__topolev.exp.cur.crouch);
+    const mv = await A.evaluate(() => { const e = window.__topolev.exp; const c = e.cur; return { x: c.x, ok: e.passable(c.x + 1, c.y) && !e.entityAt(c.x + 1, c.y) }; });
+    await A.keyboard.press('d'); await A.waitForTimeout(150);
+    const mx = await A.evaluate(() => window.__topolev.exp.cur.x);
+    ok(kc && kc2 && (!mv.ok || mx === mv.x + 1), 'teclas por defecto sin choques: K agacharse, D mover a la derecha');
+    const rk = await A.evaluate(async () => {
+      const Kk = await import('./js/ui/keys.js');
+      const conflict = Kk.setKey('crouch', 'r'); const reserved = Kk.setKey('crouch', '1');
+      const okSet = Kk.setKey('crouch', 'y');
+      return { conflict: !conflict.ok && conflict.conflict === 'reload', reserved: !reserved.ok, okSet: okSet.ok && Kk.actionForKey('y') === 'crouch' && Kk.actionForKey('k') === null, name: Kk.keyName('crouch') };
+    });
+    await A.keyboard.press('y'); await A.waitForTimeout(100);
+    const yc = await A.evaluate(() => !!window.__topolev.exp.cur.crouch);
+    ok(rk.conflict && rk.reserved && rk.okSet && rk.name === 'Y' && yc, 'remapear: avisa de choques y teclas reservadas; la tecla nueva funciona');
+    // los mensajes y la ayuda muestran la tecla nueva (keyify)
+    const kf = await A.evaluate(async () => { const Kk = await import('./js/ui/keys.js'); Kk.setKey('reload', 'u'); const t = Kk.keyify('Pulsa <b>R</b> para recargar.'); Kk.resetKeys(); return { t, back: Kk.keyify('Pulsa <b>R</b>.') === 'Pulsa <b>R</b>.' && Kk.actionForKey('k') === 'crouch' }; });
+    ok(kf.t.includes('<b>U</b>') && kf.back, 'los mensajes nombran la tecla actual; RESTAURAR vuelve a las de siempre');
+    // pantalla CONTROLES desde el menú principal
+    await A.evaluate(() => window.__topolev.exp && window.__topolev.save && window.__topolev.save());
+    await A.reload(); await A.waitForTimeout(800);
+    await A.click('text=CONTROLES'); await A.waitForTimeout(200);
+    await A.click('.modal button[data-act="crouch"]').catch(async () => { await A.click('.modal .row:has-text("Agacharse") button'); });
+    await A.waitForTimeout(100); await A.keyboard.press('u'); await A.waitForTimeout(150);
+    const scr = await A.evaluate(async () => { const { settings } = await import('./js/core/state.js'); return settings.keys && settings.keys.crouch; });
+    await A.click('text=RESTAURAR TECLAS'); await A.waitForTimeout(100);
+    const scr2 = await A.evaluate(async () => { const { settings } = await import('./js/core/state.js'); return Object.keys(settings.keys || {}).length; });
+    ok(scr === 'u' && scr2 === 0, 'pantalla CONTROLES: reasignar con clic + tecla y restaurar');
     await ctx11.close();
   }
 

@@ -32,6 +32,7 @@ import { SQUADS, HUMANS } from '../data/humans.js';
 import { floorsFor } from '../exp/expedition.js';
 import * as ECO from '../core/ecosys.js';
 import { a11yButtons } from './a11y.js';
+import { controlsModal, keyName } from './keys.js';
 
 const TABS = [
   { id: 'cuartel', label: 'CUARTEL' },
@@ -1067,7 +1068,7 @@ export class BaseUI {
       card.addEventListener('click', () => { this.selComp = it; sfx.click(); this.render(); });
       L.body.append(card);
     }
-    L.body.append(el('div', { class: 'sep', text: '─'.repeat(60) }), el('div', { class: 'dimt', text: 'Se equipan en la ranura COMPAÑERO de cada agente (pestaña EQUIPO). En expedición: tecla D para lanzar drones o dar órdenes al perro.' }));
+    L.body.append(el('div', { class: 'sep', text: '─'.repeat(60) }), el('div', { class: 'dimt', text: `Se equipan en la ranura COMPAÑERO de cada agente (pestaña EQUIPO). En expedición: tecla ${keyName('companion')} para lanzar drones o dar órdenes al perro.` }));
     // detalle
     const it = this.selComp;
     const M = panel({ title: it ? ITEMS[it.b].name.toUpperCase() : 'TALLER', bodyCls: 'scroll' });
@@ -1177,6 +1178,7 @@ export class BaseUI {
       }),
       btn('PANTALLA COMPLETA', () => { toggleFullscreen(); close(); }),
       btn(`TEXTO: ${UI_SCALES[settings.uiScale || 0].name}`, () => { cycleUiScale(); close(); this.render(); this.openMenu(); }),
+      btn('CONTROLES', () => { close(); controlsModal(() => this.openMenu()); }),
       ...a11yButtons(() => { close(); this.render(); this.openMenu(); }).map(([lab, fn]) => btn(lab, fn)),
       btn('SALIR AL TÍTULO', () => { save(); close(); this.close(); this.hooks.onQuit(); }, 'danger'),
     );

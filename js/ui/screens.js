@@ -9,6 +9,7 @@ import { FONT } from '../render/ascii.js';
 import { uiBurst } from './fx.js';
 import { toggleFullscreen } from './expui.js';
 import { a11yButtons } from './a11y.js';
+import { controlsModal, keyName, helpKeysHTML, keyify } from './keys.js';
 
 // ------------------------------------------------------------ logo ASCII
 function asciiLogo(lines, cols) {
@@ -64,6 +65,7 @@ export class TitleScreen {
     menu.append(btn('NUEVA PARTIDA', () => this.slotsModal('new'), has ? '' : 'primary'));
     if (has) menu.append(btn('PARTIDAS GUARDADAS', () => this.slotsModal('load')));
     menu.append(btn('INSTRUCCIONES', () => this.hooks.onHelp()));
+    menu.append(btn('CONTROLES', () => controlsModal()));
     menu.append(btn('PANTALLA COMPLETA', () => toggleFullscreen()));
     menu.append(btn(`SONIDO: ${settings.sound ? 'SÍ' : 'NO'}`, () => { settings.sound = !settings.sound; saveSettings(); this.open(); }));
     menu.append(btn(`EFECTO CRT: ${settings.crt ? 'SÍ' : 'NO'}`, () => { settings.crt = !settings.crt; document.body.classList.toggle('no-crt', !settings.crt); saveSettings(); this.open(); }));
@@ -354,30 +356,7 @@ export class HelpScreen {
 
 <h2>CONTROLES DE EXPEDICIÓN</h2>
 <div class="keys">
-<span>WASD / flechas</span><span>Moverse (y atacar cuerpo a cuerpo al chocar)</span>
-<span>Q E Z C · numpad</span><span>Movimiento en diagonal</span>
-<span>Clic en el suelo</span><span>Viajar hasta ahí (se detiene al ver enemigos)</span>
-<span>Clic en enemigo</span><span>Disparar (el % de impacto aparece al pasar el ratón)</span>
-<span>T</span><span>Modo apuntar · Tab cambia de objetivo · F/Enter dispara</span>
-<span>F</span><span>Interactuar: abrir, registrar, extraer esencia, <b>solicitar evacuación</b></span>
-<span>G</span><span>Recoger del suelo</span>
-<span>R</span><span>Recargar</span>
-<span>X</span><span>Cambiar de arma</span>
-<span>H</span><span>Curarse con el mejor botiquín</span>
-<span>V</span><span>Habilidad de la especialización (con objetivo: apunta y confirma)</span>
-<span>D</span><span>Compañero mecánico: órdenes del perro, lanzar o recoger drones (Eco y Kamikadze: elige destino)</span>
-<span>L</span><span>Encender / apagar la linterna</span>
-<span>C</span><span>Agacharse / ponerse de pie (más difícil de ver, más lento)</span>
-<span>N</span><span>Elegir el tipo de munición para la siguiente recarga</span>
-<span>Z</span><span>Fuego de supresión contra el enemigo visible más cercano (armas automáticas)</span>
-<span>B</span><span>Lanzar granada / objeto arrojadizo (o colocar trampas desde el inventario)</span>
-<span>I</span><span>Inventario (arrastrar y soltar para equipar, soltar o dar a compañeros)</span>
-<span>Tab · 1-4</span><span>Cambiar de agente controlado</span>
-<span>O</span><span>Órdenes del escuadrón: seguir / mantener / no disparar</span>
-<span>Espacio · .</span><span>Esperar un turno</span>
-<span>M</span><span>Mapa del radar</span>
-<span>+ / − · rueda</span><span>Zoom</span>
-<span>Esc</span><span>Cancelar / menú</span>
+${helpKeysHTML()}
 </div>
 
 <h2>TURNOS Y COMBATE</h2>
@@ -388,12 +367,12 @@ export class HelpScreen {
 <li>Los disparos hacen <b>ruido</b> y despiertan a los nidos cercanos. Las armas cuerpo a cuerpo son silenciosas.</li>
 <li>La armadura resta daño a cada golpe. La agilidad hace que te fallen más.</li>
 <li><b>Cobertura</b>: detrás de sacos terreros o un coche (<b>total</b>, −45%) o de una consola o un murete (<b>media</b>, −25%) te aciertan menos; en el mapa lo indica ▄/█ sobre el agente. Si disparas desde un lado y la cobertura no queda en medio, lo <b>flanqueas</b>: sin cobertura, +15% de impacto y +10% de crítico. El tooltip de impacto lo muestra ([▄] [█] [⇄]). Los humanos también intentan flanquearte.</li>
-<li><b>Sigilo</b>: los enemigos que aún no están en alerta te detectan desde más cerca si estás <b>agachado</b> (C, −3; uno de cada dos pasos cuesta un turno más) o <b>quieto</b> (−2); la linterna te delata (+3). La tarjeta de cada agente dice si está <b>oculto</b>, <b>oído</b> o <b>visto</b>. Un golpe cuerpo a cuerpo a un enemigo que no sabe que estás ahí (dormido o errante) es un <b>ataque por la espalda</b>: crítico seguro. La orden <b>EMBOSCADA</b> (O) deja al compañero quieto hasta que algo entra a tiro: primer disparo con +20%. Ojo: los chebylitas sigilosos también emboscan (primer golpe ×1,5).</li>
-<li><b>Abatidos</b>: a 0 de salud un agente no muere: cae <b>abatido</b> y se desangra 3 turnos (4 si alguien del grupo tiene «Rescate»). Pulsa <b>F</b> a su lado (o haz clic en él) para levantarlo: con un botiquín se levanta con esa curación; sin nada, con 1 de salud y te cuesta un turno más. El <b>desfibrilador</b> lo levanta a 2 casillas (una vez por expedición) y el talento <b>Rescate</b> lo deja con al menos un 25%. Los compañeros acuden solos a levantarlo. Si recibe otro golpe o se acaba el tiempo, muere; los enemigos que lo tienen al lado van a rematarlo. Un abatido no puede subir a la evacuación, y si todo el grupo cae abatido, se acabó.</li>
-<li><b>Munición especial</b>: cada calibre tiene variantes <b>perforante</b> (ignora 3 de protección, −10% daño), <b>incendiaria</b> (prende fuego), <b>expansiva</b> (+30% contra objetivos sin protección, −50% contra blindados) y <b>de esencia</b> (+20% contra chebylitas). Se encuentran en el botín y se fabrican en el taller. Con <b>N</b> eliges cuál cargar en la siguiente recarga (R); lo que llevaras cargado vuelve a la mochila.</li>
-<li><b>Fuego de supresión</b> (<b>Z</b>, subfusiles, fusiles y ametralladoras): gasta muchas balas y hace poco daño, pero los enemigos a 1 casilla del objetivo quedan <b>suprimidos</b> 2 turnos (−30% de impacto y la mitad de las veces no actúan). Ojo: los humanos con armas automáticas también os suprimen.</li>
-<li><b>Desgaste</b>: cada disparo gasta un poco el arma (más con munición incendiaria o expansiva, o bajo la lluvia y en el agua). Por debajo del 60% puede <b>encasquillarse</b>: no dispara hasta que pulses <b>R</b> para desencasquillarla. Las armas que sueltan los enemigos vienen gastadas. Se reparan con chatarra en el Taller de fabricación (pestaña INVESTIGACIÓN). El estado se ve en el tooltip del arma.</li>
-<li><b>Granadas</b>: si la trayectoria choca con una pared, <b>rebotan</b> y caen antes (el modo de lanzamiento muestra dónde estallarán). Tienen mecha: las vuestras estallan al final del turno; las enemigas, al final del turno siguiente, así que hay tiempo de <b>apartarse</b> (la granada parpadea en el suelo). Con el talento <b>Devolución</b> (Zapador), <b>F</b> junto a una granada enemiga la devuelve de una patada.</li>
+<li><b>Sigilo</b>: los enemigos que aún no están en alerta te detectan desde más cerca si estás <b>agachado</b> (${keyName('crouch')}, −3; uno de cada dos pasos cuesta un turno más) o <b>quieto</b> (−2); la linterna te delata (+3). La tarjeta de cada agente dice si está <b>oculto</b>, <b>oído</b> o <b>visto</b>. Un golpe cuerpo a cuerpo a un enemigo que no sabe que estás ahí (dormido o errante) es un <b>ataque por la espalda</b>: crítico seguro. La orden <b>EMBOSCADA</b> (${keyName('orders')}) deja al compañero quieto hasta que algo entra a tiro: primer disparo con +20%. Ojo: los chebylitas sigilosos también emboscan (primer golpe ×1,5).</li>
+<li><b>Abatidos</b>: a 0 de salud un agente no muere: cae <b>abatido</b> y se desangra 3 turnos (4 si alguien del grupo tiene «Rescate»). Pulsa <b>${keyName('interact')}</b> a su lado (o haz clic en él) para levantarlo: con un botiquín se levanta con esa curación; sin nada, con 1 de salud y te cuesta un turno más. El <b>desfibrilador</b> lo levanta a 2 casillas (una vez por expedición) y el talento <b>Rescate</b> lo deja con al menos un 25%. Los compañeros acuden solos a levantarlo. Si recibe otro golpe o se acaba el tiempo, muere; los enemigos que lo tienen al lado van a rematarlo. Un abatido no puede subir a la evacuación, y si todo el grupo cae abatido, se acabó.</li>
+<li><b>Munición especial</b>: cada calibre tiene variantes <b>perforante</b> (ignora 3 de protección, −10% daño), <b>incendiaria</b> (prende fuego), <b>expansiva</b> (+30% contra objetivos sin protección, −50% contra blindados) y <b>de esencia</b> (+20% contra chebylitas). Se encuentran en el botín y se fabrican en el taller. Con <b>${keyName('ammo')}</b> eliges cuál cargar en la siguiente recarga (${keyName('reload')}); lo que llevaras cargado vuelve a la mochila.</li>
+<li><b>Fuego de supresión</b> (<b>${keyName('suppress')}</b>, subfusiles, fusiles y ametralladoras): gasta muchas balas y hace poco daño, pero los enemigos a 1 casilla del objetivo quedan <b>suprimidos</b> 2 turnos (−30% de impacto y la mitad de las veces no actúan). Ojo: los humanos con armas automáticas también os suprimen.</li>
+<li><b>Desgaste</b>: cada disparo gasta un poco el arma (más con munición incendiaria o expansiva, o bajo la lluvia y en el agua). Por debajo del 60% puede <b>encasquillarse</b>: no dispara hasta que pulses <b>${keyName('reload')}</b> para desencasquillarla. Las armas que sueltan los enemigos vienen gastadas. Se reparan con chatarra en el Taller de fabricación (pestaña INVESTIGACIÓN). El estado se ve en el tooltip del arma.</li>
+<li><b>Granadas</b>: si la trayectoria choca con una pared, <b>rebotan</b> y caen antes (el modo de lanzamiento muestra dónde estallarán). Tienen mecha: las vuestras estallan al final del turno; las enemigas, al final del turno siguiente, así que hay tiempo de <b>apartarse</b> (la granada parpadea en el suelo). Con el talento <b>Devolución</b> (Zapador), <b>${keyName('interact')}</b> junto a una granada enemiga la devuelve de una patada.</li>
 </ul>
 
 <h2>MODS DE ARMAS</h2>
@@ -466,8 +445,8 @@ export class HelpScreen {
 <h2>COMPAÑEROS MECÁNICOS Y GADGETS</h2>
 <ul>
 <li>Cada agente tiene una ranura <b>COMPAÑERO</b>. Se compran y reparan en el <b>GARAJE</b> (constrúyelo en LABORATORIO).</li>
-<li><b>§ Laika-M</b>, el perro robot: le sigue, pelea y lleva 4 objetos. Con <b>D</b> (o los botones del panel de escuadra) cambias su orden: seguir, quedarse, buscar (trae el botín cercano) o atacar. <b>F</b> a su lado para coger su carga; lo que lleve vuelve a la base contigo. Admite 3 módulos (ametralladora, bengalas, detector, sensor de radiación, botiquín, mandíbula, plomo). Si cae, deja un chasis: recógelo y el Garaje lo repara.</li>
-<li><b>Drones</b> (tecla D): el <b>Strizh</b> explora solo (clic en el radar para guiarlo; D para que vuelva); la <b>Mula</b> lleva lo más valioso de la mochila a la extracción y lo envía a la base; el <b>Kamikadze</b> se estrella contra un objetivo; el <b>Eco</b> hace ruido y luz donde le digas; el <b>Relé</b> mantiene el radar en la tormenta.</li>
+<li><b>§ Laika-M</b>, el perro robot: le sigue, pelea y lleva 4 objetos. Con <b>${keyName('companion')}</b> (o los botones del panel de escuadra) cambias su orden: seguir, quedarse, buscar (trae el botín cercano) o atacar. <b>F</b> a su lado para coger su carga; lo que lleve vuelve a la base contigo. Admite 3 módulos (ametralladora, bengalas, detector, sensor de radiación, botiquín, mandíbula, plomo). Si cae, deja un chasis: recógelo y el Garaje lo repara.</li>
+<li><b>Drones</b> (tecla ${keyName('companion')}): el <b>Strizh</b> explora solo (clic en el radar para guiarlo; <b>${keyName('companion')}</b> para que vuelva); la <b>Mula</b> lleva lo más valioso de la mochila a la extracción y lo envía a la base; el <b>Kamikadze</b> se estrella contra un objetivo; el <b>Eco</b> hace ruido y luz donde le digas; el <b>Relé</b> mantiene el radar en la tormenta.</li>
 <li>Gadgets: torreta <b>Gnomo</b> (F para recogerla), <b>jaula</b> (chebylitas pequeños y heridos, vivos), <b>cámara Zenit-E</b> (+10% de daño contra lo fotografiado), <b>desfibrilador</b>, <b>gancho</b> (salta simas), <b>soldadura</b> (puertas blindadas y contenedores sellados), <b>ruido blanco</b>, <b>contador de centelleo</b>, <b>grabadora</b>, <b>sonda sísmica</b> (minas ocultas ¤), <b>camuflaje</b> y <b>paraguas antirradiación</b>.</li>
 </ul>
 
@@ -535,6 +514,7 @@ export class HelpScreen {
 <li>Vende el botín en la intendencia y mejora el <b>Radar</b> para tener más extracciones temporales.</li>
 </ul>
 <p style="text-align:center;margin-top:2em"><button class="btn primary" id="help-back">VOLVER</button></p>`;
+    p.body.innerHTML = keyify(p.body.innerHTML); // fase 24.2: teclas cambiadas por el jugador
     R.append(p);
     p.querySelector('#help-back').addEventListener('click', () => { sfx.click(); this.close(); });
     this.esc = (ev) => { if (ev.key === 'Escape' && R.classList.contains('active')) { ev.stopImmediatePropagation(); this.close(); } };

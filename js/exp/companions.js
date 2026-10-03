@@ -66,7 +66,7 @@ export class CompanionPart {
     return null;
   }
 
-  // ---------------------------------------------------------------- tecla D
+  // ---------------------------------------------------------------- tecla J (compañero)
   // perro: cambia de orden · Strizh/Mula: lanzar o recoger · Eco/Kamikadze: la interfaz pide destino
   dogOrder(sq, order) {
     const dog = this.dogOf(sq);
@@ -111,7 +111,7 @@ export class CompanionPart {
       const k = (this.flag(sq, 'remote') ? 1.5 : 1) * (this.flag(sq, 'mechanic') ? 1.5 : 1) * (S.research && S.research.r_drones ? 1.25 : 1);
       e.ownerId = sq.id; e.battery = Math.round(d.battery * k) + (it.batBonus || 0); e.seen = 1;
       it.out = 1;
-      this.say(`ˇ ${this.nm(sq)} lanza el Strizh (${e.battery} turnos de batería). Clic en el radar para mandarlo a un punto; D para que vuelva.`, 'cyan');
+      this.say(`ˇ ${this.nm(sq)} lanza el Strizh (${e.battery} turnos de batería). Clic en el radar para mandarlo a un punto; <b>J</b> para que vuelva.`, 'cyan');
       this.computeVisibility(true);
       return true;
     }

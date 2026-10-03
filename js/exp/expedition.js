@@ -35,6 +35,7 @@ import { zoneWorld, reactorAlert } from '../core/ecosys.js';
 import { unreadNote } from '../core/story.js';
 import { seasonOf } from '../data/basedata.js';
 import { MODIFIERS, modEss, modRad, WEATHER } from '../data/modifiers.js';
+import { keyify } from '../ui/keys.js';
 export { ORDERS, ESSENCE_COLOR };
 
 function b64(u8) {
@@ -347,7 +348,7 @@ export class Expedition {
   inMap(sq) { return sq.alive && !sq.out; }
   get team() { return this.squad.filter((s) => this.inMap(s)); }
   sectorAt(x, y) { const s = this.sec[this.key(x, y)]; return this.sectors[s] || null; }
-  say(s, cls = '') { this.log.push({ t: this.turn, s, c: cls }); if (this.log.length > 200) this.log.shift(); this.emit('log'); }
+  say(s, cls = '') { s = keyify(s); this.log.push({ t: this.turn, s, c: cls }); if (this.log.length > 200) this.log.shift(); this.emit('log'); }
   addFloor(x, y, it) {
     const k = this.key(x, y);
     if (!this.floorItems.has(k)) this.floorItems.set(k, []);

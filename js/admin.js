@@ -191,7 +191,7 @@ sec('Objetos', 'companeros', 'Compañeros mecánicos', byCat('companion').length
   { h: 'Salud', v: (d) => d.hp || '—', num: 1 },
   { h: 'Precio', v: (d) => `${d.value} ₽`, s: (d) => d.value, num: 1 },
   { h: 'Descripción', v: (d) => `<span class="desc">${esc(d.desc)}</span>` },
-]), 'Ranura COMPAÑERO de cada agente (fase 19). Se compran en el GARAJE (módulo de la base, niveles 1–5) y allí se instalan los módulos del perro y se reparan (rublos; un chasis destrozado pide además 2 piezas de recambio). Tecla D en expedición: órdenes del perro (seguir, quedarse, buscar, atacar), lanzar o recoger drones; clic en el radar para mandar el Strizh a un punto. Talento «Mecánico» (Zapador): +30% salud y daño, +50% batería, reparaciones −40%. Gadget «Mando a distancia»: más alcance y batería.');
+]), 'Ranura COMPAÑERO de cada agente (fase 19). Se compran en el GARAJE (módulo de la base, niveles 1–5) y allí se instalan los módulos del perro y se reparan (rublos; un chasis destrozado pide además 2 piezas de recambio). Tecla J en expedición (por defecto; MENÚ → CONTROLES): órdenes del perro (seguir, quedarse, buscar, atacar), lanzar o recoger drones; clic en el radar para mandar el Strizh a un punto. Talento «Mecánico» (Zapador): +30% salud y daño, +50% batería, reparaciones −40%. Gadget «Mando a distancia»: más alcance y batería.');
 sec('Objetos', 'consumibles', 'Consumibles', byCat('consumable').length, () => table(byCat('consumable'), [
   { h: '', g: true, v: (d) => esc(d.glyph) },
   { h: 'Nombre', v: (d) => `<div class="nm">${esc(d.name)}</div><div class="desc">${esc(d.desc)}</div>`, s: (d) => d.name },
@@ -216,7 +216,7 @@ sec('Objetos', 'botin', 'Botín', byCat('valuable').length, () => table(byCat('v
 sec('Sistemas', 'rarezas', 'Rarezas', R.length, renderRarities);
 sec('Sistemas', 'afijos', 'Propiedades (afijos)', AFFIXES.length, renderAffixes);
 sec('Sistemas', 'sigilo', 'Detección y sigilo', 6, () => table([
-  { m: 'Agachado (tecla C)', v: '−3 casillas', n: 'Uno de cada dos pasos cuesta un turno más.' },
+  { m: 'Agachado (tecla K)', v: '−3 casillas', n: 'Uno de cada dos pasos cuesta un turno más.' },
   { m: 'Quieto (no te moviste el turno anterior)', v: '−2 casillas', n: '' },
   { m: 'Linterna encendida', v: '+3 casillas', n: 'A oscuras sin linterna, ×0,65.' },
   { m: 'Arena / niebla', v: '−2 / −1', n: 'Ya existían (fases 16 y 17).' },
@@ -234,7 +234,7 @@ sec('Sistemas', 'municion', 'Munición especial', Object.keys(SPECIAL_AMMO).leng
   { h: 'Tipo', v: (k) => `<b style="color:${k.color}">${esc(k.short)} · ${esc(k.name)}</b>`, s: (k) => k.name },
   { h: 'Efecto', v: (k) => esc(k.desc) },
   { h: 'Calibres', v: (k) => k.list.map(([id, d]) => tag(`${d.name.replace('Munición ', '').replace(' ' + k.name, '')} · Nv ${d.tier} · ${d.value} ₽`)).join('') },
-]), 'Fase 23.4. Cualquier arma dispara cualquier munición de su calibre; el arma recuerda qué tipo lleva cargado. Tecla N: tipo para la siguiente recarga (lo cargado vuelve a la mochila). Aparecen en el botín (tier del calibre +1, +2 la de esencia) y se fabrican en el Taller de fabricación. Fuego de supresión (Z): subfusiles, fusiles y ametralladoras sin mira con cargador de 15 o más; gasta 6–9 balas, un impacto a mitad de daño y suprime 2 turnos a los enemigos a 1 casilla (−30% de impacto, 50% de perder el turno). Los humanos con armas automáticas suprimen a los agentes (15% por ráfaga). Durabilidad (fase 23.5): −0,5% por disparo (×1,6 con incendiaria o expansiva, ×1,5 mojado); por debajo del 60%, probabilidad de encasquillarse = (60 − estado) / 400 por disparo; R desencasquilla (gratis con recarga rápida); reparar en el Taller de fabricación cuesta ⌈(100 − estado) / 25 × (1 + tier / 2)⌉ de chatarra.');
+]), 'Fase 23.4. Cualquier arma dispara cualquier munición de su calibre; el arma recuerda qué tipo lleva cargado. Tecla N: tipo para la siguiente recarga (lo cargado vuelve a la mochila). Aparecen en el botín (tier del calibre +1, +2 la de esencia) y se fabrican en el Taller de fabricación. Fuego de supresión (tecla P): subfusiles, fusiles y ametralladoras sin mira con cargador de 15 o más; gasta 6–9 balas, un impacto a mitad de daño y suprime 2 turnos a los enemigos a 1 casilla (−30% de impacto, 50% de perder el turno). Los humanos con armas automáticas suprimen a los agentes (15% por ráfaga). Durabilidad (fase 23.5): −0,5% por disparo (×1,6 con incendiaria o expansiva, ×1,5 mojado); por debajo del 60%, probabilidad de encasquillarse = (60 − estado) / 400 por disparo; R desencasquilla (gratis con recarga rápida); reparar en el Taller de fabricación cuesta ⌈(100 − estado) / 25 × (1 + tier / 2)⌉ de chatarra.');
 sec('Sistemas', 'nombres', 'Nombres de objetos', MYTHIC_NAMES.length + EPITHETS.length + UNCOMMON_SUFFIX.length + RARE_SUFFIX.length, renderItemNames);
 
 // ----- MUNDO -----

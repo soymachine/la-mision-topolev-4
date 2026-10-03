@@ -23,6 +23,7 @@ import { showDialog } from './dialog.js';
 import { WEATHER } from '../data/modifiers.js';
 import { DOG_ORDERS } from '../data/companions.js';
 import { a11yButtons } from './a11y.js';
+import { actionForKey, dirOf, controlsModal, keyName, keyify } from './keys.js';
 const SOCIAL_TIP = { trader: 'Compra y venta.', medic: 'Curas y tratamiento de la radiación.', board: 'Rumores y trabajos.', archive: 'Expedientes del KGB.' };
 export function toggleFullscreen() {
   try {
@@ -32,8 +33,8 @@ export function toggleFullscreen() {
 }
 
 const KEYDIR = {
+  // fijas (las letras WASD/QEZC están en la tabla remapeable de ui/keys.js)
   ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0],
-  w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0], q: [-1, -1], e: [1, -1], z: [-1, 1], c: [1, 1],
   Numpad8: [0, -1], Numpad2: [0, 1], Numpad4: [-1, 0], Numpad6: [1, 0], Numpad7: [-1, -1], Numpad9: [1, -1], Numpad1: [-1, 1], Numpad3: [1, 1],
 };
 const STATE_TXT = { dormido: 'dormido', alerta: '¡alerta!', errante: 'merodeando', aturdido: 'aturdido' };
@@ -457,20 +458,22 @@ export class ExpeditionUI {
     const k = ev.key;
     if (modalOpen()) {
       if (k === 'Escape') { closeTopModal(); ev.preventDefault(); }
-      else if ((k === 'i' || k === 'I') && this.invClose) { this.invClose(); ev.preventDefault(); }
+      else if (actionForKey(k) === 'inventory' && this.invClose) { this.invClose(); ev.preventDefault(); }
       return;
     }
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
-    if (this.big && (k === 'm' || k === 'M' || k === 'Escape')) { this.toggleBigMap(); ev.preventDefault(); return; }
+    if (this.big && (actionForKey(k) === 'map' || k === 'Escape')) { this.toggleBigMap(); ev.preventDefault(); return; }
     if (k === 'Escape') { if (this.mode) this.cancelMode(); else if (this.travel) this.travel = null; else this.openMenu(); ev.preventDefault(); return; }
     if (e.ended) return;
     const lower = k.length === 1 ? k.toLowerCase() : k;
+    // fase 24.2: tecla → acción (tabla remapeable de ui/keys.js)
+    const act = actionForKey(k);
     // modo apuntar
     if (this.mode) {
-      if (k === 'Tab' || lower === 't') { this.cycleTarget(ev.shiftKey ? -1 : 1); ev.preventDefault(); return; }
-      if (k === 'Enter' || lower === 'f') { this.confirmTarget(); ev.preventDefault(); return; }
+      if (k === 'Tab' || act === 'aim') { this.cycleTarget(ev.shiftKey ? -1 : 1); ev.preventDefault(); return; }
+      if (k === 'Enter' || act === 'interact') { this.confirmTarget(); ev.preventDefault(); return; }
     }
-    const dir = KEYDIR[ev.code] || KEYDIR[lower] || KEYDIR[k];
+    const dir = KEYDIR[ev.code] || KEYDIR[k] || dirOf(act);
     if (dir && !(ev.code && ev.code.startsWith('Numpad') && !KEYDIR[ev.code])) {
       ev.preventDefault();
       if (this.mode) { this.moveCursor(dir); return; }
@@ -479,34 +482,34 @@ export class ExpeditionUI {
       e.moveDir(dir[0], dir[1]);
       return;
     }
-    switch (lower) {
-      case ' ': case '.': case 'Numpad5': ev.preventDefault(); if (this.canAct()) { this.travel = null; e.wait(); } break;
-      case 'f': ev.preventDefault(); if (this.canAct()) e.interact(); break;
-      case 'g': ev.preventDefault(); this.pickupHere(); break;
-      case 'r': ev.preventDefault(); if (this.canAct()) e.act((sq) => e.reload(sq)); break;
-      case 'x': ev.preventDefault(); e.swapWeapon(); sfx.click(); break;
-      case 't': ev.preventDefault(); this.enterFire(); break;
-      case 'h': ev.preventDefault(); this.quickHeal(); break;
-      case 'v': ev.preventDefault(); this.useAbility(); break;
-      case 'l': ev.preventDefault(); e.toggleLight(e.cur); this.refresh(); break;
-      case 'c': ev.preventDefault(); e.toggleCrouch(e.cur); this.refresh(); break;
-      case 'n': ev.preventDefault(); e.cycleAmmo(e.cur); this.refresh(); break;
-      case 'z': ev.preventDefault(); { const t = this.visibleEnemies()[0]; if (!t) e.say('No hay ningún enemigo a la vista para suprimir.', 'dimt'); else if (this.canAct()) e.act((sq) => e.suppress(sq, t)); } break;
-      case 'd': ev.preventDefault(); this.companionKey(); break;
-      case 'b': ev.preventDefault(); this.quickGrenade(); break;
-      case 'i': ev.preventDefault(); this.openInventory(); break;
-      case 'm': ev.preventDefault(); this.toggleBigMap(); break;
-      case 'o': ev.preventDefault(); this.cycleOrder(); break;
-      case 'Tab': ev.preventDefault(); e.switchActive(); sfx.click(); break;
-      case '?': case 'F1': ev.preventDefault(); this.hooks.onHelp(); break;
-      case '+': ev.preventDefault(); this.zoom(1); break;
-      case 'F11': break;
-      case '-': ev.preventDefault(); this.zoom(-1); break;
-      case '1': case '2': case '3': case '4': {
-        const i = +lower - 1;
-        if (e.squad[i] && e.inMap(e.squad[i])) { e.switchActive(i); sfx.click(); }
-        break;
-      }
+    if (/^[1-4]$/.test(lower)) {
+      const i = +lower - 1;
+      if (e.squad[i] && e.inMap(e.squad[i])) { e.switchActive(i); sfx.click(); }
+      return;
+    }
+    if (act) ev.preventDefault();
+    switch (act) {
+      case 'wait': if (this.canAct()) { this.travel = null; e.wait(); } break;
+      case 'interact': if (this.canAct()) e.interact(); break;
+      case 'pickup': this.pickupHere(); break;
+      case 'reload': if (this.canAct()) e.act((sq) => e.reload(sq)); break;
+      case 'swap': e.swapWeapon(); sfx.click(); break;
+      case 'aim': this.enterFire(); break;
+      case 'heal': this.quickHeal(); break;
+      case 'ability': this.useAbility(); break;
+      case 'light': e.toggleLight(e.cur); this.refresh(); break;
+      case 'crouch': e.toggleCrouch(e.cur); this.refresh(); break;
+      case 'ammo': e.cycleAmmo(e.cur); this.refresh(); break;
+      case 'suppress': { const t = this.visibleEnemies()[0]; if (!t) e.say('No hay ningún enemigo a la vista para suprimir.', 'dimt'); else if (this.canAct()) e.act((sq) => e.suppress(sq, t)); } break;
+      case 'companion': this.companionKey(); break;
+      case 'grenade': this.quickGrenade(); break;
+      case 'inventory': this.openInventory(); break;
+      case 'map': this.toggleBigMap(); break;
+      case 'orders': this.cycleOrder(); break;
+      case 'next': e.switchActive(); sfx.click(); break;
+      case 'help': this.hooks.onHelp(); break;
+      case 'zoomIn': this.zoom(1); break;
+      case 'zoomOut': this.zoom(-1); break;
     }
     if (ev.code === 'Numpad5') { ev.preventDefault(); if (this.canAct()) e.wait(); }
   }
@@ -577,7 +580,7 @@ export class ExpeditionUI {
     this.showBanner();
     this.updateTargetOverlay();
   }
-  // compañero (tecla D): órdenes al perro, lanzar o recoger drones
+  // compañero (tecla J por defecto, ver ui/keys.js): órdenes al perro, lanzar o recoger drones
   companionKey() {
     const e = this.exp;
     if (!e || e.ended || !this.canAct()) return;
@@ -731,7 +734,7 @@ export class ExpeditionUI {
       } else if (!this.travel) this.r.overlay = null;
     }
     const html = this.cellTooltip(x, y);
-    if (html) showTooltip(html, ev.clientX, ev.clientY); else hideTooltip();
+    if (html) showTooltip(keyify(html), ev.clientX, ev.clientY); else hideTooltip();
   }
   findPath(x, y) {
     const e = this.exp;
@@ -1131,6 +1134,7 @@ export class ExpeditionUI {
       btn('ZOOM +', () => this.zoom(1)), btn('ZOOM −', () => this.zoom(-1)),
       btn('PANTALLA COMPLETA', () => { toggleFullscreen(); close(); }),
       btn(`TEXTO: ${UI_SCALES[settings.uiScale || 0].name}`, () => { cycleUiScale(); close(); this.refresh(); this.renderLog(); setTimeout(() => { this.sizeMinimap(); this.r.resize(); }, 50); this.openMenu(); }),
+      btn('CONTROLES', () => { close(); controlsModal(() => this.openMenu()); }),
       ...a11yButtons(() => { close(); this.refresh(); this.openMenu(); }).map(([lab, fn]) => btn(lab, fn)),
       btn('GUARDAR Y SALIR AL TÍTULO', () => { save(); close(); this.stop(); this.hooks.onQuit(); }, 'danger'),
     );

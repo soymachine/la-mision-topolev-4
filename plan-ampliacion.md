@@ -553,12 +553,17 @@ Resumen original: accesibilidad (modo daltónico con símbolos en las rarezas, r
 - [x] 24.1.5 Pruebas (activar cada modo cambia las clases, los símbolos aparecen, `rarityColor` cambia) + ayuda + Archivo (rarezas con símbolo).
   - *Hecho:* sección `· Fase 24` de `tests/systems.cjs` (activar desde el menú, símbolos, se recuerda al recargar, expedición con ambos modos); ayuda («ACCESIBILIDAD») y Archivo (rarezas: columna «Modo daltónico»). De paso: `audio.js` no crea el `AudioContext` hasta el primer clic o tecla (evita el aviso del navegador).
 
-### 24.2 Remapeo de teclas (M)
-- [ ] 24.2.1 Tabla de **acciones** (`data/keys.js` o en `ui/expui.js`): mover (8 direcciones + numérico), esperar, interactuar F, recoger G, recargar R, cambiar arma X, apuntar T, curar H, habilidad V, linterna L, agacharse C, munición N, supresión Z, compañero D, granada B, inventario I, mapa M, órdenes O, siguiente agente Tab, ayuda ?, zoom +/−. Valores por defecto = los de ahora.
-- [ ] 24.2.2 `settings.keys` guarda solo lo cambiado; `onKey()` en expui.js traduce la tecla pulsada a una acción a través de la tabla (en vez del `switch` con letras fijas).
-- [ ] 24.2.3 Pantalla **CONTROLES** (menú principal): lista de acciones con su tecla, clic para reasignar («pulsa una tecla…»), aviso si choca con otra acción, botón «restaurar».
-- [ ] 24.2.4 La ayuda y los tooltips que nombran teclas (p. ej. «pulsa **F**») leen la tecla actual (función `keyName('interactuar')`).
-- [ ] 24.2.5 Pruebas (reasignar R → recarga con la nueva tecla; restaurar).
+### 24.2 Remapeo de teclas (M) ✔
+- [x] 24.2.1 Tabla de **acciones** (`data/keys.js` o en `ui/expui.js`): mover (8 direcciones + numérico), esperar, interactuar F, recoger G, recargar R, cambiar arma X, apuntar T, curar H, habilidad V, linterna L, agacharse C, munición N, supresión Z, compañero D, granada B, inventario I, mapa M, órdenes O, siguiente agente Tab, ayuda ?, zoom +/−. Valores por defecto = los de ahora.
+  - *Hecho:* `ui/keys.js · KEY_ACTIONS` (29 acciones con su tecla por defecto, incluido el movimiento WASD/QEZC). **Arreglo**: en `KEYDIR` las letras d/c/z movían y tapaban a compañero (D, fase 19), agacharse (C) y supresión (Z) de la fase 23, que nunca llegaban a ejecutarse; ahora por defecto son **J**, **K** y **P**.
+- [x] 24.2.2 `settings.keys` guarda solo lo cambiado; `onKey()` en expui.js traduce la tecla pulsada a una acción a través de la tabla (en vez del `switch` con letras fijas).
+  - *Hecho:* `settings.keys` (solo lo cambiado); `onKey()` (expui.js) usa `actionForKey()`/`dirOf()`; fijas: flechas, numérico, 1–4, Enter, Esc.
+- [x] 24.2.3 Pantalla **CONTROLES** (menú principal): lista de acciones con su tecla, clic para reasignar («pulsa una tecla…»), aviso si choca con otra acción, botón «restaurar».
+  - *Hecho:* `controlsModal()` (keys.js): botón CONTROLES en el menú principal, el de la base y el de la expedición; clic + tecla, aviso de choques y de teclas reservadas, RESTAURAR TECLAS.
+- [x] 24.2.4 La ayuda y los tooltips que nombran teclas (p. ej. «pulsa **F**») leen la tecla actual (función `keyName('interactuar')`).
+  - *Hecho:* la lista de controles de la ayuda se genera con `helpKeysHTML()`; las menciones (agacharse, munición, supresión, compañero, levantar…) usan `keyName()`; `keyify()` cambia «<b>R</b>», «<b>F</b>»… en el registro, los tooltips del mapa y la ayuda si el jugador ha remapeado.
+- [x] 24.2.5 Pruebas (reasignar R → recarga con la nueva tecla; restaurar).
+  - *Hecho:* pruebas en `· Fase 24` (K agacha y D mueve, choques y reservadas, la tecla nueva funciona, keyify y restaurar, pantalla CONTROLES).
 
 ### 24.3 Controles táctiles (L)
 - [ ] 24.3.1 Detección de pantalla táctil (`matchMedia('(pointer: coarse)')`) y ajuste `touch: auto|on|off`.
