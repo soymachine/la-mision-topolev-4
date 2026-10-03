@@ -429,7 +429,7 @@ Homenaje a Laika: chasis de cuatro patas de la Academia de Ciencias.
 
 ---
 
-## FASE 23 — Combate táctico avanzado
+## FASE 23 — Combate táctico avanzado ✔
 
 Resumen original: cobertura media/total con indicador `[▄]` y flanqueo; sigilo real (luz y movimiento, ataques por la espalda, emboscadas); estado **abatido** (3 turnos en el suelo, rescate con botiquín o desfibrilador); fuego de supresión y munición especial seleccionable; opcional: encasquillamientos y durabilidad; granadas que rebotan y se devuelven de una patada.
 
@@ -518,11 +518,15 @@ Resumen original: cobertura media/total con indicador `[▄]` y flanqueo; sigilo
 - [x] 23.6.4 Pruebas (rebote en un muro, mecha de 1 turno, patada con el talento) + ayuda + Archivo.
   - *Hecho:* pruebas en `· Fase 23` (rebote, mecha, patada) y ayuda (sección de combate).
 
-### 23.7 Cierre de la fase
-- [ ] 23.7.1 Revisar el equilibrio con `smoke.cjs` en varias zonas (que el bot no muera siempre por los abatidos ni la supresión).
-- [ ] 23.7.2 Ayuda completa (`ui/screens.js`: sección «COMBATE TÁCTICO») y teclas nuevas en la lista de controles (`C` agacharse, `X` munición, `Z` supresión).
-- [ ] 23.7.3 Archivo (`admin.js`): «Munición especial», «Cobertura y flanqueo», «Detección y sigilo», «Abatidos».
-- [ ] 23.7.4 `systems.cjs` completo dos veces, `mapgen.mjs`, `smoke.cjs` en 3–4 zonas; marcar aquí la fase con ✔ y actualizar `plan.md` («Fase 23 completada…» y «Siguiente sesión: fase 24»).
+### 23.7 Cierre de la fase ✔
+- [x] 23.7.1 Revisar el equilibrio con `smoke.cjs` en varias zonas (que el bot no muera siempre por los abatidos ni la supresión).
+  - *Hecho:* `smoke.cjs` en las zonas 0, 1, 5, 6, 12 y 16 sin errores: el bot termina sus expediciones con los abatidos, la supresión y las granadas con mecha.
+- [x] 23.7.2 Ayuda completa (`ui/screens.js`: sección «COMBATE TÁCTICO») y teclas nuevas en la lista de controles (`C` agacharse, `X` munición, `Z` supresión).
+  - *Hecho:* teclas C (agacharse), N (munición) y Z (supresión) en los controles; las reglas nuevas van en la sección de combate de la ayuda (`ui/screens.js`).
+- [x] 23.7.3 Archivo (`admin.js`): «Munición especial», «Cobertura y flanqueo», «Detección y sigilo», «Abatidos».
+  - *Hecho:* Archivo (`admin.js`): «Casillas del mapa» (cobertura total/media), «Detección y sigilo», «Abatidos y rescate» y «Munición especial» (con supresión y durabilidad).
+- [x] 23.7.4 `systems.cjs` completo dos veces, `mapgen.mjs`, `smoke.cjs` en 3–4 zonas; marcar aquí la fase con ✔ y actualizar `plan.md` («Fase 23 completada…» y «Siguiente sesión: fase 24»).
+  - *Hecho:* `systems.cjs` completo dos veces (162/162), `mapgen.mjs` (463 mapas) y `smoke.cjs` en 4 zonas.
 
 ---
 
