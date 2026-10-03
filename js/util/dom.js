@@ -170,6 +170,35 @@ export function modal({ title = '', body, actions = [], width, onClose, frame = 
   hideTooltip();
   return close;
 }
+// menú contextual (clic derecho): opts = [{ label, fn, disabled, hint }]. Se cierra al elegir, al hacer clic fuera o con Esc.
+let ctxMenu = null;
+export function contextMenu(x, y, opts, title = '') {
+  closeContextMenu();
+  hideTooltip();
+  const m = el('div', { class: 'ctx-menu', role: 'menu' });
+  if (title) m.append(el('div', { class: 'ctx-title', html: title }));
+  for (const o of opts) {
+    const b = el('button', { class: 'ctx-item' + (o.disabled ? ' disabled' : ''), role: 'menuitem', html: o.label + (o.hint ? ` <span class="dimt">${o.hint}</span>` : '') });
+    b.addEventListener('click', (ev) => { ev.stopPropagation(); if (o.disabled) return; closeContextMenu(); o.fn(ev); });
+    m.append(b);
+  }
+  document.body.append(m);
+  const r = m.getBoundingClientRect();
+  m.style.left = Math.max(4, Math.min(x, innerWidth - r.width - 4)) + 'px';
+  m.style.top = Math.max(4, Math.min(y, innerHeight - r.height - 4)) + 'px';
+  const away = (ev) => { if (!m.contains(ev.target)) closeContextMenu(); };
+  const key = (ev) => { if (ev.key === 'Escape') { ev.stopImmediatePropagation(); closeContextMenu(); } };
+  setTimeout(() => { document.addEventListener('pointerdown', away, true); window.addEventListener('keydown', key, true); }, 0);
+  ctxMenu = { m, away, key };
+  return m;
+}
+export function closeContextMenu() {
+  if (!ctxMenu) return;
+  ctxMenu.m.remove();
+  document.removeEventListener('pointerdown', ctxMenu.away, true);
+  window.removeEventListener('keydown', ctxMenu.key, true);
+  ctxMenu = null;
+}
 export function modalOpen() { return modalStack.length > 0; }
 export function closeTopModal() { const c = modalStack[modalStack.length - 1]; if (c) { c(null); return true; } return false; }
 export function confirmBox(title, html, yes = 'ACEPTAR', no = 'CANCELAR', danger = false) {

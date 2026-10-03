@@ -1,5 +1,5 @@
 // La base: cuartel general cerca de la central
-import { el, $, panel, framify, esc, UI_SCALES, cycleUiScale, toast, tip, draggable, dropzone, hpBar, bar, levelPips, confirmBox, modal, modalOpen, closeTopModal } from '../util/dom.js';
+import { el, $, panel, framify, esc, UI_SCALES, cycleUiScale, toast, tip, draggable, dropzone, hpBar, bar, levelPips, confirmBox, modal, modalOpen, closeTopModal, contextMenu } from '../util/dom.js';
 import { S, save, settings, saveSettings, slot, exportSlot } from '../core/state.js';
 import { ITEMS, CAT_INFO } from '../data/items.js';
 import { MAPS, MODULES, MODULE_MAX, moduleCost, TRAITS, zoneOpen, openCount, STRATA, EVENT_ZONES, eventDef, mapIndex } from '../data/world.js';
@@ -34,6 +34,8 @@ import * as ECO from '../core/ecosys.js';
 import { a11yButtons } from './a11y.js';
 import { t } from '../i18n/index.js';
 import { achievementsModal } from './achievements.js';
+import { settingsModal } from './settings.js';
+import { asciiSlider } from './widgets.js';
 import { codexModal } from './codex.js';
 import { modeTag, challengeScore } from '../core/modes.js';
 import { controlsModal, keyName } from './keys.js';
@@ -388,6 +390,7 @@ export class BaseUI {
         const r = el('div', { class: 'item', html: itemHTML(it, { extra: ws.mag ? `<span class="iq">${it.ld}/${ws.mag}</span>` : '' }) });
         tip(r, () => itemTooltip(it, null, '<div class="dimt">Arrastra al almacén o a la mochila. Doble clic: a la mochila.</div>'));
         draggable(r, { data: () => ({ src: 'equip', a, slot: s.id, it }), ghost: () => itemHTML(it) });
+        r.addEventListener('contextmenu', (ev) => { ev.preventDefault(); this.itemMenu(ev, it); });
         r.addEventListener('dblclick', () => { this.moveItem({ src: 'equip', a, slot: s.id, it }, { dst: 'bag', a }); });
         val.append(r);
       } else val.append(el('div', { class: 'empty', text: `— ${s.cats.map((c) => CAT_INFO[c].name.toLowerCase()).join('/')} —` }));
@@ -418,7 +421,7 @@ export class BaseUI {
     const bag = el('div', { style: { minHeight: '6em' } });
     for (const it of sortItems([...a.bag])) {
       const r = el('div', { class: 'item', html: itemHTML(it) });
-      tip(r, () => itemTooltip(it, this.compareFor(a, it), `<div class="dimt">Arrastra a una ranura, al almacén o a otro agente. Doble clic: al almacén.${it.q > 1 ? ' Clic derecho: dividir la pila.' : ''}</div>`));
+      tip(r, () => itemTooltip(it, this.compareFor(a, it), `<div class="dimt">Arrastra a una ranura, al almacén o a otro agente. Doble clic: al almacén.${it.q > 1 ? ' Clic derecho: comprar otro / dividir la pila.' : ' Clic derecho: comprar otro.'}</div>`));
       draggable(r, { data: () => ({ src: 'bag', a, it }), ghost: () => itemHTML(it) });
       r.addEventListener('dblclick', () => this.moveItem({ src: 'bag', a, it }, { dst: 'stash' }));
       this.stackable(r, it, a.bag, bagCapacity(a), 'la mochila');
@@ -461,7 +464,7 @@ export class BaseUI {
       const extra = mode === 'sell' ? `<span class="iq o0">${C.sellPrice(it)} ₽</span>` : '';
       const r = el('div', { class: 'item', html: itemHTML(it, { extra }) });
       const a = this.selAgent;
-      tip(r, () => itemTooltip(it, a ? this.compareFor(a, it) : null, mode === 'sell' ? `<div class="tt-sep">${'─'.repeat(40)}</div><div class="o0">Venta: ${C.sellPrice(it)} ₽</div><div class="dimt">Doble clic o arrastra a VENDER.</div>${ITEMS[it.b].essenceValue ? '<div class="cyan">Clic derecho: convertir en esencia.</div>' : ''}` : `<div class="dimt">Arrastra a un agente (a cualquiera de la lista). Doble clic: equipar o meter en la mochila del agente seleccionado.${it.q > 1 ? ' Clic derecho: dividir la pila.' : ''}</div>`));
+      tip(r, () => itemTooltip(it, a ? this.compareFor(a, it) : null, mode === 'sell' ? `<div class="tt-sep">${'─'.repeat(40)}</div><div class="o0">Venta: ${C.sellPrice(it)} ₽</div><div class="dimt">Doble clic o arrastra a VENDER.</div>${ITEMS[it.b].essenceValue ? '<div class="cyan">Clic derecho: convertir en esencia.</div>' : ''}` : `<div class="dimt">Arrastra a un agente (a cualquiera de la lista). Doble clic: equipar o meter en la mochila del agente seleccionado.${it.q > 1 ? ' Clic derecho: comprar otro / dividir la pila.' : ' Clic derecho: comprar otro.'}</div>`));
       draggable(r, { data: () => ({ src: 'stash', it }), ghost: () => itemHTML(it) });
       if (mode === 'sell') {
         r.addEventListener('dblclick', (ev) => this.doSell(it, ev));
@@ -630,20 +633,37 @@ export class BaseUI {
   // ---- pilas (revisión fase 24): clic derecho = dividir; soltar sobre el mismo objeto = juntar
   stackable(r, it, list, cap, where) {
     const d = ITEMS[it.b];
-    if ((d.stack || 1) <= 1) return;
-    r.addEventListener('contextmenu', (ev) => { ev.preventDefault(); this.splitModal(it, list, cap, where); });
+    if ((d.stack || 1) <= 1) { r.addEventListener('contextmenu', (ev) => { ev.preventDefault(); ev.stopPropagation(); this.itemMenu(ev, it); }); return; }
+    r.addEventListener('contextmenu', (ev) => { ev.preventDefault(); ev.stopPropagation(); this.itemMenu(ev, it, { list, cap, where }); });
     dropzone(r, { accepts: (dd) => dd && dd.it && dd.it !== it && dd.it.b === it.b && dd.it.r === it.r && it.q < d.stack && ['stash', 'bag', 'vault'].includes(dd.src), onDrop: (dd) => this.mergeStack(dd, it) });
+  }
+  // menú contextual de un objeto en EQUIPO (revisión): comprar otro igual si está a la venta hoy y dividir la pila
+  itemMenu(ev, it, ctx = null) {
+    const opts = [];
+    const d = ITEMS[it.b];
+    const shopList = [...C.shopSupplies().map((x) => ({ x, supply: true })), ...C.ensureShop().stock.map((x) => ({ x, supply: false }))].filter((o) => o.x.b === it.b);
+    for (const { x, supply } of shopList) {
+      const price = C.buyPrice(x) * (x.q || 1);
+      const essC = ITEMS[x.b].essCost || 0;
+      const can = S.rub >= price && S.ess >= essC;
+      opts.push({ label: `₽ Comprar ${esc(itemName(x))}${x.q > 1 ? ' ×' + x.q : ''}`, hint: `${price} ₽${essC ? ` + ${essC} ✦` : ''}${supply ? '' : ' · material del día'}${can ? '' : ' · no te llega'}`, disabled: !can, fn: (e2) => this.doBuy(x, supply, { target: ev.target }) });
+    }
+    if (!shopList.length) opts.push({ label: 'No está a la venta hoy en la Intendencia', disabled: true });
+    if (ctx && ctx.list && (d.stack || 1) > 1 && it.q > 1) opts.push({ label: '⇹ Dividir la pila…', fn: () => this.splitModal(it, ctx.list, ctx.cap, ctx.where) });
+    contextMenu(ev.clientX, ev.clientY, opts, itemHTML(it));
   }
   splitModal(it, list, cap, where) {
     if (!(it.q > 1)) { toast('Solo hay una unidad.', 'dimt'); return; }
     if (list.length >= cap) { sfx.error(); toast(`No hay hueco en ${where} para otra pila.`, 'bad'); return; }
     let n = Math.floor(it.q / 2);
-    const val = el('b', { text: `${n} / ${it.q - n}` });
-    const rng2 = el('input', { type: 'range', min: 1, max: it.q - 1, value: n, class: 'split-range', oninput: () => { n = +rng2.value; val.textContent = `${n} / ${it.q - n}`; } });
-    const body = el('div', { style: { minWidth: 'min(46ch, 90vw)' } },
+    // deslizador ASCII: unidades que pasan a la pila nueva (y las que se quedan)
+    const sl = asciiSlider({ value: n, min: 1, max: it.q - 1, width: Math.min(30, Math.max(10, it.q - 1)), fmt: (v) => `${v} / ${it.q - v}`, label: 'dividir', onInput: (v) => { n = v; } });
+    sl.classList.add('split-slider');
+    const body = el('div', { style: { minWidth: 'min(52ch, 90vw)' } },
       el('div', { html: itemHTML(it) }),
-      el('div', { class: 'dimt', style: { margin: '.4em 0' }, text: 'Cuántas unidades pasan a la pila nueva (nueva / se quedan):' }),
-      el('div', { class: 'row' }, rng2, val));
+      el('div', { class: 'dimt', style: { margin: '.4em 0' }, text: 'Cuántas unidades pasan a la pila nueva (nueva / se quedan). Arrastra o usa las flechas:' }),
+      sl);
+    setTimeout(() => sl.focus(), 50);
     modal({ title: 'DIVIDIR PILA', body, actions: [{ label: 'CANCELAR' }, { label: 'DIVIDIR', cls: 'primary', fn: () => { if (splitStack(list, it, n)) { sfx.pickup(); save(); this.render(); } } }] });
   }
   mergeStack(from, dst) {
@@ -1215,24 +1235,8 @@ export class BaseUI {
     const btn = (label, fn, cls = '') => el('button', { class: 'btn ' + cls, onclick: () => { sfx.click(); fn(); } }, label);
     body.append(
       btn(t('menu.continue'), () => close()),
-      btn(t('menu.sound', { v: t(settings.sound ? 'yes' : 'no') }), () => { settings.sound = !settings.sound; saveSettings(); music.sync(); close(); this.openMenu(); }),
-      btn(t('menu.crt', { v: t(settings.crt ? 'yes' : 'no') }), () => { settings.crt = !settings.crt; document.body.classList.toggle('no-crt', !settings.crt); saveSettings(); close(); this.openMenu(); }),
       btn(t('menu.save'), () => { if (save()) toast(t('menu.saved', { n: slot }), 'good'); else toast(t('menu.saveFail'), 'bad', 6000); close(); }),
-      S.iron ? '' : btn(t('menu.export'), () => { // en Hierro no hay copias
-        save();
-        const txt = exportSlot(slot);
-        if (!txt) return;
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(new Blob([txt], { type: 'application/json' }));
-        a.download = `topolev-ranura${slot}-dia${S.day}.json`;
-        a.click();
-        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-        close();
-      }),
-      btn(t('menu.fullscreen'), () => { toggleFullscreen(); close(); }),
-      btn(t('menu.text', { v: t('scale.' + (settings.uiScale || 0)) }), () => { cycleUiScale(); close(); this.render(); this.openMenu(); }),
-      btn(t('menu.controls'), () => { close(); controlsModal(() => this.openMenu()); }),
-      ...a11yButtons(() => { close(); this.render(); this.openMenu(); }).map(([lab, fn]) => btn(lab, fn)),
+      btn(t('menu.settings'), () => { close(); settingsModal({ after: () => { this.render(); this.openMenu(); } }); }),
       btn(t('menu.quit'), () => { save(); close(); this.close(); this.hooks.onQuit(); }, 'danger'),
     );
     close = modal({ title: t('menu.title'), body, width: '46ch' });

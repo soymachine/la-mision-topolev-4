@@ -57,8 +57,14 @@ export class Minimap {
     if (e.turn !== this.lastTurn || opts.force) { this.updateTerrain(); this.lastTurn = e.turn; }
     const c = this.canvas, ctx = this.ctx;
     const W = c.width, H = c.height;
-    const s = Math.min(W / e.w, H / e.h);
-    const ox = (W - e.w * s) / 2, oy = (H - e.h * s) / 2;
+    let s = Math.min(W / e.w, H / e.h);
+    let ox = (W - e.w * s) / 2, oy = (H - e.h * s) / 2;
+    // mapa grande con zoom y arrastre: opts.zoom (×) y opts.pan = casilla en el centro de la vista
+    if (opts.zoom && (opts.zoom !== 1 || opts.pan)) {
+      s *= opts.zoom;
+      const [px, py] = opts.pan || [e.w / 2, e.h / 2];
+      ox = W / 2 - px * s; oy = H / 2 - py * s;
+    }
     this.s = s; this.ox = ox; this.oy = oy;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
@@ -73,7 +79,7 @@ export class Minimap {
     const P = (x, y) => [ox + (x + 0.5) * s, oy + (y + 0.5) * s];
     const big = !!opts.big;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const fz = big ? Math.max(12 * dpr, Math.round(s * 1.3)) : Math.max(11 * dpr, Math.round(W / 24));
+    const fz = big ? Math.min(26 * dpr, Math.max(12 * dpr, Math.round(s * 1.3))) : Math.max(11 * dpr, Math.round(W / 24));
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     this.markers = [];
 

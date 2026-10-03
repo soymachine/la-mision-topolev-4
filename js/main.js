@@ -10,6 +10,7 @@ import { installDebug } from './ui/debug.js';
 import { applyA11y } from './ui/a11y.js';
 import { applyLang, t } from './i18n/index.js';
 import { music, sfx } from './audio.js';
+import { ambience, expAmbience } from './samples.js';
 import { setAchievementNotifier } from './core/achievements.js';
 
 let current = null;
@@ -22,6 +23,9 @@ function show(id) {
   current = id;
   // fase 24.5.2: música tranquila en la base y el informe; silencio en el título (la expedición pone su drone)
   if (id === 'base' || id === 'report') music.play('base'); else if (id === 'title' || id === 'intro') music.stop();
+  // sonido ambiente grabado, distinto en cada pantalla (la expedición pone el suyo según zona, clima y hora)
+  if (['title', 'intro', 'base', 'report', 'help'].includes(id)) ambience.play(id);
+  else if (id === 'exp' && exp) ambience.play(expAmbience(exp));
 }
 
 async function boot() {

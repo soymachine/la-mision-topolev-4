@@ -2,10 +2,12 @@
 // Fase 24.5: dos buses bajo el maestro (efectos y música, con volumen propio) y música generativa de drones.
 import { settings, saveSettings } from './core/state.js';
 
-let ac = null, master = null, noiseBuf = null, fxBus = null, musBus = null;
+let ac = null, master = null, noiseBuf = null, fxBus = null, musBus = null, ambB = null, verb = null, verbIn = null;
 // el navegador no deja crear el audio antes de un gesto del usuario (clic o tecla): hasta entonces, silencio
 let gesture = false;
-if (typeof window !== 'undefined') for (const ev of ['pointerdown', 'keydown']) window.addEventListener(ev, () => { gesture = true; setTimeout(() => music.sync(), 0); }, { capture: true, once: true });
+if (typeof window !== 'undefined') for (const ev of ['pointerdown', 'keydown']) window.addEventListener(ev, () => { gesture = true; setTimeout(() => { music.sync(); for (const f of gestureHooks) f(); }, 0); }, { capture: true, once: true });
+const gestureHooks = [];
+export const onAudioReady = (f) => { gestureHooks.push(f); if (gesture && ac) f(); };
 function ctx(force = false) {
   if ((!settings.sound && !force) || !gesture) return null;
   if (!ac) {
@@ -16,6 +18,12 @@ function ctx(force = false) {
       master.connect(ac.destination);
       fxBus = ac.createGain(); fxBus.gain.value = settings.sfxVol ?? 1; fxBus.connect(master);
       musBus = ac.createGain(); musBus.gain.value = settings.musicVol ?? 0.4; musBus.connect(master);
+      ambB = ac.createGain(); ambB.gain.value = settings.ambVol ?? 0.6; ambB.connect(master); // ambiente grabado (samples.js)
+      // reverberación por convolución para la cola de los disparos (respuesta al impulso sintética: ruido que decae)
+      verb = ac.createConvolver();
+      const len = Math.floor(ac.sampleRate * 1.6), ir = ac.createBuffer(2, len, ac.sampleRate);
+      for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2); }
+      verb.buffer = ir; verbIn = ac.createGain(); verbIn.gain.value = 0.35; verbIn.connect(verb); verb.connect(fxBus);
       noiseBuf = ac.createBuffer(1, ac.sampleRate * 1, ac.sampleRate);
       const d = noiseBuf.getChannelData(0);
       for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -26,13 +34,17 @@ function ctx(force = false) {
 }
 export function setVolume(v) { settings.volume = v; if (master) master.gain.value = v; }
 // volúmenes separados (24.5.3): 'music' | 'sfx', de 0 a 1
-const VOL_KEY = { music: 'musicVol', sfx: 'sfxVol' };
+const VOL_KEY = { music: 'musicVol', sfx: 'sfxVol', amb: 'ambVol' };
 export function setBusVolume(which, v) {
   settings[VOL_KEY[which]] = Math.max(0, Math.min(1, v)); saveSettings();
-  const bus = which === 'music' ? musBus : fxBus;
+  const bus = which === 'music' ? musBus : which === 'amb' ? ambB : fxBus;
   if (bus && ac) bus.gain.setTargetAtTime(settings[VOL_KEY[which]], ac.currentTime, 0.05);
 }
-export const busVolume = (which) => settings[VOL_KEY[which]] ?? (which === 'music' ? 0.4 : 1);
+export const busVolume = (which) => settings[VOL_KEY[which]] ?? (which === 'music' ? 0.4 : which === 'amb' ? 0.6 : 1);
+// para samples.js
+export const audioCtx = () => ctx();
+export const ambBus = () => ambB;
+export const fxOut = () => fxBus;
 
 function tone(freq, dur, type = 'square', vol = 0.15, slide = 0, delay = 0) {
   const a = ctx(); if (!a) return;
@@ -45,7 +57,7 @@ function tone(freq, dur, type = 'square', vol = 0.15, slide = 0, delay = 0) {
   o.connect(g); g.connect(fxBus);
   o.start(t); o.stop(t + dur + 0.02);
 }
-function noise(dur, vol = 0.2, filter = 1200, type = 'lowpass', delay = 0, q = 1) {
+function noise(dur, vol = 0.2, filter = 1200, type = 'lowpass', delay = 0, q = 1, wet = 0) {
   const a = ctx(); if (!a) return;
   const t = a.currentTime + delay;
   const s = a.createBufferSource(); s.buffer = noiseBuf;
@@ -54,9 +66,44 @@ function noise(dur, vol = 0.2, filter = 1200, type = 'lowpass', delay = 0, q = 1
   g.gain.setValueAtTime(vol, t);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   s.connect(f); f.connect(g); g.connect(fxBus);
+  if (wet && verbIn) { const w = a.createGain(); w.gain.value = wet; g.connect(w); w.connect(verbIn); }
   s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
 }
+// golpe grave con caída de tono (el «cuerpo» del disparo)
+function thump(freq, dur, vol, drop = 0.5, delay = 0, wet = 0) {
+  const a = ctx(); if (!a) return;
+  const t = a.currentTime + delay;
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(freq, t); o.frequency.exponentialRampToValueAtTime(Math.max(25, freq * drop), t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(fxBus);
+  if (wet && verbIn) { const w = a.createGain(); w.gain.value = wet; g.connect(w); w.connect(verbIn); }
+  o.start(t); o.stop(t + dur + 0.02);
+}
+// disparos sintetizados por tipo de arma: chasquido (transitorio agudo) + estallido (ruido filtrado) + cuerpo grave + cola con reverberación
+const GUNS = {
+  pistol: { crack: 5200, body: 2200, bodyDur: 0.12, low: 150, lowDur: 0.12, vol: 0.32, tail: 0.5, wet: 0.5 },
+  smg: { crack: 5600, body: 2600, bodyDur: 0.09, low: 170, lowDur: 0.09, vol: 0.28, tail: 0.35, wet: 0.35 },
+  rifle: { crack: 6200, body: 1800, bodyDur: 0.16, low: 110, lowDur: 0.16, vol: 0.38, tail: 0.8, wet: 0.6 },
+  sniper: { crack: 7200, body: 1500, bodyDur: 0.22, low: 85, lowDur: 0.25, vol: 0.45, tail: 1.3, wet: 0.8 },
+  shotgun: { crack: 3800, body: 1200, bodyDur: 0.28, low: 90, lowDur: 0.26, vol: 0.48, tail: 1.0, wet: 0.7 },
+  mg: { crack: 5800, body: 2000, bodyDur: 0.11, low: 120, lowDur: 0.12, vol: 0.34, tail: 0.5, wet: 0.45 },
+  launcher: { crack: 2500, body: 700, bodyDur: 0.35, low: 70, lowDur: 0.4, vol: 0.45, tail: 1.1, wet: 0.7 },
+};
+function gunshot(w) {
+  const G = GUNS[w] || GUNS.pistol;
+  const v = G.vol * (0.9 + Math.random() * 0.2);
+  noise(0.012, v * 0.9, G.crack, 'highpass', 0, 0.7);             // chasquido
+  noise(G.bodyDur, v, G.body * (0.9 + Math.random() * 0.2), 'lowpass', 0.003, 0.9, G.wet * 0.6); // estallido
+  thump(G.low, G.lowDur, v * 1.1, 0.45, 0, G.wet * 0.4);          // cuerpo
+  noise(G.tail, v * 0.18, 700, 'lowpass', 0.02, 0.7, G.wet);      // cola de la sala
+  if (w === 'shotgun') noise(0.06, v * 0.5, 3000, 'bandpass', 0.01, 2);
+  if (w === 'smg' || w === 'mg') noise(0.02, v * 0.25, 4000, 'bandpass', 0.05, 4); // mecanismo
+}
 
+// samples.js registra aquí las grabaciones de disparos (evita importar en círculo)
+let shotSampleHook = null;
+export const setShotSampleHook = (f) => { shotSampleHook = f; };
 export const sfx = {
   hover() { tone(1800, 0.025, 'square', 0.025); },
   click() { tone(900, 0.04, 'square', 0.06); tone(1400, 0.03, 'square', 0.04, 0, 0.03); },
@@ -65,8 +112,8 @@ export const sfx = {
     if (w === 'energy') { tone(1200, 0.25, 'sawtooth', 0.12, -900); noise(0.15, 0.1, 4000, 'highpass'); return; }
     if (w === 'melee') { noise(0.08, 0.12, 900); return; }
     if (w === 'flame') { noise(0.5, 0.18, 700); return; }
-    noise(w === 'shotgun' ? 0.3 : w === 'sniper' ? 0.35 : 0.14, w === 'shotgun' ? 0.35 : 0.22, w === 'sniper' ? 2600 : 1800);
-    tone(w === 'sniper' ? 90 : 140, 0.12, 'triangle', 0.18, -60);
+    if (shotSampleHook && shotSampleHook(w)) return; // grabación, si la hay (samples.js)
+    gunshot(w);
   },
   hit() { noise(0.06, 0.12, 2500, 'bandpass', 0, 3); },
   hurt() { tone(220, 0.18, 'sawtooth', 0.12, -120); noise(0.1, 0.1, 800); },

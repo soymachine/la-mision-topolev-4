@@ -1626,8 +1626,10 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     await A.goto(URL); await A.waitForTimeout(800);
     // 24.1 modo daltónico y alto contraste desde el menú principal
     const r0 = await A.evaluate(async () => { const R = await import('./js/data/rarity.js'); return R.RARITIES[2].color; });
-    await A.click('text=MODO DALTÓNICO: NO'); await A.waitForTimeout(150);
-    await A.click('text=ALTO CONTRASTE: NO'); await A.waitForTimeout(150);
+    await A.click('text=CONFIGURACIÓN'); await A.waitForTimeout(150);
+    await A.click('.modal [data-set="colorblind"]'); await A.waitForTimeout(100);
+    await A.click('.modal [data-set="contrast"]'); await A.waitForTimeout(100);
+    await A.keyboard.press('Escape'); await A.waitForTimeout(150);
     const cb = await A.evaluate(async () => {
       const R = await import('./js/data/rarity.js'); const I = await import('./js/core/items.js');
       const it = I.createItem('makarov', 2);
@@ -1678,7 +1680,8 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     // pantalla CONTROLES desde el menú principal
     await A.evaluate(() => window.__topolev.exp && window.__topolev.save && window.__topolev.save());
     await A.reload(); await A.waitForTimeout(800);
-    await A.click('text=CONTROLES'); await A.waitForTimeout(200);
+    await A.click('text=CONFIGURACIÓN'); await A.waitForTimeout(150);
+    await A.click('.modal [data-set="keys"]'); await A.waitForTimeout(200);
     await A.click('.modal button[data-act="crouch"]').catch(async () => { await A.click('.modal .row:has-text("Agacharse") button'); });
     await A.waitForTimeout(100); await A.keyboard.press('u'); await A.waitForTimeout(150);
     const scr = await A.evaluate(async () => { const { settings } = await import('./js/core/state.js'); return settings.keys && settings.keys.crouch; });
@@ -1835,13 +1838,15 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     ok(mb.want === 'base' && mb.theme === 'base', `música tranquila en la base (${mb.theme})`);
     // volúmenes separados desde el menú de la base; se guardan
     await Au.click('text=≡ MENÚ'); await Au.waitForTimeout(150);
-    await Au.click('.modal >> text=/VOL. MÚSICA: 40%/'); await Au.waitForTimeout(150);
-    await Au.click('.modal >> text=/VOL. EFECTOS: 100%/'); await Au.waitForTimeout(150);
+    await Au.click('.modal >> text=CONFIGURACIÓN'); await Au.waitForTimeout(150);
+    // deslizadores ASCII: música 40 → 60 con las flechas; efectos a 0 con Inicio
+    await Au.focus('.modal [data-set="volMusic"]'); for (let i = 0; i < 20; i++) await Au.keyboard.press('ArrowRight');
+    await Au.focus('.modal [data-set="volSfx"]'); await Au.keyboard.press('Home'); await Au.waitForTimeout(100);
     const vol = await Au.evaluate(() => { const st = JSON.parse(localStorage.getItem('topolev_settings_v1')); return { m: st.musicVol, f: st.sfxVol }; });
     ok(Math.abs(vol.m - 0.6) < 0.01 && vol.f === 0, `volúmenes de música y efectos por separado, guardados (${vol.m} / ${vol.f})`);
-    await Au.click('.modal >> text=/MÚSICA: SÍ/'); await Au.waitForTimeout(150);
+    await Au.click('.modal [data-set="music"]'); await Au.waitForTimeout(150);
     const off = await Au.evaluate(async () => { const A = await import('./js/audio.js'); return A.music.theme; });
-    await Au.click('.modal >> text=/MÚSICA: NO/'); await Au.waitForTimeout(150);
+    await Au.click('.modal [data-set="music"]'); await Au.waitForTimeout(150);
     const on = await Au.evaluate(async () => { const A = await import('./js/audio.js'); return A.music.theme; });
     ok(off === null && on === 'base', 'MÚSICA: NO la apaga (con fundido) y SÍ la vuelve a poner');
     for (let i = 0; i < 4 && (await Au.$('.modal')); i++) { await Au.keyboard.press('Escape'); await Au.waitForTimeout(120); }
@@ -1878,8 +1883,12 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     L.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
     L.on('console', (m) => { if ((m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) || m.type() === 'warning') errs.push(m.text()); });
     await L.goto(URL); await L.waitForTimeout(800);
-    await L.click('text=IDIOMA: Español'); await L.waitForTimeout(200);
-    const en = await L.evaluate(() => { const tx = document.body.innerText; return { menu: tx.includes('NEW GAME') && tx.includes('LANGUAGE: English') && tx.includes('COLOURBLIND MODE: OFF') && !tx.includes('NUEVA PARTIDA'), lang: document.documentElement.lang }; });
+    await L.click('text=CONFIGURACIÓN'); await L.waitForTimeout(150);
+    await L.click('.modal [data-set="lang"]'); await L.waitForTimeout(150);
+    const inModal = await L.evaluate(() => document.querySelector('.modal').innerText.includes('Colourblind mode') && document.querySelector('.modal').innerText.includes('English'));
+    await L.keyboard.press('Escape'); await L.waitForTimeout(200);
+    const en = await L.evaluate(() => { const tx = document.body.innerText; return { menu: tx.includes('NEW GAME') && tx.includes('SETTINGS') && !tx.includes('NUEVA PARTIDA'), lang: document.documentElement.lang }; });
+    en.menu = en.menu && inModal;
     ok(en.menu && en.lang === 'en', 'IDIOMA: el menú principal pasa al inglés (y <html lang="en">)');
     const fb = await L.evaluate(async () => {
       const I = await import('./js/i18n/index.js'); const { ITEMS } = await import('./js/data/items.js'); const { MAPS } = await import('./js/data/world.js');
@@ -1902,8 +1911,10 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     // volver al español desde el menú de pausa: todo vuelve a su texto original
     for (let i = 0; i < 6 && (await L.$('.modal')); i++) { await L.keyboard.press('Escape'); await L.waitForTimeout(150); }
     await L.keyboard.press('Escape'); await L.waitForTimeout(200);
-    await L.click('.modal >> text=LANGUAGE: English'); await L.waitForTimeout(200);
-    const back = await L.evaluate(async () => { const { ITEMS } = await import('./js/data/items.js'); return { item: ITEMS.makarov.name, menu: !!document.querySelector('.modal') && document.querySelector('.modal').innerText.includes('IDIOMA: Español'), squad: document.querySelector('#screen-exp').innerText.includes('ESCUADRA') }; });
+    await L.click('.modal >> text=SETTINGS'); await L.waitForTimeout(150);
+    await L.click('.modal [data-set="lang"]'); await L.waitForTimeout(150);
+    await L.keyboard.press('Escape'); await L.waitForTimeout(200);
+    const back = await L.evaluate(async () => { const { ITEMS } = await import('./js/data/items.js'); return { item: ITEMS.makarov.name, menu: !!document.querySelector('.modal') && document.querySelector('.modal').innerText.includes('CONFIGURACIÓN'), squad: document.querySelector('#screen-exp').innerText.includes('ESCUADRA') }; });
     ok(back.item === 'Pistola Makarov PM' && back.menu && back.squad, 'volver al español restaura los datos y los títulos de los paneles');
     await ctx13.close();
   }
@@ -1914,7 +1925,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     M.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
     M.on('console', (m) => { if ((m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) || m.type() === 'warning') errs.push(m.text()); });
     await M.goto(URL); await M.waitForTimeout(800);
-    const det = await M.evaluate(() => ({ touch: document.body.classList.contains('touch'), btn: !!Array.from(document.querySelectorAll('button')).find((b) => /CONTROLES TÁCTILES: AUTO/.test(b.textContent)), over: document.documentElement.scrollWidth - innerWidth }));
+    const det = await M.evaluate(() => ({ touch: document.body.classList.contains('touch'), btn: !!Array.from(document.querySelectorAll('button')).find((b) => /CONFIGURACIÓN/.test(b.textContent)), over: document.documentElement.scrollWidth - innerWidth }));
     ok(det.touch && det.btn && det.over <= 1, 'pantalla táctil detectada (AUTO) y menú principal sin desbordarse a lo ancho');
     await M.click('text=NUEVA PARTIDA'); await M.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await M.click('#screen-intro'); await M.click('text=COMENZAR');
     await M.waitForTimeout(300);
@@ -1975,8 +1986,11 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     ok(lp.zoom, 'pellizcar con dos dedos acerca el mapa');
     // apagar los controles táctiles desde el menú de pausa
     await M.tap('.touch-acts [data-touch="cancel"]'); await M.waitForTimeout(200);
-    await M.click('.modal >> text=/CONTROLES TÁCTILES/'); await M.waitForTimeout(150);
-    await M.click('.modal >> text=/CONTROLES TÁCTILES/'); await M.waitForTimeout(150);
+    await M.click('.modal >> text=CONFIGURACIÓN'); await M.waitForTimeout(150);
+    const auto = await M.evaluate(() => document.querySelector('.modal [data-set="touch"]').textContent);
+    await M.click('.modal [data-set="touch"]'); await M.waitForTimeout(150);
+    await M.click('.modal [data-set="touch"]'); await M.waitForTimeout(150);
+    if (!/AUTO/.test(auto)) errs.push('el ajuste táctil no empezaba en AUTO: ' + auto);
     const off = await M.evaluate(async () => { const { settings } = await import('./js/core/state.js'); return { m: settings.touch, cls: document.body.classList.contains('touch'), bar: getComputedStyle(document.querySelector('.touch-bar')).display }; });
     ok(off.m === 'off' && !off.cls && off.bar === 'none', 'CONTROLES TÁCTILES: NO oculta la barra (AUTO → SÍ → NO)');
     await ctx12.close();
@@ -1997,7 +2011,8 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     await Rv.click('.tab:has-text("EQUIPO")'); await Rv.waitForTimeout(150);
     const ammoRow = () => Rv.$$('#screen-base .grid3 > .panel:nth-child(3) .item:has-text("9×18")');
     await (await ammoRow())[0].click({ button: 'right' }); await Rv.waitForTimeout(150);
-    await Rv.evaluate(() => { const r = document.querySelector('.modal .split-range'); r.value = 15; r.dispatchEvent(new Event('input')); });
+    await Rv.click('.ctx-menu >> text=Dividir'); await Rv.waitForTimeout(150);
+    await Rv.focus('.modal .split-slider'); await Rv.keyboard.press('Home'); for (let i = 0; i < 14; i++) await Rv.keyboard.press('ArrowRight');
     await Rv.click('.modal >> text=DIVIDIR'); await Rv.waitForTimeout(200);
     const sp = await Rv.evaluate(() => window.__topolev.S.stash.filter((x) => x.b === 'a_9x18').map((x) => x.q).sort((a, b) => a - b).join(','));
     ok(sp === '15,25', `dividir una pila de munición en dos (${sp})`);
@@ -2008,6 +2023,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     ok(mg === '40', `soltar una pila sobre la otra las junta (${mg})`);
     // soltar en un agente que no es el seleccionado: va a su mochila
     rows = await ammoRow(); await rows[0].click({ button: 'right' }); await Rv.waitForTimeout(100);
+    await Rv.click('.ctx-menu >> text=Dividir'); await Rv.waitForTimeout(100);
     await Rv.click('.modal >> text=DIVIDIR'); await Rv.waitForTimeout(150);
     const agents = await Rv.$$('#screen-base .grid3 > .panel:nth-child(1) .agent-row');
     rows = await ammoRow(); await drag(rows[0], agents[2]);
@@ -2046,7 +2062,8 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
       const cache = { type: 'cache', x: cell[0], y: cell[1], lvl: 1, name: 'Alijo de prueba', best: 1 };
       const nest = { type: 'nest', x: cell[0], y: cell[1], lvl: 1, name: 'Nido · prueba', enemy: 'rata', cleared: false, members: 0 };
       e.pois.push(cache, nest);
-      const dk = e.key(c.x + 5, c.y); const dOld = e.t[dk]; const exOld = e.explored[dk]; e.t[dk] = T.ARMORDOOR; e.explored[dk] = 0;
+      const dc = [[5, 0], [-5, 0], [0, 5], [0, -5], [4, 4], [-4, -4]].map(([dx, dy]) => [c.x + dx, c.y + dy]).find(([x, y]) => e.inb(x, y)); // dentro del mapa
+      const dk = e.key(dc[0], dc[1]); const dOld = e.t[dk]; const exOld = e.explored[dk]; e.t[dk] = T.ARMORDOOR; e.explored[dk] = 0;
       e.computeVisibility(true);
       const r = { cache: !!cache.radar, nest: !!nest.radar, door: !!e.explored[dk] };
       e.t[dk] = dOld; e.explored[dk] = exOld; e.pois.splice(e.pois.indexOf(cache), 2);
@@ -2069,6 +2086,73 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     });
     ok(rp.cols === 2 && rp.tip, 'informe: agentes en columnas y tooltip en los objetos extraídos');
     await ctx18.close();
+  }
+
+  console.log('· Revisión 2: configuración, mapa grande, ambiente, botín y compra rápida');
+  {
+    const ctx19 = await b.newContext({ viewport: { width: 1440, height: 860 } });
+    const Q = await ctx19.newPage();
+    Q.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
+    Q.on('console', (m) => { if ((m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) || m.type() === 'warning') errs.push(m.text()); });
+    await Q.goto(URL); await Q.waitForTimeout(800);
+    // CONFIGURACIÓN desde el título: todas las opciones y el deslizador ASCII
+    await Q.click('text=CONFIGURACIÓN'); await Q.waitForTimeout(150);
+    const ids = await Q.evaluate(() => [...document.querySelectorAll('.modal [data-set]')].map((x) => x.dataset.set).join(','));
+    const need = ['sound', 'music', 'volMaster', 'volMusic', 'volSfx', 'ambience', 'volAmb', 'crt', 'fullscreen', 'text', 'lang', 'keys', 'touch', 'colorblind', 'contrast'];
+    const slider = await Q.evaluate(() => document.querySelector('.modal [data-set="volMaster"]').textContent);
+    // arrastrar el deslizador del volumen general hasta el final
+    const tr = await (await Q.$('.modal [data-set="volMaster"] .as-track')).boundingBox();
+    await Q.mouse.move(tr.x + 5, tr.y + tr.height / 2); await Q.mouse.down(); await Q.mouse.move(tr.x + tr.width + 30, tr.y + tr.height / 2, { steps: 5 }); await Q.mouse.up();
+    const vol = await Q.evaluate(() => JSON.parse(localStorage.getItem('topolev_settings_v1')).volume);
+    ok(need.every((k) => ids.includes(k)) && /\[█*░*\]/.test(slider) && vol === 1, `CONFIGURACIÓN: ${need.length} opciones y deslizadores ASCII 0–100 que se arrastran (${slider.trim()} → ${vol})`);
+    await Q.keyboard.press('Escape'); await Q.waitForTimeout(150);
+    // ambiente distinto en cada pantalla
+    const ambT = await Q.evaluate(async () => (await import('./js/samples.js')).ambience.wanted);
+    await Q.click('text=NUEVA PARTIDA'); await Q.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await Q.click('#screen-intro'); await Q.click('text=COMENZAR');
+    await Q.waitForTimeout(300);
+    await Q.waitForTimeout(1500);
+    const ambB = await Q.evaluate(async () => (await import('./js/samples.js')).ambience.wanted);
+    const ambPlaying = await Q.evaluate(async () => (await import('./js/samples.js')).ambience.current);
+    // EQUIPO: clic derecho → comprar otro igual si está a la venta
+    await Q.click('.tab:has-text("EQUIPO")'); await Q.waitForTimeout(150);
+    await Q.evaluate(async () => { const I = await import('./js/core/items.js'); const S = window.__topolev.S; S.rub = 5000; S.stash.push(I.createItem('bandage', 0, undefined, 1)); });
+    await Q.click('.tab:has-text("EQUIPO")'); await Q.waitForTimeout(150);
+    const before = await Q.evaluate(() => window.__topolev.S.stash.filter((x) => x.b === 'bandage').reduce((n, x) => n + x.q, 0));
+    await Q.click('#screen-base .grid3 > .panel:nth-child(3) .item:has-text("Venda") >> nth=0', { button: 'right' }); await Q.waitForTimeout(150);
+    const menu = await Q.evaluate(() => document.querySelector('.ctx-menu') && document.querySelector('.ctx-menu').innerText);
+    await Q.click('.ctx-menu >> text=Comprar'); await Q.waitForTimeout(200);
+    const after = await Q.evaluate(() => ({ n: window.__topolev.S.stash.filter((x) => x.b === 'bandage').reduce((n, x) => n + x.q, 0), rub: window.__topolev.S.rub }));
+    ok(/Comprar/.test(menu || '') && after.n > before && after.rub < 5000, `EQUIPO: clic derecho → comprar otro igual desde la Intendencia (${before} → ${after.n})`);
+    // expedición: ambiente de la zona, mapa grande con zoom y arrastre, botín revelado uno a uno
+    await Q.click('.tab:has-text("EXPEDICIÓN")'); await Q.waitForTimeout(200);
+    for (let i = 0; i < 2; i++) { const rr = await Q.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rr[i].click(); }
+    await Q.click('text=LANZAR EXPEDICIÓN'); await Q.waitForTimeout(300);
+    if (await Q.$('.modal-back >> text=LANZAR')) await Q.click('.modal-back >> text=LANZAR');
+    await Q.waitForTimeout(800);
+    for (let i = 0; i < 6 && (await Q.$('.modal')); i++) { await Q.keyboard.press('Escape'); await Q.waitForTimeout(120); }
+    const ambE = await Q.evaluate(async () => (await import('./js/samples.js')).ambience.wanted);
+    ok(ambT === 'title' && ambB === 'base' && ambPlaying === 'base' && ambE === 'subsuelo', `sonido ambiente grabado (CC0) distinto por pantalla y zona, y sonando (${ambT} · ${ambB}/${ambPlaying} · ${ambE})`);
+    await Q.keyboard.press('m'); await Q.waitForTimeout(200);
+    const cv = await (await Q.$('.bigmap-wrap canvas')).boundingBox();
+    await Q.mouse.move(cv.x + cv.width / 2, cv.y + cv.height / 2); await Q.mouse.wheel(0, -300); await Q.waitForTimeout(100); await Q.mouse.wheel(0, -300); await Q.waitForTimeout(100);
+    const z1 = await Q.evaluate(() => { const v = window.__topolev.expUI.big.view; return { z: v.zoom, p: [...v.pan] }; });
+    await Q.mouse.move(cv.x + cv.width / 2, cv.y + cv.height / 2); await Q.mouse.down(); await Q.mouse.move(cv.x + cv.width / 2 + 120, cv.y + cv.height / 2 + 60, { steps: 6 }); await Q.mouse.up(); await Q.waitForTimeout(100);
+    const z2 = await Q.evaluate(() => { const v = window.__topolev.expUI.big; return v ? { z: v.view.zoom, p: [...v.view.pan] } : null; });
+    ok(z1.z > 1 && z2 && Math.hypot(z2.p[0] - z1.p[0], z2.p[1] - z1.p[1]) > 1, `mapa grande: zoom con la rueda (×${z1.z.toFixed(2)}) y arrastre sin cerrarlo`);
+    await Q.keyboard.press('Escape'); await Q.waitForTimeout(150);
+    const lr = await Q.evaluate(async () => {
+      const I = await import('./js/core/items.js'); const e = window.__topolev.exp; const ui = window.__topolev.expUI;
+      const obj = { kind: 'crate', x: e.cur.x, y: e.cur.y, items: [I.createItem('bandage', 0), I.createItem('makarov', 2), I.createItem('makarov', 4)], opened: true };
+      ui.openLoot({ obj });
+      const t0 = [...document.querySelectorAll('.modal .item.loot-hide')].length;
+      await new Promise((r) => setTimeout(r, 1300));
+      const t1 = [...document.querySelectorAll('.modal .item.loot-hide')].length, lr4 = !!document.querySelector('.modal .item.loot-r4');
+      if (ui.lootClose) ui.lootClose();
+      ui.openLoot({ obj }); const t2 = [...document.querySelectorAll('.modal .item.loot-hide')].length; if (ui.lootClose) ui.lootClose();
+      return { t0, t1, lr4, t2 };
+    });
+    ok(lr.t0 === 3 && lr.t1 === 0 && lr.lr4 && lr.t2 === 0, `botín: los objetos aparecen uno a uno (con brillo y partículas desde épico) y no se repite al reabrir (${JSON.stringify(lr)})`);
+    await ctx19.close();
   }
 
   console.log(errs.length ? 'ERRORES:\n' + errs.join('\n') : '  ✓ sin errores en consola');

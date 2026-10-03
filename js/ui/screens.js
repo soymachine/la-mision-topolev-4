@@ -13,6 +13,7 @@ import { toggleFullscreen } from './expui.js';
 import { a11yButtons } from './a11y.js';
 import { t } from '../i18n/index.js';
 import { achievementsModal } from './achievements.js';
+import { settingsModal } from './settings.js';
 import { MODES, NG_MODS, ngUnlocked, legacy, isoWeek, challengeTable } from '../core/modes.js';
 import { controlsModal, keyName, helpKeysHTML, keyify } from './keys.js';
 
@@ -70,13 +71,8 @@ export class TitleScreen {
     menu.append(btn(t('menu.new'), () => this.slotsModal('new'), has ? '' : 'primary'));
     if (has) menu.append(btn(t('menu.saves'), () => this.slotsModal('load')));
     menu.append(btn(t('menu.help'), () => this.hooks.onHelp()));
-    menu.append(btn(t('menu.controls'), () => controlsModal()));
     menu.append(btn(t('menu.achievements'), () => achievementsModal()));
-    menu.append(btn(t('menu.fullscreen'), () => toggleFullscreen()));
-    menu.append(btn(t('menu.sound', { v: t(settings.sound ? 'yes' : 'no') }), () => { settings.sound = !settings.sound; saveSettings(); music.sync(); this.open(); }));
-    menu.append(btn(t('menu.crt', { v: t(settings.crt ? 'yes' : 'no') }), () => { settings.crt = !settings.crt; document.body.classList.toggle('no-crt', !settings.crt); saveSettings(); this.open(); }));
-    menu.append(btn(t('menu.text', { v: t('scale.' + (settings.uiScale || 0)) }), () => { cycleUiScale(); this.open(); }));
-    for (const [lab, fn] of a11yButtons(() => this.open())) menu.append(btn(lab, fn));
+    menu.append(btn(t('menu.settings'), () => settingsModal({ after: () => this.open() })));
     R.append(this.bg, el('div', { class: 'title-wrap' },
       this.logo,
       el('div', { class: 'title-sub', text: t('title.sub') }),
@@ -555,6 +551,10 @@ ${helpKeysHTML()}
 <p><b>MÚSICA</b>: un drone generativo que cambia con la zona (superficie, subsuelo, laboratorios, corium) y se vuelve más tenso con el peligro (enemigos en alerta, el pulso del reactor, un jefe a la vista, un agente abatido); en la base suena un tema tranquilo. <b>VOL. MÚSICA</b> y <b>VOL. EFECTOS</b> se ajustan por separado.</p>
 <p><b>IDIOMA</b>: español o inglés (English). En inglés ya están traducidos los menús, las pestañas de la base, el HUD de la expedición, los controles y los nombres de zonas, chebylitas y objetos básicos; lo que aún no tiene traducción sale en español.</p>
 <p><b>CONTROLES TÁCTILES</b> (AUTO / SÍ / NO; en AUTO se activan solos en pantallas táctiles): durante la expedición aparece una cruceta de 8 direcciones (el punto del centro espera un turno; manteniéndola pulsada se repite) y botones para interactuar (F), apuntar (⌖; en el modo apuntar pasa al siguiente objetivo y F dispara), recargar, curarse, habilidad, granada, agacharse, cambiar de agente, inventario y ✕ (cancelar o menú). Tocar el mapa es como hacer clic (ir, atacar, abrir); <b>mantener pulsado</b> muestra la información de la casilla; <b>pellizcar</b> acerca o aleja; <b>arrastrar el radar</b> mueve la vista. En pantallas estrechas el panel del agente se abre con ☰.</p>
+
+<h2>CONFIGURACIÓN</h2>
+<p>Desde el menú principal, el menú de la base y la pausa: sonido, música, sonido ambiente y sus volúmenes (deslizadores: arrástralos o usa las flechas; Mayús, de 10 en 10), efecto CRT, pantalla completa, tamaño del texto, idioma, teclas, controles táctiles, modo daltónico, alto contraste y exportar una copia de la partida.</p>
+<p><b>Sonido ambiente</b>: grabaciones reales (CC0) distintas en cada pantalla y zona: viento en el título, la ventilación del búnker en la base, la estufa en el informe, el rumor profundo del subsuelo, el bosque, la noche, la lluvia… <b>Mapa grande (M)</b>: rueda o pellizco para ampliar, arrastrar para moverse, botones − + ⟲ y @ (centrar en el agente). <b>Botín</b>: al abrir un contenedor, los objetos aparecen uno a uno; los épicos, legendarios y míticos, con partículas. <b>EQUIPO</b>: clic derecho en un objeto para comprar otro igual (si está hoy en la Intendencia) o dividir la pila.</p>
 
 <h2>MODOS DE JUEGO</h2>
 <p>Se eligen en NUEVA PARTIDA, encima de las ranuras. <b>HISTORIA</b>: la campaña de siempre. <b>LIBRE</b>: todas las zonas abiertas, 2000 ₽, sin cuota, ataques ni actos. <b>HIERRO</b>: guardado en cada turno, sin exportar copias; si os quedáis sin agentes y sin rublos para reclutar, la partida se borra. <b>DESAFÍO SEMANAL</b>: la misma semilla para todos durante la semana (agentes, botín inicial, reclutas y mapas de las 3 primeras zonas); al acabar el día 15 se apunta la puntuación (esencia + 2 por baja + 25 por extracción − 40 por caído) en la tabla de este navegador. <b>«1987»</b>: se desbloquea al ver un final; empezáis con el mejor agente o un trofeo de la partida anterior y podéis añadir modificadores (+1 nivel a los chebylitas, alerta +1, presupuesto recortado).</p>

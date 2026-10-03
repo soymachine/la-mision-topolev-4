@@ -627,6 +627,16 @@ Resumen original: accesibilidad (modo daltónico con símbolos en las rarezas, r
 - [x] R.10 Pilas: clic derecho en una pila (almacén o mochila) → DIVIDIR con un deslizador; soltar una pila sobre otra igual las junta (`splitStack`, `stackOnto` en `core/items.js`). Las zonas de soltar anidadas eligen la más interior que acepta lo arrastrado.
 - Pruebas: bloque `ctx18` de `tests/systems.cjs` (212/212).
 
+## Revisión 2 tras la fase 24 ✔
+- [x] R2.1 Pantalla **CONFIGURACIÓN** (`ui/settings.js`, `settingsModal`) desde el título, la base y la pausa; los menús quedan con lo esencial. Sonido, música, ambiente, volúmenes general/música/efectos/ambiente con **deslizador ASCII** 0–100 (`ui/widgets.js`, `asciiSlider`: arrastrar, flechas, Mayús ×10, Inicio/Fin), CRT, pantalla completa, texto, idioma, teclas, táctiles, daltónico, contraste y exportar copia (no en Hierro).
+- [x] R2.2 Dividir pila con el deslizador ASCII.
+- [x] R2.3 **Mapa grande** con zoom (rueda, pellizco, botones − + ⟲ @) y arrastre; `Minimap.draw(..., { zoom, pan })`; un clic sin arrastre sigue siendo «viajar ahí».
+- [x] R2.4 **Sonido ambiente** grabado (CC0, `sounds/amb/*.mp3`, ver `sounds/CREDITS.md`) por pantalla (título, intro, base, informe, ayuda) y por zona/clima/hora en la expedición (`js/samples.js`: `ambience`, `expAmbience`); bus propio con volumen y ajuste. Las webs de sonido (Freesound, Kenney, OpenGameArt) no son accesibles desde el entorno de desarrollo; los bucles vienen del repositorio público de *ambiently* (grabaciones CC0 de Freesound) y los sonidos de botín del paquete npm *uisfx* (audio CC0). Los .m4a no se decodifican en Chromium: se convirtieron a MP3 y el bucle salta el relleno del principio y el final.
+- [x] R2.5 **Disparos**: no se encontró un banco CC0 de disparos realistas descargable desde el entorno; la síntesis se rehízo por tipo de arma (chasquido + estallido + cuerpo grave + cola con reverberación por convolución). `SHOT_FILES` en `samples.js` permite poner grabaciones (`sounds/shots/*.ogg`) que sustituyen a la síntesis.
+- [x] R2.6 **Botín**: los objetos aparecen uno a uno con un sonido por rareza; de épico en adelante, brillo y partículas cada vez más intensas (✪ MÍTICO). No se repite al reabrir el mismo contenedor.
+- [x] R2.7 **EQUIPO**: clic derecho → menú contextual (`contextMenu` en `util/dom.js`) con «Comprar» (suministros y material del día del mismo objeto) y «Dividir la pila…».
+- Pruebas: bloque `ctx19`.
+
 ## Banco de ideas (sin fase asignada)
 
 - **Vehículos en superficie:** un UAZ-469 o un BRDM para viajar rápido entre puntos de la superficie (combustible limitado y ruido).

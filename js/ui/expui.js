@@ -16,7 +16,8 @@ import { ORDERS, ESSENCE_COLOR } from '../exp/shared.js';
 import { astar } from '../exp/path.js';
 import { cheb, rng } from '../util/rng.js';
 import { sfx, music, themeForZone } from '../audio.js';
-import { uiFly, uiFlyFrom } from './fx.js';
+import { ambience, expAmbience, lootSound, lootOpenSound } from '../samples.js';
+import { uiFly, uiFlyFrom, uiBurst, uiText } from './fx.js';
 import { NOTES, FOREIGN_NOTES } from '../data/lore.js';
 import { showDialog } from './dialog.js';
 
@@ -28,6 +29,7 @@ import { buildTouchBar, mapGestures, minimapDrag } from './touch.js';
 import { t } from '../i18n/index.js';
 import { nestIdentified, NEST_ID_KILLS } from '../exp/intel.js';
 import { codexModal } from './codex.js';
+import { settingsModal } from './settings.js';
 const SOCIAL_TIP = { trader: 'Compra y venta.', medic: 'Curas y tratamiento de la radiación.', board: 'Rumores y trabajos.', archive: 'Expedientes del KGB.' };
 export function toggleFullscreen() {
   try {
@@ -145,6 +147,7 @@ export class ExpeditionUI {
     this.mode = null; this.travel = null; this.big = null;
     this.relabel(false); // por si se cambió el idioma desde la base
     music.play(themeForZone(exp.def)); music.setIntensity(0); // fase 24.5: drone de la zona
+    ambience.play(expAmbience(exp)); // ambiente grabado según zona, clima y hora
     this.r.resize();
     if (!settings.zoom) settings.zoom = Math.round(Math.max(13, Math.min(18, innerWidth / 105)));
     this.r.setZoom(settings.zoom);
@@ -189,7 +192,7 @@ export class ExpeditionUI {
         const cols = this.r.vw / this.r.cw, rows = this.r.vh / this.r.ch;
         const storm = this.exp.stormOn();
         this.mm.draw(now, { radar: S.modules.radar, storm, view: { x: this.r.cam.x, y: this.r.cam.y, w: cols, h: rows } });
-        if (this.big) this.big.mm.draw(now, { big: true, radar: S.modules.radar, storm });
+        if (this.big) this.big.mm.draw(now, { big: true, radar: S.modules.radar, storm, zoom: this.big.view && this.big.view.zoom, pan: this.big.view && this.big.view.pan });
       }
       this.stepTravel(now);
       requestAnimationFrame(loop);
@@ -258,6 +261,7 @@ export class ExpeditionUI {
     const e = this.exp;
     const c = e.cur;
     music.setIntensity(this.danger());
+    ambience.play(expAmbience(e)); // cambia al anochecer o si empieza a llover (no hace nada si ya suena)
     if (c && e.inMap(c)) {
       this.r.centerOn(c.x, c.y);
       const r = e.rad[e.key(c.x, c.y)] + e.ambient;
@@ -992,29 +996,70 @@ export class ExpeditionUI {
       el('div', { class: 'h', text: `══[ ${ex.def.name.toUpperCase()} · MAPA DEL RADAR${(ex.nFloors || 1) > 1 ? ` · PISO ${e.readonly ? (e.floor ? '−' + e.floor : 'SUPERIOR') : ex.floor ? '−' + ex.floor : 'SUPERIOR'}` : ''} ]══` }),
       tabs,
       cv,
-      el('div', { class: 'legend', html: '<span><span style="color:#ff6a6a">▲</span><b>n</b> nido (nivel)</span><span style="color:#ff3b30">☠ nido alfa</span><span class="cyan">✦ veta</span><span style="color:#ffb02e">■ alijo</span><span style="color:#b8f53d">☢ radiación</span><span style="color:#c06cff">≋ esporas</span><span style="color:#7fb8ff">ϟ anomalía</span><span class="cyan">⌂ extracción</span><span class="dimt">clic: viajar · M/Esc: cerrar</span>' }),
+      el('div', { class: 'legend', html: '<span><span style="color:#ff6a6a">▲</span><b>n</b> nido (nivel)</span><span style="color:#9a8a7a">? sin identificar</span><span style="color:#ff3b30">☠ nido alfa</span><span class="cyan">✦ veta</span><span style="color:#ffb02e">■ alijo</span><span style="color:#dcb450">▣ puerta blindada</span><span style="color:#b8f53d">☢ radiación</span><span style="color:#c06cff">≋ esporas</span><span style="color:#7fb8ff">ϟ anomalía</span><span class="cyan">⌂ extracción</span><span class="dimt">rueda/pellizco: zoom · arrastrar: mover · clic: viajar · M/Esc: cerrar</span>' }),
     );
+    // zoom y arrastre (revisión): la vista recuerda el zoom entre aperturas
+    const zoomBar = el('div', { class: 'bigmap-zoom' });
+    wrap.insertBefore(zoomBar, wrap.children[2]);
     this.mapHost.append(wrap);
     const r = this.mapHost.getBoundingClientRect();
     const dpr = Math.min(2, devicePixelRatio || 1);
-    const s = Math.min((r.width * 0.96) / e.w, (r.height * 0.8) / e.h);
-    cv.width = Math.round(e.w * s * dpr); cv.height = Math.round(e.h * s * dpr);
-    cv.style.width = e.w * s + 'px'; cv.style.height = e.h * s + 'px';
+    const W = Math.round(r.width * 0.96), H = Math.round(r.height * 0.74);
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    cv.style.width = W + 'px'; cv.style.height = H + 'px';
     const mm = new Minimap(cv);
     mm.attach(e);
-    mm.draw(performance.now(), { big: true, radar: S.modules.radar, force: true, storm: ex.stormOn() });
-    this.big = { wrap, mm };
+    const c0 = ex.cur && !e.readonly ? [ex.cur.x + 0.5, ex.cur.y + 0.5] : [e.w / 2, e.h / 2];
+    const view = { zoom: this.bigZoom || 1, pan: this.bigZoom > 1 ? c0 : [e.w / 2, e.h / 2] };
+    const clampPan = () => { view.pan[0] = Math.max(0, Math.min(e.w, view.pan[0])); view.pan[1] = Math.max(0, Math.min(e.h, view.pan[1])); };
+    const redraw = () => mm.draw(performance.now(), { big: true, radar: S.modules.radar, force: true, storm: ex.stormOn(), zoom: view.zoom, pan: view.pan });
+    // zoom alrededor de un punto del canvas (en px CSS); sin punto, alrededor del centro
+    const zoomBy = (f, cx = W / 2, cy = H / 2) => {
+      const before = mm.s ? [(cx * dpr - mm.ox) / mm.s, (cy * dpr - mm.oy) / mm.s] : view.pan;
+      view.zoom = Math.max(1, Math.min(8, view.zoom * f));
+      if (view.zoom === 1) view.pan = [e.w / 2, e.h / 2];
+      else { redraw(); const after = [(cx * dpr - mm.ox) / mm.s, (cy * dpr - mm.oy) / mm.s]; view.pan[0] += before[0] - after[0]; view.pan[1] += before[1] - after[1]; clampPan(); }
+      this.bigZoom = view.zoom; label.textContent = `×${view.zoom.toFixed(1)}`; redraw();
+    };
+    const label = el('span', { class: 'dimt', text: `×${view.zoom.toFixed(1)}` });
+    zoomBar.append(el('button', { class: 'btn small', 'data-bz': 'out', onclick: () => zoomBy(1 / 1.5) }, '−'), label, el('button', { class: 'btn small', 'data-bz': 'in', onclick: () => zoomBy(1.5) }, '+'),
+      el('button', { class: 'btn small', 'data-bz': 'reset', onclick: () => { view.zoom = 1; view.pan = [e.w / 2, e.h / 2]; this.bigZoom = 1; label.textContent = '×1.0'; redraw(); } }, '⟲'),
+      el('button', { class: 'btn small', 'data-bz': 'me', onclick: () => { if (ex.cur && !e.readonly) { view.pan = [ex.cur.x + 0.5, ex.cur.y + 0.5]; if (view.zoom < 2) zoomBy(2 / view.zoom); else redraw(); } } }, '@'));
+    redraw();
+    this.big = { wrap, mm, view };
+    const local = (ev) => { const rc = cv.getBoundingClientRect(); return [ev.clientX - rc.left, ev.clientY - rc.top]; };
+    cv.addEventListener('wheel', (ev) => { ev.preventDefault(); const [x, y] = local(ev); zoomBy(ev.deltaY < 0 ? 1.25 : 0.8, x, y); }, { passive: false });
+    // arrastrar para mover (y pellizco con dos dedos); un clic sin arrastre sigue siendo «viajar ahí»
+    const pts = new Map(); let drag = null, moved = false, pinch = 0;
+    cv.addEventListener('pointerdown', (ev) => {
+      pts.set(ev.pointerId, [ev.clientX, ev.clientY]); cv.setPointerCapture && cv.setPointerCapture(ev.pointerId);
+      if (pts.size === 1) { drag = { x: ev.clientX, y: ev.clientY, pan: [...view.pan] }; moved = false; }
+      else { const [a, b] = [...pts.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); moved = true; }
+    });
     cv.addEventListener('pointermove', (ev) => {
-      const rc = cv.getBoundingClientRect();
-      const px = (ev.clientX - rc.left) * dpr, py = (ev.clientY - rc.top) * dpr;
-      const m = mm.markerAt(px, py);
+      if (pts.has(ev.pointerId)) pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
+      if (pts.size >= 2 && pinch) {
+        const [a, b] = [...pts.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+        if (Math.abs(d / pinch - 1) > 0.08) { const rc = cv.getBoundingClientRect(); zoomBy(d / pinch, (a[0] + b[0]) / 2 - rc.left, (a[1] + b[1]) / 2 - rc.top); pinch = d; }
+        return;
+      }
+      if (drag && pts.size === 1) {
+        const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
+        if (!moved && Math.hypot(dx, dy) > 5) moved = true;
+        if (moved && view.zoom > 1) { view.pan = [drag.pan[0] - (dx * dpr) / mm.s, drag.pan[1] - (dy * dpr) / mm.s]; clampPan(); redraw(); hideTooltip(); cv.classList.add('dragging'); return; }
+      }
+      const [x, y] = local(ev);
+      const m = mm.markerAt(x * dpr, y * dpr);
       if (m) showTooltip(this.markerTooltip(m), ev.clientX, ev.clientY);
       else hideTooltip();
     });
+    const up = (ev) => { pts.delete(ev.pointerId); if (pts.size < 2) pinch = 0; if (!pts.size) { drag = null; cv.classList.remove('dragging'); } };
+    cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
     cv.addEventListener('pointerleave', () => hideTooltip());
     cv.addEventListener('click', (ev) => {
-      const rc = cv.getBoundingClientRect();
-      const cell = mm.cellAt((ev.clientX - rc.left) * dpr, (ev.clientY - rc.top) * dpr);
+      if (moved) { moved = false; return; } // venía de arrastrar
+      const [x, y] = local(ev);
+      const cell = mm.cellAt(x * dpr, y * dpr);
       hideTooltip();
       this.toggleBigMap();
       if (!e.readonly && cell && e.explored[e.key(cell[0], cell[1])]) this.startTravel(cell[0], cell[1]);
@@ -1130,11 +1175,24 @@ export class ExpeditionUI {
     const list = d.obj ? d.obj.items : e.floorAt(d.x, d.y);
     const title = d.obj ? OBJ_NAME[d.obj.kind].toUpperCase() : 'SUELO';
     const body = el('div', { style: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '3ch' } });
+    // revelado uno a uno (revisión): cada objeto aparece con su sonido; de épico en adelante, con partículas
+    this.lootSeen = this.lootSeen || new WeakMap();
+    const seen = this.lootSeen.get(list) || new Set();
+    this.lootSeen.set(list, seen);
+    let timers = [];
+    if (list.some((it) => !seen.has(it))) lootOpenSound();
     const render = () => {
       body.innerHTML = '';
+      for (const tm of timers) clearTimeout(tm);
+      timers = [];
+      let k = 0;
       const left = el('div', { style: { minHeight: '12em' } }, el('div', { class: 'h', text: `CONTENIDO (${list.length})` }));
       for (const it of list) {
         const r = el('div', { class: 'item', html: itemHTML(it) });
+        if (!seen.has(it)) {
+          r.classList.add('loot-hide');
+          timers.push(setTimeout(() => { seen.add(it); if (!r.isConnected) return; r.classList.remove('loot-hide'); r.classList.add('loot-in', 'loot-r' + (it.r || 0)); this.lootReveal(r, it); }, 260 + 240 * k++));
+        }
         tip(r, () => itemTooltip(it, null, '<div class="dimt">Clic o arrastra a la mochila para coger.</div>'));
         r.addEventListener('click', () => { e.takeItem(sq, list, it); render(); });
         draggable(r, { data: () => ({ kind: 'loot', it }), ghost: () => itemHTML(it) });
@@ -1160,9 +1218,21 @@ export class ExpeditionUI {
         { label: 'COGER TODO', cls: 'primary', fn: () => { for (const it of [...list]) if (!e.takeItem(sq, list, it)) break; render(); return list.length === 0 ? undefined : false; } },
         { label: 'CERRAR' },
       ],
-      onClose: () => { this.lootClose = null; this.refresh(); },
+      onClose: () => { for (const tm of timers) clearTimeout(tm); for (const it of list) seen.add(it); this.lootClose = null; this.refresh(); },
     });
     this.lootClose = close;
+  }
+  // sonido por rareza y, de épico (3) en adelante, partículas tanto más intensas cuanto más rara
+  lootReveal(row, it) {
+    const r = it.r || 0;
+    lootSound(r);
+    if (r < 3) return;
+    const rc = row.getBoundingClientRect();
+    const col = rarityColor(r);
+    const n = [0, 0, 0, 14, 28, 48][r], sp = [0, 0, 0, 9, 14, 20][r];
+    uiBurst(rc.left + rc.width * 0.3, rc.top + rc.height / 2, { n, speed: sp, colors: [col, '#fff', col], chars: r >= 5 ? ['✪', '✦', '*', '·'] : r >= 4 ? ['✦', '*', '+', '·'] : ['*', '·', '+'], life: 0.7 + (r - 3) * 0.25, gravity: 8 });
+    if (r >= 4) setTimeout(() => uiBurst(rc.right - 20, rc.top + rc.height / 2, { n: Math.round(n / 2), speed: sp * 0.8, colors: [col, '#fff'], chars: ['✦', '·'], gravity: -6 }), 120);
+    if (r >= 5) uiText(rc.left + rc.width / 2, rc.top - 4, '✪ MÍTICO ✪', col);
   }
 
   // ------------------------------------------------------------ eventos narrativos
@@ -1198,13 +1268,8 @@ export class ExpeditionUI {
       btn(t('menu.continue'), () => close()),
       btn(t('menu.help'), () => { close(); this.hooks.onHelp(); }),
       btn(t('menu.codex'), () => { close(); codexModal(); }),
-      btn(t('menu.sound', { v: t(settings.sound ? 'yes' : 'no') }), () => { settings.sound = !settings.sound; saveSettings(); music.sync(); close(); this.openMenu(); }),
-      btn(t('menu.crt', { v: t(settings.crt ? 'yes' : 'no') }), () => { settings.crt = !settings.crt; document.body.classList.toggle('no-crt', !settings.crt); saveSettings(); close(); this.openMenu(); }),
       btn(t('menu.zoomIn'), () => this.zoom(1)), btn(t('menu.zoomOut'), () => this.zoom(-1)),
-      btn(t('menu.fullscreen'), () => { toggleFullscreen(); close(); }),
-      btn(t('menu.text', { v: t('scale.' + (settings.uiScale || 0)) }), () => { cycleUiScale(); close(); this.refresh(); this.renderLog(); setTimeout(() => { this.sizeMinimap(); this.r.resize(); }, 50); this.openMenu(); }),
-      btn(t('menu.controls'), () => { close(); controlsModal(() => this.openMenu()); }),
-      ...a11yButtons(() => { close(); this.relabel(); this.openMenu(); }).map(([lab, fn]) => btn(lab, fn)),
+      btn(t('menu.settings'), () => { close(); settingsModal({ after: () => { this.relabel(); setTimeout(() => { this.sizeMinimap(); this.r.resize(); }, 50); this.openMenu(); } }); }),
       btn(t('menu.saveQuit'), () => { save(); close(); this.stop(); this.hooks.onQuit(); }, 'danger'),
     );
     body.append(el('div', { class: 'dimt', style: { marginTop: '1em', textAlign: 'center' }, text: t('menu.expNote') }));
