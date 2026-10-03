@@ -149,29 +149,5 @@ export function installBase21(BaseUI) {
       return box;
     },
 
-    // ------------------------------------------------------------ operación simultánea (EXPEDICIÓN)
-    sideOpBox() {
-      this.sideSel = this.sideSel || new Set();
-      this.sideZone = this.sideZone ?? null;
-      const box = el('div', { class: 'side-box' });
-      box.append(el('div', { class: 'h', text: 'OPERACIÓN SIMULTÁNEA (SEGUNDO ESCUADRÓN)' }), el('div', { class: 'dimt', text: 'Agentes que no van en el escuadrón principal hacen una salida rápida a una zona ya conocida. El resultado se simula al pasar el día.' }));
-      if (S.sideOps.length) { box.append(el('div', { class: 'cyan', text: `En curso: ${S.sideOps.map((o) => `${MAPS.find((m) => m.id === o.zone).name} (${o.ids.length})`).join(', ')}` })); return box; }
-      const known = MAPS.map((m, i) => i).filter((i) => zoneOpen(S, i) && (S.cleared[MAPS[i].id] || 0) > 0);
-      if (!known.length) { box.append(el('div', { class: 'dimt', text: 'Todavía no hay zonas conocidas (hace falta al menos una extracción).' })); return box; }
-      if (this.sideZone == null || !known.includes(this.sideZone)) this.sideZone = known[0];
-      const sel = el('select', { class: 'side-zone', onchange: (ev) => { this.sideZone = +ev.target.value; this.render(); } });
-      for (const i of known) sel.append(el('option', { value: i, text: `${MAPS[i].name} (Nv ${MAPS[i].lvl.join('–')})`, selected: i === this.sideZone }));
-      box.append(sel);
-      const free = S.agents.filter((a) => !this.squad.has(a.id) && !B.isAway(a));
-      for (const id of [...this.sideSel]) if (!free.some((a) => a.id === id)) this.sideSel.delete(id);
-      for (const a of free) {
-        const on = this.sideSel.has(a.id);
-        box.append(el('div', { class: `row agent-mini ${on ? 'sel' : ''}`, style: { cursor: 'pointer' }, onclick: () => { if (on) this.sideSel.delete(a.id); else this.sideSel.add(a.id); sfx.click(); this.render(); }, html: `<span class="chk">${on ? '[■]' : '[ ]'}</span> <span style="color:${a.color}">${esc(a.nick)}</span> <span class="dimt">Nv ${a.lvl} · ${a.hp} sal · estrés ${Math.round(a.stress || 0)}</span>` }));
-      }
-      const agents = free.filter((a) => this.sideSel.has(a.id));
-      if (agents.length) box.append(el('div', { html: `Probabilidad de éxito estimada: <b>${Math.round(B.sideChance(this.sideZone, agents) * 100)}%</b>` }));
-      box.append(el('button', { class: 'btn small ' + (agents.length ? 'primary' : 'disabled'), onclick: () => { const r = B.sendSideOp(this.sideZone, agents); if (r.ok) { sfx.click(); toast('El segundo escuadrón sale de la base.', 'good'); this.sideSel.clear(); save(); this.render(); } else { sfx.error(); toast(r.msg, 'bad'); } } }, 'ENVIAR'));
-      return box;
-    },
   });
 }

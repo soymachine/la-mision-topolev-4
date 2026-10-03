@@ -45,7 +45,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
   console.log('· Expedición');
   await ev(() => { for (const a of window.__topolev.S.agents) { a.baseHp = 200; a.hp = 200; } });
   await p.click('.tab:has-text("EXPEDICIÓN")');
-  for (let i = 0; i < 2; i++) { const rows = await p.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+  await p.click('[data-go]'); await p.waitForTimeout(150); for (let i = 0; i < 2; i++) { const rows = await p.$$('.modal .agent-row'); await rows[i].click(); }
   await p.click('text=LANZAR EXPEDICIÓN');
   await p.waitForTimeout(300);
   if (await p.$('.modal-back')) await p.click('.modal-back >> text=LANZAR');
@@ -175,7 +175,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
   ok(prep.heavy && prep.stack && !prep.stackM, `reglas de tamaño y pilas («${prep.heavy}», «${prep.stack}»)`);
   // expedición: guardar y morir
   await q.click('.tab:has-text("EXPEDICIÓN")');
-  for (let i = 0; i < 2; i++) { const rows = await q.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+  await q.click('[data-go]'); await q.waitForTimeout(150); for (let i = 0; i < 2; i++) { const rows = await q.$$('.modal .agent-row'); await rows[i].click(); }
   await q.click('text=LANZAR EXPEDICIÓN'); await q.waitForTimeout(300);
   if (await q.$('.modal-back')) await q.click('.modal-back >> text=LANZAR');
   await q.waitForTimeout(600);
@@ -239,7 +239,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     S.agents[2].talents.push('s_rescate');
   });
   await R.click('.tab:has-text("EXPEDICIÓN")');
-  for (let i = 0; i < 3; i++) { const rows = await R.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); if (rows[i]) await rows[i].click(); }
+  await R.click('[data-go]'); await R.waitForTimeout(150); for (let i = 0; i < 3; i++) { const rows = await R.$$('.modal .agent-row'); if (rows[i]) await rows[i].click(); }
   await R.click('text=LANZAR EXPEDICIÓN'); await R.waitForTimeout(300);
   if (await R.$('.modal-back')) await R.click('.modal-back >> text=LANZAR');
   await R.waitForTimeout(600);
@@ -327,8 +327,10 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
   await F.evaluate(() => { for (const a of window.__topolev.S.agents) { a.baseHp = 200; a.hp = 400; a.attr.tec = 8; } });
   await fd('mods apagon,extranjeros');
   await F.click('.tab:has-text("EXPEDICIÓN")'); await F.waitForTimeout(200);
-  ok(await F.$('.mods-box .mod-row:has-text("Apagón")'), 'los modificadores del día se ven al elegir destino');
-  for (let i = 0; i < 2; i++) { const rows = await F.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+  await F.hover('.zchip.hot'); await F.waitForTimeout(150);
+  ok(/Apagón/.test(await F.evaluate(() => document.querySelector('#tooltip').innerText)), 'los modificadores del día se ven al elegir destino (rollover CONDICIONES)');
+  await F.mouse.move(5, 5);
+  await F.click('[data-go]'); await F.waitForTimeout(150); for (let i = 0; i < 2; i++) { const rows = await F.$$('.modal .agent-row'); await rows[i].click(); }
   await F.click('text=LANZAR EXPEDICIÓN'); await F.waitForTimeout(300);
   if (await F.$('.modal-back')) await F.click('.modal-back >> text=LANZAR');
   await F.waitForTimeout(700);
@@ -434,7 +436,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     if (ev) await Z.click('.mapcard.event >> nth=0');
     else { const idx = await Z.evaluate(async (zid) => (await import('./js/data/world.js')).mapIndex(zid), id); await Z.click(`.mapcard:not(.event) >> nth=${idx}`); }
     await Z.waitForTimeout(150);
-    if (!(await Z.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row.sel')).length) for (let i = 0; i < 2; i++) { const rows = await Z.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+    await Z.click('[data-go]'); await Z.waitForTimeout(150); if (!(await Z.$$('.modal .agent-row.sel')).length) for (let i = 0; i < 2; i++) { const rows = await Z.$$('.modal .agent-row'); await rows[i].click(); }
     await Z.click('text=LANZAR EXPEDICIÓN'); await Z.waitForTimeout(300);
     if (await Z.$('.modal-back')) await Z.click('.modal-back >> text=LANZAR');
     await Z.waitForTimeout(800);
@@ -569,7 +571,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
   await fd18('rep merodeadores -45');
   // expedición
   await Q.click('.tab:has-text("EXPEDICIÓN")'); await Q.waitForTimeout(200);
-  for (let i = 0; i < 2; i++) { const rows = await Q.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+  await Q.click('[data-go]'); await Q.waitForTimeout(150); for (let i = 0; i < 2; i++) { const rows = await Q.$$('.modal .agent-row'); await rows[i].click(); }
   await Q.click('text=LANZAR EXPEDICIÓN'); await Q.waitForTimeout(300);
   if (await Q.$('.modal-back >> text=LANZAR')) await Q.click('.modal-back >> text=LANZAR');
   await Q.waitForTimeout(800); await close18();
@@ -730,7 +732,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     await G.click('.tab:has-text("GARAJE")'); await G.waitForTimeout(250);
     ok((await G.$$('#screen-base .mapcard')).length >= 1 && (await G.evaluate(() => document.body.innerText.includes('TIENDA DEL GARAJE'))), 'pestaña GARAJE');
     await G.click('.tab:has-text("EXPEDICIÓN")'); await G.waitForTimeout(200);
-    for (let i = 0; i < 2; i++) { const rows = await G.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+    await G.click('[data-go]'); await G.waitForTimeout(150); for (let i = 0; i < 2; i++) { const rows = await G.$$('.modal .agent-row'); await rows[i].click(); }
     await G.click('text=LANZAR EXPEDICIÓN'); await G.waitForTimeout(300);
     if (await G.$('.modal-back >> text=LANZAR')) await G.click('.modal-back >> text=LANZAR');
     await G.waitForTimeout(800); await gClose();
@@ -911,7 +913,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
       const alive = down && b2.alive && b2.a.hp > 0 && !b2.downed;
       // el perro cae: queda su chasis
       const dog = e.enemies.find((x) => x.type === 'laika');
-      e.damageEnemy(dog, 999, null);
+      if (dog) e.damageEnemy(dog, 999, null); // si ya cayó antes, su chasis ya está en el suelo
       const ch = [...e.floorItems.values()].flat().find((x) => x.b === 'laika');
       e.god = true;
       return { alive, used: e.defibUsed, chassis: !!(ch && ch.broken), slot: e.squad[0].a.equip.comp };
@@ -975,7 +977,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     await N.evaluate(() => { const S = window.__topolev.S; S.ending = null; S.flags.finaleAsked = 99; S.cleared = { admin: 1 }; for (const a of S.agents) { a.baseHp = 200; a.hp = 400; } });
     await N.click('.tab:has-text("CUARTEL")'); await N.waitForTimeout(200);
     await N.click('.tab:has-text("EXPEDICIÓN")'); await N.waitForTimeout(200);
-    for (let i = 0; i < 2; i++) { const rows = await N.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+    await N.click('[data-go]'); await N.waitForTimeout(150); for (let i = 0; i < 2; i++) { const rows = await N.$$('.modal .agent-row'); await rows[i].click(); }
     await N.click('text=LANZAR EXPEDICIÓN'); await N.waitForTimeout(300);
     if (await N.$('.modal-back >> text=LANZAR')) await N.click('.modal-back >> text=LANZAR');
     await N.waitForTimeout(800); await nClose();
@@ -1064,14 +1066,8 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
       out.winterSoon = !!S.flags.sarcophagusDone;
       S.day = 215; out.winter = B.season() === 'invierno';
       S.attack = null; S.pendingDialogs = [];
-      // operación simultánea
-      S.cleared.admin = 1;
-      const ag = S.agents[S.agents.length - 1];
-      const so = B.sendSideOp(0, [ag]);
-      out.away = so.ok && B.isAway(ag);
-      C.nextDay();
-      out.side = S.messages.some((m) => /Operación simultánea/.test(m.text)) && !B.isAway(ag);
-      S.attack = null; S.pendingDialogs = [];
+      // (la operación simultánea se quitó del juego)
+      out.noSide = typeof B.sendSideOp === 'undefined';
       return out;
     });
     ok(bv.plots && bv.free, 'plano de 16 parcelas: no caben los 17 edificios; derribar libera sitio');
@@ -1079,7 +1075,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     ok(bv.craft && bv.scrap, 'fabricar munición y desmontar un arma en chatarra');
     ok(bv.demand && bv.quota && bv.bm, 'precios que bajan al vender mucho, cuota del Comité y mercado negro');
     ok(bv.season && bv.winterSoon && bv.winter, 'calendario: estaciones y el sarcófago terminado en noviembre');
-    ok(bv.away && bv.side, 'operación simultánea del segundo escuadrón');
+    ok(bv.noSide, 'la operación simultánea ya no existe');
     // defensa de la base
     const df = await N.evaluate(async () => {
       const S = window.__topolev.S; const B = await import('./js/core/basecore.js'); const C = await import('./js/core/campaign.js');
@@ -1220,7 +1216,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     ok(mg.siluro && mg.aqua > 0, `el Siluro Abuelo y ${mg.aqua} chebylitas acuáticos en el estanque`);
     // expedición de pruebas
     await E.click('.tab:has-text("EXPEDICIÓN")'); await E.waitForTimeout(200);
-    for (let i = 0; i < 2; i++) { const rows = await E.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+    await E.click('[data-go]'); await E.waitForTimeout(150); for (let i = 0; i < 2; i++) { const rows = await E.$$('.modal .agent-row'); await rows[i].click(); }
     await E.click('text=LANZAR EXPEDICIÓN'); await E.waitForTimeout(300);
     if (await E.$('.modal-back >> text=LANZAR')) await E.click('.modal-back >> text=LANZAR');
     await E.waitForTimeout(800); await eClose();
@@ -1384,7 +1380,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     await K.click('text=NUEVA PARTIDA'); await K.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await K.click('#screen-intro'); await K.click('text=COMENZAR');
     await K.waitForTimeout(300);
     await K.click('.tab:has-text("EXPEDICIÓN")'); await K.waitForTimeout(200);
-    for (let i = 0; i < 2; i++) { const rows = await K.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+    await K.click('[data-go]'); await K.waitForTimeout(150); for (let i = 0; i < 2; i++) { const rows = await K.$$('.modal .agent-row'); await rows[i].click(); }
     await K.click('text=LANZAR EXPEDICIÓN'); await K.waitForTimeout(300);
     if (await K.$('.modal-back >> text=LANZAR')) await K.click('.modal-back >> text=LANZAR');
     await K.waitForTimeout(800); await kClose();
@@ -1646,7 +1642,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     await A.click('text=NUEVA PARTIDA'); await A.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await A.click('#screen-intro'); await A.click('text=COMENZAR');
     await A.waitForTimeout(300);
     await A.click('.tab:has-text("EXPEDICIÓN")'); await A.waitForTimeout(200);
-    for (let i = 0; i < 2; i++) { const rows = await A.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+    await A.click('[data-go]'); await A.waitForTimeout(150); for (let i = 0; i < 2; i++) { const rows = await A.$$('.modal .agent-row'); await rows[i].click(); }
     await A.click('text=LANZAR EXPEDICIÓN'); await A.waitForTimeout(300);
     if (await A.$('.modal-back >> text=LANZAR')) await A.click('.modal-back >> text=LANZAR');
     await A.waitForTimeout(800);
@@ -1784,7 +1780,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     await Ac.click('text=NUEVA PARTIDA'); await Ac.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await Ac.click('#screen-intro'); await Ac.click('text=COMENZAR');
     await Ac.waitForTimeout(300);
     await Ac.click('.tab:has-text("EXPEDICIÓN")'); await Ac.waitForTimeout(200);
-    for (let i = 0; i < 2; i++) { const rows = await Ac.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+    await Ac.click('[data-go]'); await Ac.waitForTimeout(150); for (let i = 0; i < 2; i++) { const rows = await Ac.$$('.modal .agent-row'); await rows[i].click(); }
     await Ac.click('text=LANZAR EXPEDICIÓN'); await Ac.waitForTimeout(300);
     if (await Ac.$('.modal-back >> text=LANZAR')) await Ac.click('.modal-back >> text=LANZAR');
     await Ac.waitForTimeout(800);
@@ -1853,7 +1849,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     for (let i = 0; i < 4 && (await Au.$('.modal')); i++) { await Au.keyboard.press('Escape'); await Au.waitForTimeout(120); }
     // expedición: drone de la zona e intensidad con el peligro
     await Au.click('.tab:has-text("EXPEDICIÓN")'); await Au.waitForTimeout(200);
-    for (let i = 0; i < 2; i++) { const rows = await Au.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+    await Au.click('[data-go]'); await Au.waitForTimeout(150); for (let i = 0; i < 2; i++) { const rows = await Au.$$('.modal .agent-row'); await rows[i].click(); }
     await Au.click('text=LANZAR EXPEDICIÓN'); await Au.waitForTimeout(300);
     if (await Au.$('.modal-back >> text=LANZAR')) await Au.click('.modal-back >> text=LANZAR');
     await Au.waitForTimeout(800);
@@ -1903,7 +1899,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     const tabs = await L.evaluate(() => [...document.querySelectorAll('#screen-base .tab')].map((x) => x.textContent).join(' '));
     ok(/HQ/.test(tabs) && /BARRACKS/.test(tabs) && /EXPEDITION/.test(tabs), `pestañas de la base en inglés (${tabs.slice(0, 60)}…)`);
     await L.click('.tab:has-text("EXPEDITION")'); await L.waitForTimeout(200);
-    for (let i = 0; i < 2; i++) { const rows = await L.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+    await L.click('[data-go]'); await L.waitForTimeout(150); for (let i = 0; i < 2; i++) { const rows = await L.$$('.modal .agent-row'); await rows[i].click(); }
     await L.click('text=LANZAR EXPEDICIÓN'); await L.waitForTimeout(300);
     if (await L.$('.modal-back >> text=LANZAR')) await L.click('.modal-back >> text=LANZAR');
     await L.waitForTimeout(800);
@@ -1931,9 +1927,9 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     await M.click('text=NUEVA PARTIDA'); await M.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await M.click('#screen-intro'); await M.click('text=COMENZAR');
     await M.waitForTimeout(300);
     await M.click('.tab:has-text("EXPEDICIÓN")'); await M.waitForTimeout(200);
-    const baseOver = await M.evaluate(() => { const g = document.querySelector('#screen-base .grid3'); return { cols: g ? getComputedStyle(g).gridTemplateColumns.split(' ').length : 0, over: document.documentElement.scrollWidth - innerWidth }; });
+    const baseOver = await M.evaluate(() => { const g = document.querySelector('#screen-base .exp-tab'); return { cols: g ? getComputedStyle(g).gridTemplateColumns.split(' ').length : 0, over: document.documentElement.scrollWidth - innerWidth }; });
     ok(baseOver.cols === 1 && baseOver.over <= 1, 'base en pantalla estrecha: rejilla de una columna, sin scroll horizontal');
-    for (let i = 0; i < 2; i++) { const rows = await M.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+    await M.click('[data-go]'); await M.waitForTimeout(150); for (let i = 0; i < 2; i++) { const rows = await M.$$('.modal .agent-row'); await rows[i].click(); }
     await M.click('text=LANZAR EXPEDICIÓN'); await M.waitForTimeout(300);
     if (await M.$('.modal-back >> text=LANZAR')) await M.click('.modal-back >> text=LANZAR');
     await M.waitForTimeout(800);
@@ -2035,7 +2031,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     ok(mo.cls && mo.tip && /blur/.test(mo.blur) && !mo.after, 'con un modal abierto la interfaz queda debajo, oscurecida y sin tooltips');
     // ---- expedición: niebla del minimapa y radares
     await Rv.click('.tab:has-text("EXPEDICIÓN")'); await Rv.waitForTimeout(200);
-    for (let i = 0; i < 2; i++) { const rr = await Rv.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rr[i].click(); }
+    await Rv.click('[data-go]'); await Rv.waitForTimeout(150); for (let i = 0; i < 2; i++) { const rr = await Rv.$$('.modal .agent-row'); await rr[i].click(); }
     await Rv.click('text=LANZAR EXPEDICIÓN'); await Rv.waitForTimeout(300);
     if (await Rv.$('.modal-back >> text=LANZAR')) await Rv.click('.modal-back >> text=LANZAR');
     await Rv.waitForTimeout(800);
@@ -2126,7 +2122,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     ok(/Comprar/.test(menu || '') && after.n > before && after.rub < 5000, `EQUIPO: clic derecho → comprar otro igual desde la Intendencia (${before} → ${after.n})`);
     // expedición: ambiente de la zona, mapa grande con zoom y arrastre, botín revelado uno a uno
     await Q.click('.tab:has-text("EXPEDICIÓN")'); await Q.waitForTimeout(200);
-    for (let i = 0; i < 2; i++) { const rr = await Q.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rr[i].click(); }
+    await Q.click('[data-go]'); await Q.waitForTimeout(150); for (let i = 0; i < 2; i++) { const rr = await Q.$$('.modal .agent-row'); await rr[i].click(); }
     await Q.click('text=LANZAR EXPEDICIÓN'); await Q.waitForTimeout(300);
     if (await Q.$('.modal-back >> text=LANZAR')) await Q.click('.modal-back >> text=LANZAR');
     await Q.waitForTimeout(800);
@@ -2163,6 +2159,68 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     ok(dc.rad === 0 && dc.news, 'al volver de la expedición la radiación de los agentes vuelve a 0 (y el informe lo dice)');
     ok(lr.t0 === 3 && lr.t1 === 0 && lr.lr4 && lr.t2 === 0, `botín: los objetos aparecen uno a uno (con brillo y partículas desde épico) y no se repite al reabrir (${JSON.stringify(lr)})`);
     await ctx19.close();
+  }
+
+  // ================================================================ bolsa de trabajo (revisión)
+  console.log('· Bolsa de trabajo');
+  {
+    const ctx20 = await b.newContext({ viewport: { width: 1440, height: 860 } });
+    const J = await ctx20.newPage();
+    J.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
+    J.on('console', (m) => { if ((m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) || m.type() === 'warning') errs.push(m.text()); });
+    await J.goto(URL); await J.waitForTimeout(800);
+    await J.click('text=NUEVA PARTIDA'); await J.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await J.click('#screen-intro'); await J.click('text=COMENZAR');
+    await J.waitForTimeout(300);
+    const jo = await J.evaluate(async () => {
+      const ST = await import('./js/core/story.js'); const { JOB_TYPES } = await import('./js/data/jobs.js');
+      const { MAPS } = await import('./js/data/world.js'); const { ENEMIES } = await import('./js/data/enemies.js');
+      const S = window.__topolev.S;
+      const offers = ST.jobOffers();
+      const again = ST.jobOffers() === offers; // misma oferta durante todo el día
+      // todas las plantillas dan un encargo completo
+      const seen = Object.keys(ENEMIES).filter((id) => !ENEMIES[id].boss && ENEMIES[id].minL <= 3).slice(0, 4);
+      const ctx = { zones: MAPS.filter((m) => !m.social).slice(0, 3), seen };
+      const bad = Object.entries(JOB_TYPES).filter(([, T]) => { const d = T.make(Math.random, ctx); return !d.name || !d.desc || !d.kind || !(d.reward.rub > 0); }).map(([k]) => k);
+      // tres trabajos: balizas en la primera zona, cuota de bajas y venta de esencia
+      const zone = MAPS[0].id;
+      const mk = (type) => ({ ...JOB_TYPES[type].make(Math.random, { zones: [MAPS[0]], seen }), job: type, id: 'job_test_' + type });
+      S.contracts.jobOffers = [mk('beacons'), mk('killglobal'), mk('essdeliver'), mk('noloss')];
+      const acc = ['beacons', 'killglobal', 'essdeliver'].map((k) => ST.acceptJob('job_test_' + k).ok);
+      const fourth = ST.acceptJob('job_test_noloss').ok;
+      const kg = ST.CONTRACTS.job_test_killglobal, es = ST.CONTRACTS.job_test_essdeliver;
+      S.stats = S.stats || {}; S.stats.killsBy = S.stats.killsBy || {};
+      S.stats.killsBy[kg.target] = (S.stats.killsBy[kg.target] || 0) + kg.n;
+      S.ess = es.n + 50;
+      const prog = ST.contractProgress(S.contracts.active.find((c) => c.id === 'job_test_killglobal'));
+      return { n: offers.length, kinds: new Set(offers.map((o) => o.job)).size, again, bad, acc, fourth, prog, need: kg.n, zone, ess: es.n, pay: es.reward.rub, types: Object.keys(JOB_TYPES).length };
+    });
+    ok(jo.n === 4 && jo.kinds === 4 && jo.again && !jo.bad.length && jo.types >= 15, `bolsa de trabajo: 4 ofertas distintas al día de ${jo.types} tipos, todas completas${jo.bad.length ? ' (fallan: ' + jo.bad.join(', ') + ')' : ''}`);
+    ok(jo.acc.every(Boolean) && !jo.fourth && jo.prog === `${jo.need}/${jo.need} abatidos`, `aceptar trabajos (máx. 3) y progreso de la cuota de bajas (${jo.prog})`);
+    await J.click('.tab:has-text("CUARTEL")'); await J.waitForTimeout(150);
+    const rows = await J.$$eval('.contract.job', (l) => l.length);
+    await J.click('.tab:has-text("EXPEDICIÓN")'); await J.waitForTimeout(200);
+    const card = await J.evaluate(() => document.querySelector('.mapcard.sel').innerText.includes('⚑'));
+    const chipJ = !!(await J.$('.zchip:has-text("TRABAJOS 1")'));
+    ok(rows >= 3 && card && chipJ, `los trabajos se ven en el CUARTEL (${rows}) y en el destino (⚑ y rollover TRABAJOS)`);
+    await J.click('[data-go]'); await J.waitForTimeout(150); for (let i = 0; i < 2; i++) { const rr = await J.$$('.modal .agent-row'); await rr[i].click(); }
+    await J.click('text=LANZAR EXPEDICIÓN'); await J.waitForTimeout(300);
+    if (await J.$('.modal-back >> text=LANZAR')) await J.click('.modal-back >> text=LANZAR');
+    await J.waitForTimeout(800);
+    for (let i = 0; i < 6 && (await J.$('.modal')); i++) { await J.keyboard.press('Escape'); await J.waitForTimeout(120); }
+    const jr = await J.evaluate(() => {
+      const e = window.__topolev.exp; const ui = window.__topolev.expUI; const S = window.__topolev.S;
+      const bea = e.objects.filter((o) => o.goal === 'beacon' && o.contract === 'job_test_beacons');
+      const marked = bea.every((o) => e.pois.some((p) => p.x === o.x && p.y === o.y));
+      for (const o of bea) e.useObjective(e.cur, o);
+      const met = !!(e.facState().contracts || {}).job_test_beacons;
+      const rub0 = S.rub, ess0 = S.ess;
+      for (const q of e.squad) q.out = true;
+      const rep = ui.hooks.onEnd(e);
+      return { zone: e.def.id, nb: bea.length, marked, met, done: rep.contracts || [], rub: S.rub - rub0, essLeft: S.ess, ess0, left: S.contracts.active.filter((c) => c.job).length, defs: Object.keys(S.contracts.jobDefs).length, jobsDone: S.contracts.jobsDone };
+    });
+    ok(jr.nb >= 2 && jr.marked && jr.met, `balizas: ${jr.nb} puntos marcados en el radar; colocarlas cumple el trabajo`);
+    ok(jr.done.length >= 3 && jr.left === 0 && jr.defs === 0 && jr.jobsDone === 3 && jr.rub >= jo.pay, `al volver se cobran los 3 trabajos (+${jr.rub} ₽; ${jr.done.join(' · ')})`);
+    await ctx20.close();
   }
 
   console.log(errs.length ? 'ERRORES:\n' + errs.join('\n') : '  ✓ sin errores en consola');

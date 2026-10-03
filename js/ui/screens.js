@@ -511,6 +511,7 @@ ${helpKeysHTML()}
 <ul>
 <li>En CUARTEL hay <b>encargos</b> del personal y de las facciones (hasta 3 a la vez): entregar objetos, fotografiar, capturar, escoltar, sabotear o rescatar. Se cobran al volver.</li>
 <li>Cada día puede haber un <b>encargo especial</b> ligado a las condiciones de una zona (apagón, niebla, pulso temprano…): solo vale ese día, se marca con <span style="color:#ffd23f">◎</span> en el mapa y en la lista de zonas, y paga más cuanto más peligrosa es la zona.</li>
+<li>La <b>bolsa de trabajo</b> (CUARTEL, <span class="cyan">⚑</span>) ofrece 4 trabajos nuevos cada día, aparte de los encargos (hasta 3 a la vez, sin penalización por abandonarlos): colocar balizas, tomar lecturas de dosimetría, limpiar una zona, cuotas de bajas de una especie en las salidas que haga falta, cartografiar, destruir nidos, cazar a un élite con recompensa, bajar al fondo, recuperar un cargamento, llevar un paquete del KGB a un buzón muerto, volver sin bajas, salir deprisa, vender esencia, entregar material, fotografiar o capturar. Pagan según el nivel de la zona; los que se hacen en una zona se marcan con <span class="cyan">⚑</span> en su tarjeta y en el radar.</li>
 <li>Las notas forman <b>8 colecciones</b>; completar una da una recompensa (ARCHIVO). La radio intercepta a veces transmisiones extranjeras que marcan un <b>alijo</b> en el mapa.</li>
 </ul>
 
@@ -520,7 +521,7 @@ ${helpKeysHTML()}
 <li><b>INVESTIGACIÓN</b> (tecla <b>0</b>): proyectos que tardan días y piden esencia, muestras o especímenes vivos (de la <b>celda de contención</b>, que además produce esencia… y a veces sufre fugas). Allí también está el <b>taller de fabricación</b>: munición, botiquines, mods y mejoras con chatarra, electrónica, plomo y tejido; y desmontar objetos.</li>
 <li>Los precios <b>bajan</b> si vendes mucho de lo mismo (se recuperan con los días). Cada 30 días, la <b>cuota del Comité</b>: entrega la esencia pedida o recorta el presupuesto. En la intendencia, la <b>trastienda de Kravets</b> vende equipo occidental… y el KGB a veces se entera.</li>
 <li>El calendario avanza desde mayo de 1986: en <b>invierno</b> el agua se hiela y hace falta abrigo; en otoño llueve más. La televisión cuenta lo que pasa fuera.</li>
-<li>A veces <b>atacan la base</b>: defiéndela con quien esté allí o cede parte del almacén. Los agentes que no van en el escuadrón principal pueden salir en una <b>operación simultánea</b> (EXPEDICIÓN) a una zona ya conocida: el resultado se sabe al pasar el día.</li>
+<li>A veces <b>atacan la base</b>: defiéndela con quien esté allí o cede parte del almacén.</li>
 </ul>
 
 <h2>ECOSISTEMA, ÉLITES Y JEFES</h2>

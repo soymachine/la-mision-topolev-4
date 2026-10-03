@@ -12,7 +12,7 @@ import { rollZoneMods } from '../data/modifiers.js';
 import { recordExpedition, worldDayTick } from './ecosys.js';
 import { statExpedition, checkAchievements } from './achievements.js';
 import { FACTIONS, repOf, addRep, foreignTrade as foreignTradeS } from '../data/factions.js';
-import { addStress, addAff, trust, chronicle, comedorScene, completeContracts, checkActs, familyLetter, expireSpecials } from './story.js';
+import { addStress, addAff, trust, chronicle, comedorScene, completeContracts, checkActs, familyLetter, expireSpecials, CONTRACTS } from './story.js';
 import { baseDayTick, placeBuilding, demandK, noteSale, attackResult, defenseDef } from './basecore.js';
 
 // modificadores de cada zona para hoy (fase 16.4)
@@ -370,6 +370,13 @@ export function finalizeExpedition(exp) {
   if (deaths) trust(-4 * deaths, `${deaths} agente(s) muertos en ${def.name}`);
   const fc = (exp.fac && exp.fac.contracts) || {};
   for (const c of S.contracts.active) if (fc[c.id] && anyOut) c.done = true;
+  // bolsa de trabajo que se juzga al volver: sin bajas, y salir a tiempo
+  for (const c of S.contracts.active) {
+    const d = CONTRACTS[c.id];
+    if (!d || !d.job || d.zone !== def.id || !anyOut) continue;
+    if (d.kind === 'noloss' && deaths === 0) c.done = true;
+    if (d.kind === 'speedrun' && exp.turn <= d.n) c.done = true;
+  }
   if (exp.fac && exp.fac.rescued && anyOut && S.agents.length < rosterCap()) {
     const [first, last] = exp.fac.rescued.name.split(' ');
     const a = createAgent(rng, { lvl: exp.fac.rescued.lvl });

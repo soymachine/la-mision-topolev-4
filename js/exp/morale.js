@@ -9,6 +9,8 @@ import { INTERCEPTS } from '../data/lore.js';
 import { FACTIONS } from '../data/factions.js';
 import { createItem, mergeInto } from '../core/items.js';
 import { bagCapacity } from '../core/agents.js';
+import { ENEMIES } from '../data/enemies.js';
+import { TILES } from '../data/tiles.js';
 
 const AFFLICTIONS = {
   panico: { name: 'Pánico', turns: 2, desc: 'huye del enemigo más cercano' },
@@ -145,6 +147,7 @@ export class MoralePart {
       if (contractZone(c) !== this.def.id || this.floor) continue;
       const d = CONTRACTS[c.id];
       if (d.special) { if (c.day === S.day) this.spawnSpecial(c, d); continue; }
+      if (d.job) { this.spawnJob(c, d); continue; }
       const spot = this.farSpot(20);
       if (!spot) continue;
       if (d.kind === 'escort') {
@@ -177,9 +180,59 @@ export class MoralePart {
     const goal = d.kind === 'activate' ? `${d.label.toLowerCase()} ${where}` : d.kind === 'retrieve' ? `${d.label.toLowerCase()} ${where}; sacad lo que guarda` : d.kind === 'kills' ? `abatid ${d.n} chebylitas` : d.kind === 'essence' ? `recoged ${d.n} ✦` : `aguantad el pulso del reactor ${d.wait} turnos`;
     this.say(`★ Encargo especial «${d.name}»: ${goal}. Solo hoy.`, 'o1');
   }
+  // bolsa de trabajo (revisión): lo que cada trabajo pone en el mapa
+  spawnJob(c, d) {
+    const mark = (goal, label, spot) => {
+      const o = { kind: 'objective', x: spot[0], y: spot[1], opened: false, items: [], contract: c.id, label, goal };
+      this.objects.push(o); this.objMap.set(this.key(o.x, o.y), o);
+      this.pois.push({ type: 'cache', x: o.x, y: o.y, lvl: this.def.lvl[0], name: `${label} (trabajo)`, best: 1, found: 1 });
+    };
+    if (d.kind === 'beacons') for (let i = 0; i < d.n; i++) { const sp = this.farSpot(14 + i * 4) || this.farSpot(8); if (sp) mark('beacon', `${d.label} ${i + 1}`, sp); }
+    else if (d.kind === 'measure') {
+      // en los focos de radiación del mapa (o en puntos al azar si no hay)
+      const hot = this.pois.filter((p) => p.type === 'hazard' && p.kind === 'rad');
+      for (let i = 0; i < d.n; i++) {
+        const h = hot[i];
+        let sp = null;
+        if (h) for (let r = 0; r <= 3 && !sp; r++) for (const [dx, dy] of [[r, 0], [-r, 0], [0, r], [0, -r]]) if (!sp && this.passable(h.x + dx, h.y + dy) && !this.entityAt(h.x + dx, h.y + dy) && !this.objAt(h.x + dx, h.y + dy)) sp = [h.x + dx, h.y + dy];
+        sp = sp || this.farSpot(12);
+        if (sp) mark('measure', `${d.label} ${i + 1}`, sp);
+      }
+    } else if (d.kind === 'retrieve') { const sp = this.farSpot(18) || this.farSpot(10); if (sp) mark('retrieve', d.label, sp); }
+    else if (d.kind === 'courier') { const sp = this.farSpot(18) || this.farSpot(10); if (sp) mark('drop', d.label, sp); }
+    else if (d.kind === 'bounty') {
+      const sp = this.farSpot(20) || this.farSpot(12);
+      const types = this.def.enemies.filter((t) => ENEMIES[t] && !ENEMIES[t].boss);
+      if (sp && types.length) {
+        const e = this.spawnEnemy(types[Math.floor(Math.random() * types.length)], Math.min(10, this.def.lvl[1] + 1), sp[0], sp[1], 'errante');
+        this.makeElite(e, [['blindado', 'veloz', 'vampirico', 'escudero'][Math.floor(Math.random() * 4)]]);
+        e.bounty = c.id; e.nick = d.label;
+      }
+    }
+    const goal = { beacons: `colocad ${d.n} balizas en los puntos marcados`, measure: `medid en ${d.n} puntos de dosimetría marcados`, killzone: `abatid ${d.n} chebylitas`, survey: `explorad el ${d.n}% del piso superior`, nests: `acabad con ${d.n} nidos`, bounty: `abatid a «${d.label}» (la radio lo sigue en el mapa)`, deep: `bajad al piso −${d.n}`, retrieve: `recuperad ${String(d.item).toLowerCase()} (marcado) y sacadlo`, courier: `dejad el paquete en el buzón muerto (marcado); llevadlo en la mochila`, noloss: 'volved todos con vida', speedrun: `salid antes del turno ${d.n}` }[d.kind];
+    if (goal) this.say(`⚑ Trabajo «${d.name}»: ${goal}.`, 'o1');
+  }
   // objeto de un encargo especial: se usa (F) o se coge
   useObjective(sq, o) {
     const d = CONTRACTS[o.contract];
+    // bolsa de trabajo: balizas, dosimetría y buzón muerto
+    if (o.goal === 'beacon' || o.goal === 'measure' || o.goal === 'drop') {
+      if (o.goal === 'drop') {
+        const pk = sq.a.bag.find((it) => it && it.contract === o.contract);
+        if (!pk) { this.say(`${this.nm(sq)} no lleva el paquete sellado en la mochila.`, 'warn'); return false; }
+        sq.a.bag.splice(sq.a.bag.indexOf(pk), 1);
+      }
+      o.opened = true; this.dirty = true;
+      this.pois = this.pois.filter((p) => !(p.x === o.x && p.y === o.y));
+      const f = this.facState();
+      f.jobProg = { ...(f.jobProg || {}), [o.contract]: ((f.jobProg || {})[o.contract] || 0) + 1 };
+      const done = f.jobProg[o.contract], need = o.goal === 'drop' ? 1 : d.n;
+      this.fx.push({ type: 'snd', s: 'revive' });
+      if (o.goal === 'measure') sq.a.rad = Math.min(140, (sq.a.rad || 0) + 6); // la lectura se cobra algo de dosis
+      if (done >= need) this.specialMet(o.contract, o.goal === 'beacon' ? `${need} balizas colocadas` : o.goal === 'measure' ? `${need} lecturas tomadas` : 'El paquete está en el buzón');
+      else this.say(`⚑ ${o.goal === 'beacon' ? 'Baliza colocada' : 'Lectura tomada'} (${done}/${need}).`, 'cyan');
+      return true;
+    }
     o.opened = true; this.dirty = true;
     this.pois = this.pois.filter((p) => !(p.x === o.x && p.y === o.y));
     if (o.goal === 'retrieve') {
@@ -211,6 +264,8 @@ export class MoralePart {
   contractTick() {
     // objetivos de los encargos especiales que se cumplen solos (bajas, esencia, pulso)
     for (const c of (S.contracts && S.contracts.active) || []) {
+      const dj = CONTRACTS[c.id];
+      if (dj && dj.job && dj.zone === this.def.id) { this.jobTick(c, dj); continue; }
       if (!c.special || c.zone !== this.def.id || c.day !== S.day) continue;
       const d = CONTRACTS[c.id];
       if (d.kind === 'kills' && this.tally.kills >= d.n) this.specialMet(c.id, `${d.n} chebylitas abatidos`);
@@ -223,6 +278,21 @@ export class MoralePart {
         e.escort = 999;
         this.say(`${this.enm(e)}: «Tack! ¡Gracias! Os sigo hasta la extracción».`, 'good');
       }
+    }
+  }
+  // objetivos de la bolsa de trabajo que se vigilan cada turno
+  jobTick(c, d) {
+    const f = this.facState();
+    if (f.contracts && f.contracts[c.id]) return;
+    if (d.kind === 'killzone' && this.tally.kills >= d.n) this.specialMet(c.id, `${d.n} chebylitas abatidos`);
+    else if (d.kind === 'deep' && (this.floor || 0) >= d.n) this.specialMet(c.id, `Piso −${d.n} alcanzado: los sensores registran el fondo`);
+    else if (d.kind === 'nests') {
+      const pois = [...(this.pois || []), ...(this.floorStore || []).flatMap((st) => (st && st.pois) || [])];
+      if (pois.filter((p) => p.type === 'nest' && p.cleared).length >= d.n) this.specialMet(c.id, `${d.n} nidos despejados`);
+    } else if (d.kind === 'survey' && !this.floor && this.turn % 3 === 0) {
+      let walk = 0, seen = 0;
+      for (let k = 0; k < this.t.length; k++) if (TILES[this.t[k]].walk) { walk++; if (this.explored[k]) seen++; }
+      if (walk && (seen / walk) * 100 >= d.n) this.specialMet(c.id, `${d.n}% de la zona cartografiada`);
     }
   }
   // al extraer a un agente: el sueco escoltado sale con él

@@ -48,7 +48,7 @@ export class EcologyPart {
     st.ess = [st.ess[0] * 2, st.ess[1] * 2]; st.xp *= 2;
     return st;
   }
-  eliteName(e) { return (e.elite || []).map((id) => ELITES[id].name).join(', '); }
+  eliteName(e) { return (e.nick ? e.nick + ' · ' : '') + (e.elite || []).map((id) => ELITES[id].name).join(', '); }
   // velocidad efectiva (Veloz, rabia)
   espeed(e) {
     let sp = ACTORS[e.type].speed;

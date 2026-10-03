@@ -33,6 +33,12 @@ async function boot() {
   applyUiScale(settings);
   document.body.classList.toggle('no-crt', !settings.crt);
   applyLang(); // fase 24.4: idioma de la interfaz y de los datos
+  // sonido de la interfaz al pulsar (no al soltar): botones, pestañas, tarjetas, filas y controles táctiles
+  document.addEventListener('pointerdown', (ev) => {
+    if (ev.button !== 0) return;
+    const t = ev.target.closest && ev.target.closest('button, .btn, .tab, .mapcard, .agent-row, .filter, .ctx-item, .rg-mk, .tbtn, .module[style*="pointer"], .contract, .item');
+    if (t && !t.classList.contains('disabled')) sfx.press();
+  }, true);
   setAchievementNotifier((a) => { toast(t('ach.unlocked', { n: a.name }), 'good', 5000); sfx.upgrade(); }); // fase 24.6
   applyA11y(); // fase 24.1: modo daltónico y alto contraste
   try {

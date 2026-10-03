@@ -11,6 +11,8 @@ import { createItem } from './items.js';
 import { NOTES, COLLECTIONS } from '../data/lore.js';
 import { rng } from '../util/rng.js';
 import { MODIFIERS, rollZoneMods } from '../data/modifiers.js';
+import { JOB_TYPES } from '../data/jobs.js';
+import { ENEMIES } from '../data/enemies.js';
 
 const pick = (l) => l[Math.floor(Math.random() * l.length)];
 
@@ -22,6 +24,8 @@ export function storyDefaults(d) {
   d.affinity = d.affinity || {};
   d.pendingScenes = d.pendingScenes || [];
   d.contracts = d.contracts || { active: [], done: [], offers: null, offersDay: 0 };
+  d.contracts.jobDefs = d.contracts.jobDefs || {};
+  registerJobs(d);
   d.notesRead = d.notesRead || {};
   d.colsDone = d.colsDone || {};
   d.comedor = d.comedor || [];
@@ -236,7 +240,7 @@ export function contractOffers() {
   const C = S.contracts;
   if (C.offers && C.offersDay === S.day) return C.offers;
   const busy = new Set([...C.active.map((c) => c.id), ...C.done]);
-  const pool = Object.keys(CONTRACTS).filter((id) => !CONTRACTS[id].special && !busy.has(id) && contractAvailable(id));
+  const pool = Object.keys(CONTRACTS).filter((id) => !CONTRACTS[id].special && !CONTRACTS[id].job && !busy.has(id) && contractAvailable(id));
   const offers = [];
   while (offers.length < 3 && pool.length) offers.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
   C.offers = offers; C.offersDay = S.day;
@@ -251,7 +255,7 @@ function contractAvailable(id) {
 export function acceptContract(id) {
   const C = S.contracts;
   if (CONTRACTS[id].special) return acceptSpecial();
-  if (C.active.filter((c) => !c.special).length >= 3) return { ok: false, msg: 'Ya tenéis 3 encargos en marcha.' };
+  if (C.active.filter((c) => !c.special && !c.job).length >= 3) return { ok: false, msg: 'Ya tenéis 3 encargos en marcha.' };
   const c = { id, day: S.day };
   if (CONTRACTS[id].kind === 'missing') {
     const open = MAPS.filter((m, i) => zoneOpen(S, i) && m.id !== 'wismut');
@@ -263,6 +267,56 @@ export function acceptContract(id) {
   chronicle(`Encargo aceptado: «${CONTRACTS[id].name}» (${GIVER_NAME(CONTRACTS[id].giver)}).`);
   return { ok: true };
 }
+// ---------------------------------------------------------------- bolsa de trabajo (revisión tras la fase 24)
+// encargos repetibles generados cada día (data/jobs.js). Sus definiciones se guardan en S.contracts.jobDefs y se
+// registran en CONTRACTS para que el resto del código (expedición, base) los trate como cualquier otro encargo.
+export const JOB_MAX = 3;
+function registerJobs(d) { for (const [id, def] of Object.entries((d.contracts && d.contracts.jobDefs) || {})) CONTRACTS[id] = def; }
+export function jobOffers() {
+  const C = S.contracts;
+  if (C.jobOffers && C.jobOffersDay === S.day) return C.jobOffers;
+  const zones = MAPS.filter((m, i) => zoneOpen(S, i) && !m.social);
+  const seen = Object.keys(S.bestiary || {}).filter((id) => ENEMIES[id]);
+  const ctx = { zones, seen };
+  const types = Object.entries(JOB_TYPES).filter(([, T]) => zones.length && (!T.needs || T.needs(ctx)));
+  const offers = [];
+  const g = () => Math.random();
+  for (let n = 0; n < 4 && types.length; n++) {
+    const tot = types.reduce((a, [, T]) => a + T.weight, 0);
+    let r = g() * tot, k = 0;
+    while (r > types[k][1].weight) { r -= types[k][1].weight; k++; }
+    const [type, T] = types.splice(k, 1)[0];
+    const def = T.make(g, ctx);
+    offers.push({ ...def, job: type, id: `job_${type}_${S.day}_${Math.floor(Math.random() * 1e6)}` });
+  }
+  C.jobOffers = offers; C.jobOffersDay = S.day;
+  return offers;
+}
+export function acceptJob(id) {
+  const C = S.contracts;
+  const def = (C.jobOffers || []).find((o) => o.id === id);
+  if (!def) return { ok: false, msg: 'Esa oferta ya no está.' };
+  if (C.active.filter((c) => c.job).length >= JOB_MAX) return { ok: false, msg: `Ya tenéis ${JOB_MAX} trabajos de la bolsa en marcha.` };
+  C.jobDefs[id] = def; CONTRACTS[id] = def;
+  const c = { id, day: S.day, job: 1 };
+  if (def.kind === 'killglobal') c.base = ((S.stats || {}).killsBy || {})[def.target] || 0;
+  if (def.kind === 'photos') c.base = Object.keys(S.photos || {}).length;
+  if (def.kind === 'courier') { const it = createItem('objcase', 0, rng); it.nm = def.item; it.contract = id; S.stash.push(it); }
+  C.active.push(c);
+  C.jobOffers = C.jobOffers.filter((o) => o.id !== id);
+  chronicle(`Trabajo aceptado: «${def.name}» (${GIVER_NAME(def.giver)}).`);
+  return { ok: true };
+}
+// progreso legible de un encargo (para la base)
+export function contractProgress(c) {
+  const d = CONTRACTS[c.id];
+  if (!d) return '';
+  if (d.kind === 'killglobal') return `${Math.min(d.n, (((S.stats || {}).killsBy || {})[d.target] || 0) - (c.base || 0))}/${d.n} abatidos`;
+  if (d.kind === 'essdeliver') return `${Math.min(S.ess, d.n)}/${d.n} ✦ en reserva`;
+  if (d.kind === 'deliver') return `${Math.min(d.n || 1, S.stash.filter((it) => it.b === d.item).reduce((k, it) => k + (it.q || 1), 0))}/${d.n || 1} en el almacén`;
+  if (d.kind === 'photos') return `${Math.min(d.n, Object.keys(S.photos || {}).length - (c.base || 0))}/${d.n} fotos`;
+  return '';
+}
 export function contractZone(c) { return c.zone || CONTRACTS[c.id].zone || null; }
 // ¿se ha cumplido? (en la base, tras cada expedición)
 export function contractMet(c) {
@@ -271,6 +325,10 @@ export function contractMet(c) {
   if (d.kind === 'deliver') return has(d.item, d.n || 1);
   if (d.kind === 'photo') return !!(S.photos && S.photos[d.target]);
   if (d.kind === 'capture') return has('cagefull', 1, d.target);
+  // bolsa de trabajo: los que se cumplen en la base
+  if (d.kind === 'killglobal') return (((S.stats || {}).killsBy || {})[d.target] || 0) - (c.base || 0) >= d.n;
+  if (d.kind === 'essdeliver') return S.ess >= d.n;
+  if (d.kind === 'photos') return Object.keys(S.photos || {}).length - (c.base || 0) >= d.n;
   return !!c.done;
 }
 export function completeContracts() {
@@ -289,6 +347,8 @@ export function completeContracts() {
         if (it.q > mv) it.q -= mv; else S.stash.splice(S.stash.indexOf(it), 1);
       }
     }
+    if (d.kind === 'essdeliver') S.ess -= d.n;
+    if (d.job) { delete C.jobDefs[c.id]; C.jobsDone = (C.jobsDone || 0) + 1; }
     const r = c.reward || d.reward;
     const got = [];
     if (d.special) dropObjective(c.id);
@@ -298,7 +358,7 @@ export function completeContracts() {
     if (r.trust) { trust(r.trust); got.push(`confianza de Topolev +${r.trust}`); }
     if (r.item) { const it = createItem(r.item[0], 4, rng); it.nm = r.item[1]; S.stash.push(it); got.push(`«${r.item[1]}»`); }
     C.active.splice(C.active.indexOf(c), 1);
-    if (!d.special) C.done.push(c.id); else C.specialsDone = (C.specialsDone || 0) + 1;
+    if (d.special) C.specialsDone = (C.specialsDone || 0) + 1; else if (!d.job) C.done.push(c.id);
     addMessage(`Encargo cumplido: «${d.name}». ${GIVER_NAME(d.giver)} os entrega ${got.join(', ')}.`);
     chronicle(`Encargo cumplido: «${d.name}».`);
     done.push(d.name);
@@ -312,6 +372,7 @@ export function dropContract(id) {
   C.active.splice(i, 1);
   const d = CONTRACTS[id];
   if (d.special) { dropObjective(id); return; } // sin penalización: era solo para hoy
+  if (d.job) { delete C.jobDefs[id]; for (const it of [...S.stash]) if (it.contract === id) S.stash.splice(S.stash.indexOf(it), 1); return; } // bolsa de trabajo: sin penalización
   if (d.giver === 'topolev') trust(-4, 'abandonáis su encargo');
   if (FACTIONS[d.giver]) addRep(S, d.giver, -5);
 }

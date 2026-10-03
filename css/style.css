@@ -584,3 +584,22 @@ body.modal-open #app { filter: blur(2px) brightness(.55); transition: filter .12
 .ctx-item { background: none; border: 0; color: var(--txt); font: inherit; text-align: left; padding: 3px 1.5ch; cursor: pointer; }
 .ctx-item:hover, .ctx-item:focus { background: var(--o6); color: var(--o0); outline: none; }
 .ctx-item.disabled { color: var(--o5); cursor: default; }
+
+/* ---------- EXPEDICIÓN: el mapa de la región manda (revisión) ---------- */
+.exp-tab { display: grid; grid-template-columns: minmax(28ch, 34ch) minmax(0, 1fr); gap: 1ch; height: 100%; }
+.exp-main-body { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+.region-fit { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; }
+.region-fit .region-wrap { display: flex; flex-direction: column; align-items: center; margin: 0; }
+.region-fit .region-map { overflow: hidden; font-size: 14px; }
+.region-fit .region-legend { text-align: center; margin-top: 4px; }
+.rg-mk { padding: 0; }
+.zone-strip { flex: none; border-top: 1px solid var(--o5); padding-top: 6px; display: flex; flex-direction: column; gap: 6px; }
+.zone-desc { margin: 0; }
+.zone-chips { display: flex; flex-wrap: wrap; gap: .6ch 1.5ch; align-items: center; }
+.zchip { border: 1px solid var(--o5); padding: 1px 1ch; white-space: nowrap; }
+.zchip.tt-chip, .zchip.hot { cursor: help; border-color: var(--o3); color: var(--o1); }
+.zchip.tt-chip:hover, .zchip.hot:hover { background: var(--o6); color: var(--o0); }
+.zone-go { display: flex; align-items: center; gap: 2ch; flex-wrap: wrap; }
+.btn.big { font-size: 16px; padding: 4px 2ch; }
+@media (max-width: 760px) { .exp-tab { grid-template-columns: 1fr; height: auto; } .exp-main-body { height: auto; } .region-fit { min-height: 40vh; } }
+.contract.job { border-left-color: var(--cyan); }

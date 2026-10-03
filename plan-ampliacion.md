@@ -642,6 +642,13 @@ Resumen original: accesibilidad (modo daltónico con símbolos en las rarezas, r
 - [x] `clearChokepoints()` en `mapgen.js`: si algún objeto que bloquea el paso deja una salida o el montacargas sin camino, se quita el que hace de tapón. Se aplica al generar y al cargar una partida.
 - [x] `tests/mapgen.mjs` comprueba ahora que las salidas y el montacargas son alcanzables con los objetos como obstáculos (antes los ignoraba).
 
+## Revisión 4: expedición, bolsa de trabajo y sonidos al pulsar ✔
+- [x] **EXPEDICIÓN**: el mapa de la región ocupa casi todo el panel, centrado y escalado para caber sin scroll (`fitRegionMap`). Debajo, una franja con nivel, tamaño, radiación, nidos y rollovers: CONDICIONES, CHEBYLITAS DETECTADOS, BOTÍN, PLANO y TRABAJOS.
+- [x] El escuadrón se elige después de aceptar el destino («▶ ACEPTAR DESTINO» abre la ventana ESCUADRÓN · ZONA con «☢ LANZAR EXPEDICIÓN»).
+- [x] Se elimina la **operación simultánea** (`sendSideOp`, `resolveSideOps`, `sideOpBox`); al cargar, los agentes que estaban fuera vuelven.
+- [x] Los sonidos de la interfaz suenan al **pulsar** el ratón (`pointerdown` → `sfx.press()`), no al soltarlo; el clic posterior no se repite.
+- [x] **Bolsa de trabajo** (`data/jobs.js`): 4 ofertas al día, hasta 3 a la vez, sin penalización por abandonarlas, paga según el nivel de la zona. 16 tipos: balizas, limpieza de zona, cuota de bajas global, dosimetría, reconocimiento, nidos, recompensa por un élite, fondo de la zona, cargamento, correo al buzón muerto, sin bajas, relámpago, venta de esencia, entrega de material, reportaje fotográfico y ejemplar vivo. Marcados con ⚑ en el CUARTEL, en las tarjetas de destino y en el radar.
+
 ## Banco de ideas (sin fase asignada)
 
 - **Vehículos en superficie:** un UAZ-469 o un BRDM para viajar rápido entre puntos de la superficie (combustible limitado y ruido).

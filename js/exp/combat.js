@@ -287,6 +287,7 @@ export class CombatPart {
       const wb = src && src.a && this.weapon(src); // fase 24.6: bajas por especie y por arma, jefes y élites
       statKill(e, wb ? wb.b : null, { boss: !!def.boss, elite: !!(e.elite && e.elite.length) });
       if (def.boss) checkAchievements();
+      if (e.bounty) this.specialMet(e.bounty, `«${e.nick || 'el objetivo'}» ha caído`); // bolsa de trabajo: recompensa
     }
     if (src && src.id) { this.trigger('kill', { type: e.type, faction: actorFaction(e), lvl: e.lvl }, src); this.moraleOnKill(src, e); }
     if (src && src.id && def.boss) { src.bossKills = (src.bossKills || 0) + 1; this.acquire(src, 'jefes'); }

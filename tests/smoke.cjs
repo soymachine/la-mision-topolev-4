@@ -24,7 +24,7 @@ const mapIdx = +(process.argv[2] || 0);
   await p.evaluate(() => { window.__topolev.S.unlockAll = true; });
   await p.click('.tab:has-text("EXPEDICIÓN")');
   await p.click(`.mapcard:not(.event) >> nth=${mapIdx}`);
-  for (let i = 0; i < 2; i++) { const rows = await p.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+  await p.click('[data-go]'); await p.waitForTimeout(150); for (let i = 0; i < 2; i++) { const rows = await p.$$('.modal .agent-row'); await rows[i].click(); }
   await p.click('text=LANZAR EXPEDICIÓN');
   await p.waitForTimeout(300);
   if (await p.$('.modal-back >> text=LANZAR')) await p.click('.modal-back >> text=LANZAR');

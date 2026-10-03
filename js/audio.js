@@ -103,10 +103,13 @@ function gunshot(w) {
 
 // samples.js registra aquí las grabaciones de disparos (evita importar en círculo)
 let shotSampleHook = null;
+let lastPress = -1e9;
 export const setShotSampleHook = (f) => { shotSampleHook = f; };
 export const sfx = {
   hover() { tone(1800, 0.025, 'square', 0.025); },
-  click() { tone(900, 0.04, 'square', 0.06); tone(1400, 0.03, 'square', 0.04, 0, 0.03); },
+  // el clic de la interfaz suena al PULSAR (pointerdown, ver main.js); si ya sonó al pulsar, el de la acción no se repite
+  click() { if (performance.now() - lastPress < 700) return; tone(900, 0.04, 'square', 0.06); tone(1400, 0.03, 'square', 0.04, 0, 0.03); },
+  press() { lastPress = performance.now(); tone(900, 0.04, 'square', 0.06); tone(1400, 0.03, 'square', 0.04, 0, 0.03); },
   step() { noise(0.04, 0.03, 600); },
   shot(w) {
     if (w === 'energy') { tone(1200, 0.25, 'sawtooth', 0.12, -900); noise(0.15, 0.1, 4000, 'highpass'); return; }

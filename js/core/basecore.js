@@ -22,7 +22,9 @@ export function baseDefaults(d) {
   d.specimens = d.specimens || [];
   d.quota = d.quota || { due: 30, ess: 60, n: 1 };
   d.demand = d.demand || {};
-  d.sideOps = d.sideOps || [];
+  // la operación simultánea se quitó: los agentes que estaban fuera vuelven
+  if (d.sideOps && d.sideOps.length) for (const a of d.agents || []) a.awayUntil = 0;
+  d.sideOps = [];
   d.histDone = d.histDone || {};
   d.bmarket = d.bmarket || null;
 }
@@ -358,70 +360,7 @@ export function attackResult(won) {
 export const isAway = (a) => !!(a.awayUntil && a.awayUntil > S.day);
 // defensores: los agentes en condiciones que estén en la base
 export function defenders(cap) { return S.agents.filter((a) => !isAway(a) && a.hp > 10).sort((x, y) => y.hp - x.hp).slice(0, cap); }
-export function sendSideOp(mapIdx, agents) {
-  if (!agents.length) return { ok: false, msg: 'Elige al menos un agente.' };
-  if (!zoneOpen(S, mapIdx) || !(S.cleared[MAPS[mapIdx].id] > 0)) return { ok: false, msg: 'Solo a zonas ya conocidas (con al menos una extracción).' };
-  for (const a of agents) a.awayUntil = S.day + 1;
-  S.sideOps.push({ zone: MAPS[mapIdx].id, ids: agents.map((a) => a.id), day: S.day });
-  chronicle(`Operación simultánea: ${agents.map((a) => a.nick).join(', ')} parten hacia ${MAPS[mapIdx].name}.`);
-  return { ok: true };
-}
-// poder del grupo frente a la zona: nivel, salud y equipo
-function sidePower(agents) {
-  let p = 0;
-  for (const a of agents) {
-    const st = agentStats(a);
-    const gear = Object.values(a.equip).filter(Boolean).reduce((n, it) => n + (ITEMS[it.b].tier || 0) + (it.r || 0) * 0.5, 0);
-    p += a.lvl * 1.5 + gear * 0.6 + (a.hp / Math.max(1, st.hpMaxEff)) * 3 - (a.stress || 0) / 25;
-  }
-  return p;
-}
-export function sideChance(mapIdx, agents) {
-  const m = MAPS[mapIdx];
-  const need = (m.lvl[0] + m.lvl[1]) * 2.2 + (m.tier || 0) * 2;
-  return Math.max(0.1, Math.min(0.95, 0.35 + (sidePower(agents) - need) / (need + 10)));
-}
-function resolveSideOps() {
-  const out = [];
-  for (const op of S.sideOps) {
-    const mi = mapIndex(op.zone), m = MAPS[mi];
-    const agents = op.ids.map((id) => S.agents.find((a) => a.id === id)).filter(Boolean);
-    if (!agents.length) continue;
-    const ch = sideChance(mi, agents);
-    const roll = Math.random();
-    const lines = [];
-    let ess = 0;
-    for (const a of agents) {
-      a.awayUntil = 0;
-      a.missions = (a.missions || 0) + 1;
-      const st = agentStats(a);
-      a.hp = Math.max(1, a.hp - Math.round(st.hpMaxEff * (roll < ch ? 0.15 : 0.45) * Math.random()));
-      a.rad = 0; // vuelven a la base: descontaminación automática (como al volver de una expedición)
-      addStress(a, roll < ch ? 6 : 18);
-      // muerte, solo si la operación sale muy mal
-      if (roll > ch + 0.35 && Math.random() < 0.35) {
-        S.agents.splice(S.agents.indexOf(a), 1);
-        S.fallen.unshift({ name: agentName(a), lvl: a.lvl, day: S.day, map: m.name, cause: 'operación simultánea', kills: a.kills || 0, missions: a.missions || 0, epitaph: 'Cayó lejos del resto, haciendo su trabajo.' });
-        S.stats.deaths++;
-        lines.push(`✝ ${a.nick} no vuelve`);
-        continue;
-      }
-      if (roll < ch) { giveXp(a, 40 + m.lvl[1] * 15); a.extractions = (a.extractions || 0) + 1; ess += Math.round((m.lvl[0] + m.lvl[1]) * (4 + Math.random() * 6)); }
-    }
-    if (roll < ch) {
-      S.ess += ess; S.stats.essTotal += ess;
-      const n = 1 + Math.floor(Math.random() * agents.length);
-      const loot = [];
-      for (let i = 0; i < n; i++) { const it = rollLoot(m.lvl[1], rng, { rarityBonus: 0.2 }); S.stash.push(it); loot.push(itemName(it)); }
-      lines.unshift(`éxito: +${ess} ✦ y ${loot.join(', ')}`);
-    } else lines.unshift('fracaso: vuelven con las manos vacías');
-    const txt = `Operación simultánea en ${m.name} (${agents.map((a) => a.nick).join(', ')}): ${lines.join(' · ')}.`;
-    addMessage(txt); chronicle(txt);
-    out.push(txt);
-  }
-  S.sideOps = [];
-  return out;
-}
+// (la operación simultánea del segundo escuadrón se quitó del juego)
 
 // ---------------------------------------------------------------- tick diario
 export function baseDayTick() {
@@ -433,7 +372,6 @@ export function baseDayTick() {
   tickQuota();
   tickSeason();
   tickHistory();
-  resolveSideOps();
   rollAttack(fuga);
 }
 

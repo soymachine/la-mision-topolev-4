@@ -303,14 +303,15 @@ export class BaseUI {
   }
   contractsBox(body) {
     const C2 = S.contracts;
-    body.append(el('div', { class: 'h', text: `ENCARGOS EN MARCHA (${C2.active.filter((c) => !c.special).length}/3)` }));
+    body.append(el('div', { class: 'h', text: `ENCARGOS EN MARCHA (${C2.active.filter((c) => !c.special && !c.job).length}/3 · trabajos ${C2.active.filter((c) => c.job).length}/${ST.JOB_MAX})` }));
     if (!C2.active.length) body.append(el('div', { class: 'dimt', text: 'Ninguno. Acepta alguno de los que se ofrecen abajo.' }));
     for (const c of C2.active) {
       const d = ST.CONTRACTS[c.id];
       const z = ST.contractZone(c);
       const spm = d.special ? MODIFIERS[d.special] : null;
-      const row = el('div', { class: `contract${spm ? ' special' : ''}` }, el('div', { html: `${spm ? `<span style="color:${spm.color}">${esc(spm.glyph)}</span> ` : ''}<b>${esc(d.name)}</b> <span class="dimt">· ${esc(ST.GIVER_NAME(d.giver))}${z ? ` · ${esc(MAPS[mapIndex(z)].name)}` : ''}${spm ? ' · solo hoy' : ''}</span>${c.done || ST.contractMet(c) ? ' <span class="good">✓ listo para cobrar al volver</span>' : ''}` }), el('div', { class: 'dimt', text: d.desc + (c.who ? ` (${c.who})` : '') }),
-        el('button', { class: 'btn small', onclick: async () => { if (await confirmBox('ABANDONAR ENCARGO', d.special ? `¿Abandonar «${esc(d.name)}»? Era solo para hoy: nadie os lo tendrá en cuenta.` : `¿Abandonar «${esc(d.name)}»? Quien os lo encargó no lo olvidará.`, 'ABANDONAR', 'SEGUIR')) { ST.dropContract(c.id); save(); this.render(); } } }, 'ABANDONAR'));
+      const prog = ST.contractProgress(c);
+      const row = el('div', { class: `contract${spm ? ' special' : ''}${d.job ? ' job' : ''}` }, el('div', { html: `${d.job ? '<span class="cyan">⚑</span> ' : ''}${spm ? `<span style="color:${spm.color}">${esc(spm.glyph)}</span> ` : ''}<b>${esc(d.name)}</b>${prog ? ` <span class="warn">[${esc(prog)}]</span>` : ''} <span class="dimt">· ${esc(ST.GIVER_NAME(d.giver))}${z ? ` · ${esc(MAPS[mapIndex(z)].name)}` : ''}${spm ? ' · solo hoy' : ''}</span>${c.done || ST.contractMet(c) ? ' <span class="good">✓ listo para cobrar al volver</span>' : ''}` }), el('div', { class: 'dimt', text: d.desc + (c.who ? ` (${c.who})` : '') }),
+        el('button', { class: 'btn small', onclick: async () => { if (await confirmBox('ABANDONAR ENCARGO', d.special || d.job ? `¿Abandonar «${esc(d.name)}»? ${d.job ? 'Es de la bolsa de trabajo: sin penalización.' : 'Era solo para hoy: nadie os lo tendrá en cuenta.'}` : `¿Abandonar «${esc(d.name)}»? Quien os lo encargó no lo olvidará.`, 'ABANDONAR', 'SEGUIR')) { ST.dropContract(c.id); save(); this.render(); } } }, 'ABANDONAR'));
       body.append(row);
     }
     // encargo especial del día (fase 16.4): ligado a un modificador de zona
@@ -321,6 +322,15 @@ export class BaseUI {
       body.append(el('div', { class: 'h', style: { marginTop: '.6em', color: '#ffd23f' }, text: '◎ ENCARGO ESPECIAL · SOLO HOY' }));
       body.append(el('div', { class: 'contract offer special' }, el('div', { html: `<span style="color:${M.color}">${esc(M.glyph)} ${esc(M.name)}</span> · <b>${esc(d.name)}</b> <span class="dimt">· ${esc(ST.GIVER_NAME(d.giver))} · ${esc(ST.specialZone(sp).name)}</span>` }), el('div', { class: 'dimt', text: d.desc }), el('div', { class: 'good', text: 'Recompensa: ' + rw }),
         el('button', { class: 'btn small primary', onclick: () => { const r2 = ST.acceptContract(sp.id); if (r2.ok) { sfx.click(); toast(`Encargo especial aceptado: ${d.name}`, 'good'); save(); this.render(); } else { sfx.error(); toast(r2.msg, 'bad'); } } }, 'ACEPTAR')));
+    }
+    // bolsa de trabajo: encargos repetibles con zona, cantidad y paga según el nivel (se renuevan cada día)
+    const jobs = ST.jobOffers();
+    if (jobs.length) body.append(el('div', { class: 'h', style: { marginTop: '.6em', color: 'var(--cyan)' }, text: `⚑ BOLSA DE TRABAJO · SE RENUEVA CADA DÍA` }));
+    for (const j of jobs) {
+      const R = j.reward;
+      const rw = [R.rub ? `${R.rub} ₽` : '', R.ess ? `${R.ess} ✦` : '', R.rep ? `rep. ${FACTIONS[R.rep[0]] ? FACTIONS[R.rep[0]].short : R.rep[0]} ${R.rep[1] > 0 ? '+' : ''}${R.rep[1]}` : '', R.trust ? `confianza +${R.trust}` : ''].filter(Boolean).join(' · ');
+      body.append(el('div', { class: 'contract offer job', 'data-job': j.job }, el('div', { html: `<span class="cyan">⚑</span> <b>${esc(j.name)}</b> <span class="dimt">· ${esc(ST.GIVER_NAME(j.giver))}${j.zone ? ` · ${esc(MAPS[mapIndex(j.zone)].name)}` : ''}</span>` }), el('div', { class: 'dimt', text: j.desc }), el('div', { class: 'good', text: 'Paga: ' + rw }),
+        el('button', { class: 'btn small primary', onclick: () => { const r2 = ST.acceptJob(j.id); if (r2.ok) { toast(`Trabajo aceptado: ${j.name}`, 'good'); save(); this.render(); } else { sfx.error(); toast(r2.msg, 'bad'); } } }, 'ACEPTAR')));
     }
     const offers = ST.contractOffers();
     if (offers.length) body.append(el('div', { class: 'h', style: { marginTop: '.6em' }, text: 'SE OFRECEN HOY' }));
@@ -956,7 +966,7 @@ export class BaseUI {
 
   // =========================================================== EXPEDICIÓN
   tab_expedicion() {
-    const g = el('div', { class: 'grid3' });
+    const g = el('div', { class: 'exp-tab' });
     const L = panel({ title: 'DESTINOS', bodyCls: 'scroll' });
     // zonas de evento temporales (17.3)
     const evs = (S.eventZones || []).map((ev) => C.eventZoneView(ev));
@@ -977,64 +987,94 @@ export class BaseUI {
       const card = el('div', { class: `mapcard ${i === this.selMap && !this.selEvent ? 'sel' : ''} ${locked ? 'locked' : ''}` });
       const zm = locked ? [] : C.zoneMods(i);
       const spHere = !locked && S.contracts.active.some((c) => c.special && c.zone === m.id && c.day === S.day);
-      const zmHtml = zm.map((id) => `<span style="color:${MODIFIERS[id].color}" title="${esc(MODIFIERS[id].name)}">${MODIFIERS[id].glyph}</span>`).join(' ') + (spHere ? ' <span style="color:#ffd23f" title="Encargo especial de hoy">◎</span>' : '');
+      const jobHere = locked ? 0 : S.contracts.active.filter((c) => c.job && ST.CONTRACTS[c.id] && ST.CONTRACTS[c.id].zone === m.id).length;
+      const zmHtml = zm.map((id) => `<span style="color:${MODIFIERS[id].color}" title="${esc(MODIFIERS[id].name)}">${MODIFIERS[id].glyph}</span>`).join(' ') + (spHere ? ' <span style="color:#ffd23f" title="Encargo especial de hoy">◎</span>' : '') + (jobHere ? ` <span class="cyan" title="Trabajo de la bolsa en esta zona">⚑${jobHere > 1 ? jobHere : ''}</span>` : '');
       card.innerHTML = `<div class="o2">${locked ? '▒' : m.stratum === 'sup' ? '◆' : m.social ? '☭' : '▼'}</div><div><b>${locked ? '???' : m.name}</b><div class="dimt">${locked ? `Extrae con éxito de ${m.req.map((r) => MAPS.find((z) => z.id === r).short).join(' o ')}` : STRATA[m.stratum] + ' · ' + floorsFor(i) + ' piso(s) · ' + (S.cleared[m.id] || 0) + ' extracciones'}</div>${zmHtml ? `<div class="zone-mods">${zmHtml}</div>` : ''}</div><div class="dif" style="color:${diffColor(avg)}">Nv ${m.lvl[0]}–${m.lvl[1]}<br>${skulls(avg)}</div>`;
       if (!locked) card.addEventListener('click', () => { this.selMap = i; this.selEvent = null; sfx.click(); this.render(); });
       L.body.append(card);
     });
     const evSel = this.selEvent ? S.eventZones.find((z) => z.id === this.selEvent) : null;
     const m = evSel ? eventDef(evSel) : MAPS[this.selMap];
-    const M = panel({ title: (evSel ? '! ' : '') + m.name.toUpperCase(), bodyCls: 'scroll' });
-    M.body.append(regionMap(S, this.selEvent || this.selMap, (i) => {
+    // el mapa de la región es lo principal: ocupa casi todo el panel, centrado y escalado para caber sin scroll
+    const M = panel({ title: (evSel ? '! ' : '') + m.name.toUpperCase(), bodyCls: 'exp-main-body' });
+    const fit = el('div', { class: 'region-fit' });
+    fit.append(regionMap(S, this.selEvent || this.selMap, (i) => {
       if (typeof i === 'number') { this.selMap = i; this.selEvent = null; } else this.selEvent = i.id;
       sfx.click(); this.render();
     }, evs));
+    M.body.append(fit);
+    requestAnimationFrame(() => fitRegionMap(fit));
+    if (this._fitRO) this._fitRO.disconnect();
+    this._fitRO = new ResizeObserver(() => fitRegionMap(fit));
+    this._fitRO.observe(fit);
+    // franja de información: lo detallado (chebylitas, botín, plano, condiciones) va en rollovers
     const avg = (m.lvl[0] + m.lvl[1]) / 2;
     const rw = rarityWeights(avg);
     const tot = rw.reduce((a, b) => a + b, 0);
-    M.body.append(
-      el('pre', { class: 'ascii-art', text: mapSchematic(evSel ? mapIndex(EVENT_ZONES[evSel.kind].base) : this.selMap) }),
-      el('div', { class: 'msg-topolev', text: m.desc }),
-      evSel ? el('div', { class: 'warn', html: `Zona de evento: <b>un solo uso</b> y sin modificadores. Desaparece en ${Math.max(1, evSel.left - 1)} día(s). Terreno parecido a ${esc(MAPS[mapIndex(EVENT_ZONES[evSel.kind].base)].name)}.` }) : this.modsBox(this.selMap),
-      el('div', { class: 'sep', text: '─'.repeat(80) }),
-      el('div', { class: 'kv', html: `<span>Nivel medio</span><span style="color:${diffColor(avg)}"><b>${avg}</b> (rango ${m.lvl[0]}–${m.lvl[1]}, nidos ±1)</span><span>Tamaño</span><span>${m.w}×${m.h} · ${m.sx * m.sy} sectores</span><span>Radiación amb.</span><span>${m.ambientRad ? m.ambientRad.toFixed(2) + '/turno base' : 'baja'}</span><span>Nidos</span><span>${m.nests[0]}–${m.nests[1]}</span><span>Vetas · Alijos</span><span>${m.veins.join('–')} · ${m.caches.join('–')}</span>` }),
-      el('div', { class: 'sep', text: '─'.repeat(80) }),
-      el('div', { class: 'h', text: 'CHEBYLITAS DETECTADOS' }),
+    const chip = (html, tt, cls = '') => { const c = el('span', { class: 'zchip ' + cls, html }); tip(c, tt); return c; };
+    const known = m.enemies.filter((id) => S.bestiary[id]).length;
+    const enemiesTip = () => `<div class="tt-title">CHEBYLITAS DETECTADOS</div>${m.enemies.map((id) => { const d = ENEMIES[id]; const k = S.bestiary[id]; return `<div><span style="color:${enemyColor(d.hue, Math.min(10, Math.max(d.minL, m.lvl[1])))};font-weight:700;display:inline-block;width:2ch">${esc(d.glyph)}</span>${k ? esc(d.name) : '???'}${d.boss ? ' <span class="bad">☠ jefe</span>' : ''}${k && k.kills ? ` <span class="dimt">· ${k.kills} abatidos</span>` : ''}</div>`; }).join('')}<div class="dimt">Las especies no catalogadas aparecen como ???.</div>`;
+    const lootTip = () => `<div class="tt-title">BOTÍN ESPERADO</div>${RARITIES.map((r, i) => `<div class="tt-row"><span style="color:${r.color}">${esc(r.name)}</span><span>${((rw[i] / tot) * 100).toFixed(rw[i] / tot < 0.01 ? 2 : 0)}%</span></div>`).join('')}<div class="dimt">Vetas ${m.veins.join('–')} · alijos ${m.caches.join('–')} por piso.</div>`;
+    const planTip = () => `<div class="tt-title">PLANO</div><pre class="ascii-art" style="margin:0">${esc(mapSchematic(evSel ? mapIndex(EVENT_ZONES[evSel.kind].base) : this.selMap))}</pre>`;
+    const zm = evSel ? [] : C.zoneMods(this.selMap);
+    // trabajos de la bolsa que se hacen en esta zona
+    const zoneJobs = evSel ? [] : S.contracts.active.filter((c) => c.job && ST.CONTRACTS[c.id] && ST.CONTRACTS[c.id].zone === m.id).map((c) => ST.CONTRACTS[c.id]);
+    const jobsTip = () => `<div class="tt-title">TRABAJOS EN ESTA ZONA</div>${zoneJobs.map((d) => `<div><b class="cyan">⚑ ${esc(d.name)}</b></div><div class="dimt">${esc(d.desc)}</div>`).join('')}`;
+    const condTip = () => { const b = evSel ? el('div', { class: 'warn', text: 'Zona de evento: un solo uso y sin modificadores.' }) : this.modsBox(this.selMap); return b.outerHTML; };
+    const strip = el('div', { class: 'zone-strip' },
+      el('div', { class: 'msg-topolev zone-desc', text: m.desc }),
+      evSel ? el('div', { class: 'warn', html: `Zona de evento: <b>un solo uso</b> y sin modificadores. Desaparece en ${Math.max(1, evSel.left - 1)} día(s). Terreno parecido a ${esc(MAPS[mapIndex(EVENT_ZONES[evSel.kind].base)].name)}.` }) : '',
+      el('div', { class: 'zone-chips' },
+        el('span', { class: 'zchip', html: `<span style="color:${diffColor(avg)}">Nv <b>${m.lvl[0]}–${m.lvl[1]}</b> ${skulls(avg)}</span>` }),
+        el('span', { class: 'zchip', html: `${m.w}×${m.h} · ${m.sx * m.sy} sectores` }),
+        el('span', { class: 'zchip', html: `☢ ${m.ambientRad ? m.ambientRad.toFixed(2) : 'baja'}` }),
+        el('span', { class: 'zchip', html: `▲ nidos ${m.nests[0]}–${m.nests[1]}` }),
+        chip(`◎ CONDICIONES ${zm.length ? zm.map((id) => `<span style="color:${MODIFIERS[id].color}">${MODIFIERS[id].glyph}</span>`).join('') : '<span class="dimt">normales</span>'}`, condTip, zm.length ? 'tt-chip hot' : 'tt-chip'),
+        chip(`☣ CHEBYLITAS <span class="dimt">${known}/${m.enemies.length}</span>`, enemiesTip, 'tt-chip'),
+        chip('■ BOTÍN', lootTip, 'tt-chip'),
+        chip('▤ PLANO', planTip, 'tt-chip'),
+        ...(zoneJobs.length ? [chip(`<span class="cyan">⚑ TRABAJOS ${zoneJobs.length}</span>`, jobsTip, 'tt-chip')] : []),
+      ),
+      el('div', { class: 'zone-go' },
+        el('button', { class: 'btn primary big', 'data-go': '1', onclick: () => this.squadModal() }, `▶ ACEPTAR DESTINO: ${m.name.toUpperCase()}`),
+        el('span', { class: 'dimt', text: 'Después eliges el escuadrón.' })),
     );
-    for (const id of m.enemies) {
-      const d = ENEMIES[id];
-      const known = S.bestiary[id];
-      const r = el('div', { class: 'row', html: `<span style="color:${enemyColor(d.hue, Math.min(10, Math.max(d.minL, m.lvl[1])))};width:2ch;display:inline-block;font-weight:700">${d.glyph}</span><span>${known ? d.name : '???'}${d.boss ? ' <span class="bad">☠ jefe</span>' : ''}</span>` });
-      tip(r, () => known ? `<div class="tt-title">${d.name}</div><div class="tt-lore">${esc(d.lore)}</div>` : '<div class="dimt">Especie no catalogada todavía.</div>');
-      M.body.append(r);
-    }
-    M.body.append(el('div', { class: 'sep', text: '─'.repeat(80) }), el('div', { class: 'h', text: 'BOTÍN ESPERADO' }));
-    M.body.append(el('div', { html: RARITIES.map((r, i) => `<span style="color:${r.color}">${r.name} ${((rw[i] / tot) * 100).toFixed(rw[i] / tot < 0.01 ? 2 : 0)}%</span>`).join(' · ') }));
-    // escuadrón
-    const R = panel({ title: `ESCUADRÓN ${this.squad.size}/${C.squadCap()}`, bodyCls: 'scroll' });
-    R.body.append(el('div', { class: 'dimt', text: 'Selecciona los agentes que bajarán. Si mueren, se pierde todo lo que lleven.' }), el('div', { class: 'sep', text: '─'.repeat(60) }));
-    for (const a of S.agents) {
-      const on = this.squad.has(a.id);
-      const warn = this.agentWarnings(a);
-      if (B21.isAway(a)) { this.squad.delete(a.id); R.body.append(el('div', { class: 'dimt', html: `<span style="color:${a.color}">${esc(a.nick)}</span> — fuera, en una operación simultánea` })); continue; }
-      const row = this.agentRow(a, ` <span class="chk">${on ? '[■]' : '[ ]'}</span>`, () => {
-        if (on) this.squad.delete(a.id);
-        else if (this.squad.size < C.squadCap()) this.squad.add(a.id);
-        else { toast(`Máximo ${C.squadCap()} agentes (mejora los Barracones).`, 'bad'); sfx.error(); return; }
-        sfx.click(); this.render();
-      });
-      row.classList.toggle('sel', on);
-      R.body.append(row);
-      if (warn.length) R.body.append(el('div', { class: 'warn', style: { paddingLeft: '3ch', fontSize: '12px' }, text: '⚠ ' + warn.join(' · ') }));
-    }
-    const can = this.squad.size > 0;
-    R.body.append(el('div', { class: 'sep', text: '─'.repeat(60) }),
-      el('button', { class: 'btn primary ' + (can ? '' : 'disabled'), style: { fontSize: '15px' }, onclick: () => this.launch() }, '☢ LANZAR EXPEDICIÓN'),
-      el('div', { class: 'dimt', style: { marginTop: '6px' }, text: S.modules.polvorin ? `El polvorín entrega ${S.modules.polvorin} cargador(es) extra por arma.` : 'Consejo: lleva munición, vendas y antirrad en la mochila.' }),
-    );    R.body.append(el('div', { class: 'sep', text: '═'.repeat(60) }), this.sideOpBox());
-
-    g.append(L, M, R);
+    M.body.append(strip);
+    g.append(L, M);
     return g;
+  }
+
+  // selección del escuadrón tras aceptar el destino
+  squadModal() {
+    const evSel = this.selEvent ? S.eventZones.find((z) => z.id === this.selEvent) : null;
+    const m = evSel ? eventDef(evSel) : MAPS[this.selMap];
+    const body = el('div', { class: 'squad-pick', style: { minWidth: 'min(70ch, 92vw)' } });
+    let close;
+    const draw = () => {
+      body.innerHTML = '';
+      body.append(el('div', { class: 'dimt', text: `Destino: ${m.name} (Nv ${m.lvl[0]}–${m.lvl[1]}). Selecciona los agentes que bajarán (máximo ${C.squadCap()}). Si mueren, se pierde todo lo que lleven.` }), el('div', { class: 'sep', text: '─'.repeat(70) }));
+      for (const a of S.agents) {
+        const on = this.squad.has(a.id);
+        const warn = this.agentWarnings(a);
+        const row = this.agentRow(a, ` <span class="chk">${on ? '[■]' : '[ ]'}</span>`, () => {
+          if (on) this.squad.delete(a.id);
+          else if (this.squad.size < C.squadCap()) this.squad.add(a.id);
+          else { toast(`Máximo ${C.squadCap()} agentes (mejora los Barracones).`, 'bad'); sfx.error(); return; }
+          sfx.click(); draw();
+        });
+        row.classList.toggle('sel', on);
+        body.append(row);
+        if (warn.length) body.append(el('div', { class: 'warn', style: { paddingLeft: '3ch', fontSize: '12px' }, text: '⚠ ' + warn.join(' · ') }));
+      }
+      const can = this.squad.size > 0;
+      body.append(el('div', { class: 'sep', text: '─'.repeat(70) }),
+        el('div', { class: 'row', style: { justifyContent: 'space-between', flexWrap: 'wrap' } },
+          el('span', { class: 'h', text: `ESCUADRÓN ${this.squad.size}/${C.squadCap()}` }),
+          el('button', { class: 'btn primary ' + (can ? '' : 'disabled'), style: { fontSize: '15px' }, onclick: () => { if (!can) { toast('Selecciona al menos un agente.', 'bad'); sfx.error(); return; } close(); this.launch(); } }, '☢ LANZAR EXPEDICIÓN')),
+        el('div', { class: 'dimt', style: { marginTop: '6px' }, text: S.modules.polvorin ? `El polvorín entrega ${S.modules.polvorin} cargador(es) extra por arma.` : 'Consejo: lleva munición, vendas y antirrad en la mochila.' }));
+    };
+    draw();
+    close = modal({ title: `ESCUADRÓN · ${m.name.toUpperCase()}`, body, width: 'min(80ch, 94vw)', actions: [{ label: 'VOLVER' }] });
   }
 
   agentWarnings(a) {
@@ -1243,6 +1283,22 @@ export class BaseUI {
   }
 }
 
+// escala el mapa ASCII de la región para que quepa entero en su caja (sin scroll), centrado
+function fitRegionMap(box) {
+  const pre = box.querySelector('.region-map');
+  const legend = box.querySelector('.region-legend');
+  if (!pre || !box.isConnected) return;
+  const W = box.clientWidth - 8, H = box.clientHeight - (legend ? legend.offsetHeight : 0) - 8;
+  if (W <= 0 || H <= 0) return;
+  const probe = document.createElement('span');
+  probe.style.cssText = 'position:absolute;visibility:hidden;font-size:100px;line-height:1.05;white-space:pre';
+  probe.textContent = 'MMMMMMMMMM';
+  pre.append(probe);
+  const cw = probe.getBoundingClientRect().width / 10 / 100, lh = 1.05;
+  probe.remove();
+  const fs = Math.max(8, Math.min(34, Math.floor(Math.min(W / (64 * cw), H / (22 * lh)) * 10) / 10));
+  pre.style.fontSize = fs + 'px';
+}
 function diffColor(avg) {
   const t = Math.min(1, (avg - 1) / 9);
   const h = 40 - t * 40;
