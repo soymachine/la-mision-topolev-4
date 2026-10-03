@@ -968,13 +968,14 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
       const [p, q] = e.team;
       const out = {};
       const acc0 = e.ast(p).acc; p.a.stress = 80; out.accDrop = e.ast(p).acc < acc0;
-      for (let i = 0; i < 120 && !(p.buffs || []).some((b) => b.aff || b.name === 'Heroísmo'); i++) e.moraleTick();
+      for (let i = 0; i < 200 && !(p.buffs || []).some((b) => b.aff || b.name === 'Heroísmo'); i++) { p.a.stress = 95; e.moraleTick(); } // fijo: la radio VEF o un inseparable cerca lo bajarían
       out.aff = (p.buffs || []).map((b) => b.name);
       // pánico: huye del enemigo
       p.buffs = [{ name: 'Pánico', turns: 2, mods: {}, aff: 'panico' }]; p.a.stress = 10;
       const c = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => [p.x + dx, p.y + dy]).find(([x, y]) => e.passable(x, y) && !e.entityAt(x, y));
       const w = e.spawnEnemy('lobo', 1, c[0], c[1], 'dormido'); e.computeVisibility(true); if (e.dlg) e.closeDialog(); e.dlgQueue = [];
       const d0 = Math.hypot(w.x - p.x, w.y - p.y);
+      e.cur = p; out.why = `cur=${e.cur === p} vis=${e.isVisible(w.x, w.y)} hostil=${e.hostile(p, w)}`;
       e.act((s) => e.tryMove(s, w.x, w.y, true));
       out.fled = Math.hypot(w.x - p.x, w.y - p.y) > d0 || w.hp === w.hpMax;
       p.buffs = [];
@@ -992,7 +993,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
       return out;
     });
     ok(mo.accDrop && mo.aff.length > 0, `estrés alto: −puntería y aflicción o virtud (${mo.aff.join(', ')})`);
-    ok(mo.fled, 'el pánico hace huir al agente');
+    ok(mo.fled, `el pánico hace huir al agente${mo.fled ? '' : ' (' + mo.why + ')'}`);
     ok(mo.grief && mo.epitaph, 'la muerte de un amigo sube el estrés; epitafio y última carta en el memorial');
     ok(mo.intercept, 'la radio intercepta mensajes que marcan alijos');
     await N.evaluate(() => { const e = window.__topolev.exp; if (e.dlg) e.closeDialog(); for (const sq of [...e.team]) e.extract(sq); e.checkActive(); });
