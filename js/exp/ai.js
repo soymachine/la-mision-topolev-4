@@ -36,7 +36,7 @@ export class AIPart {
       if (heal) { this.useItem(sq, heal); return; }
     }
     // «ir a»: va a la posición que le dejaste aunque haya enemigos a la vista; al llegar se queda allí (⚓)
-    if (sq.goto && this.gotoStep(sq)) return;
+    if (sq.goto && !this.evac && this.gotoStep(sq)) return;
     const ws = this.weaponStats(sq);
     const w = this.weapon(sq);
     // disparar
@@ -57,7 +57,8 @@ export class AIPart {
         if (a.equip[other]) { sq.cur = other; return; }
       }
     }
-    if (sq.order === 'mantener' || sq.order === 'emboscada' || sq.hold) return; // ⚓ posición fijada: no sigue a nadie
+    // ⚓ posición fijada, MANTENER y EMBOSCADA: no siguen a nadie… salvo a la evacuación, a la que acuden todos
+    if ((sq.order === 'mantener' || sq.order === 'emboscada' || sq.hold) && !this.evac) return;
     // seguir al líder (o acudir a la evacuación)
     let lead = this.cur;
     let near = 2;

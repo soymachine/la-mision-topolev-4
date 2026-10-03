@@ -24,6 +24,7 @@ import { COLLECTIONS, INTERCEPTS } from './data/lore.js';
 import { ecoLines, ZONE_TYPE } from './util/codexlines.js';
 import { ACHIEVEMENTS } from './data/achievements.js';
 import { MODES, NG_MODS, CHALLENGE_DAYS } from './core/modes.js';
+import { PERSONAS, THREATS, RELIEFS } from './core/narrator.js';
 import { ACQUIRED, MEDALS, WOUNDS, WOUND_CHANCE, RETIRE_LEVEL, MAX_INSTRUCTORS, INSTRUCTOR_XP, ROOKIE_LEVEL } from './data/honors.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -347,7 +348,7 @@ sec('Base', 'calendario', 'Calendario e historia', Object.keys(SEASONS).length +
 sec('Base', 'ataques', 'Ataques a la base', Object.keys(ATTACKS).length, () => table(Object.entries(ATTACKS).map(([id, a]) => ({ id, ...a })), [
   { h: 'Ataque', v: (a) => `<span class="nm">${esc(a.name)}</span><div class="desc">${esc(a.desc)}</div>`, s: (a) => a.name },
   { h: 'Atacantes', v: (a) => (a.enemies ? a.enemies.map((e) => esc((HUMANS[e] || ENEMIES[e] || {}).name || e)).join(', ') : 'los especímenes fugados y chebylitas de la zona') },
-]), `Desde el día 12, un 5% al día (y siempre que haya una fuga en la celda de contención). Defender: una expedición especial al Puesto con los agentes que estén en la base; rechazarlo da +200 ₽ y +5 de confianza. Ceder (o perder): −25% de rublos, −20% de esencia, hasta 3 objetos del almacén y +15 de estrés para todos. Parcelas: ${PLOTS}, así que no caben todos los edificios.`);
+]), `Los decide el Narrador del Reactor (fase 25: amenaza «ataque», desde el día 8 y con 8 días de tregua), y siempre que haya una fuga en la celda de contención. Defender: una expedición especial al Puesto con los agentes que estén en la base; rechazarlo da +200 ₽ y +5 de confianza. Ceder (o perder): −25% de rublos, −20% de esencia, hasta 3 objetos del almacén y +15 de estrés para todos. Parcelas: ${PLOTS}, así que no caben todos los edificios.`);
 
 // ------------------------------------------------------------ vistas especiales
 // fase 24: logros y modos de juego
@@ -357,6 +358,13 @@ sec('Calidad', 'logros', 'Logros', ACHIEVEMENTS.length, () => table(ACHIEVEMENTS
 sec('Calidad', 'modos', 'Modos de juego', Object.keys(MODES).length, () => table(Object.entries(MODES).map(([id, m]) => ({ id, ...m })), [
   { h: 'Modo', v: (m) => `<b>${esc(m.name)}</b>`, s: (m) => m.name }, { h: 'id', v: (m) => `<code>${m.id}</code>` }, { h: 'Reglas', v: (m) => `<span class="desc">${esc(m.desc)}</span>` },
 ]) + `<h3>Modificadores de «1987»</h3>${table(Object.entries(NG_MODS).map(([id, m]) => ({ id, ...m })), [{ h: 'Modificador', v: (m) => esc(m.name) }, { h: 'Efecto', v: (m) => `<span class="desc">${esc(m.desc)}</span>` }])}`, `Desafío semanal: ${CHALLENGE_DAYS} días; puntuación = esencia total + 2 × bajas + 25 × extracciones − 40 × caídos; tabla local <code>topolev_challenge_v1</code>. «1987» se desbloquea con un final (legado en <code>topolev_legacy_v1</code>).`);
+// fase 25: el Narrador del Reactor
+sec('Calidad', 'narrador', 'Narrador del Reactor', Object.keys(THREATS).length + Object.keys(RELIEFS).length, () => table(Object.entries(PERSONAS).map(([id, p]) => ({ id, ...p })), [
+  { h: '', v: (p) => `<span style="color:${p.color}">${esc(p.glyph)}</span>` }, { h: 'Personalidad', v: (p) => `<b>${esc(p.name)}</b> <code>${p.id}</code>`, s: (p) => p.name },
+  { h: 'Ritmo', v: (p) => p.rate }, { h: 'Alivio', v: (p) => p.relief }, { h: 'Azar', v: (p) => p.chaos }, { h: 'Días entre amenazas', v: (p) => p.minGap }, { h: 'Calma antes de un golpe', v: (p) => `${p.calm} turnos` }, { h: 'Entre respiros', v: (p) => `${p.reliefGap} turnos` },
+  { h: 'Descripción', v: (p) => `<span class="desc">${esc(p.desc)}</span>` },
+]) + `<h3>Amenazas (base)</h3>${table(Object.entries(THREATS).map(([id, d]) => ({ id, ...d })), [{ h: 'Amenaza', v: (d) => `<b>${esc(d.name)}</b> <code>${d.id}</code>` }, { h: 'Coste', v: (d) => d.cost }, { h: 'Peso', v: (d) => d.w }, { h: 'Presagio', v: (d) => (d.omen ? `<span class="desc">${esc(d.omen)}</span>` : '—') }])}<h3>Alivios (base)</h3>${table(Object.entries(RELIEFS).map(([id, d]) => ({ id, ...d })), [{ h: 'Alivio', v: (d) => `<b>${esc(d.name)}</b> <code>${d.id}</code>` }, { h: 'Peso', v: (d) => d.w }])}`,
+'Cada día: adaptación +0,6 (y +4…+10 por expedición con éxito, −6 por fracaso, −10 por caído); presupuesto += ritmo × (0,5 + adaptación/100) × (1 + día/50). Alivio si la adaptación baja de 40. En la expedición, golpes (patrulla, pulso adelantado, salida que se cierra) y respiros (suministros, salida cerca, retirada, aliados).');
 function renderSummary() {
   const items = Object.values(ITEMS);
   const equipBases = items.filter((d) => ['weapon', 'armor', 'helmet', 'gadget', 'backpack'].includes(d.cat)).length;

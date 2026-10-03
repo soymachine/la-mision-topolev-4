@@ -310,6 +310,12 @@ export class ExpeditionUI {
       e.revealT > 0 ? el('span', { class: 'cyan', html: t('exp.antenna', { n: e.revealT }) }) : '',
       el('span', { html: surge ? `<span class="bad pulse-red">${t('exp.surge', { n: surge })}</span>` : pulseIn <= 60 ? `<span class="warn">${t('exp.surgeIn', { n: pulseIn })}</span>` : `<span class="dimt">${t('exp.amb')}</span> ${amb.toFixed(2)}` }),
       e.evac ? el('span', { class: 'cyan', html: t('exp.evac', { n: e.evac.left }) }) : '',
+      (() => { // fase 25: tensión que mide el Narrador del Reactor
+        const T = Math.round((e.dir && e.dir.T) || 0), bars = '▁▂▃▄▅▆▇█';
+        const n = el('span', { class: 'tension', html: `<span class="dimt">TENSIÓN</span> <span style="color:${T >= 70 ? '#ff3b30' : T >= 40 ? '#ffd23f' : '#8a6a4a'}">${bars[Math.min(7, Math.floor(T / 12.5))]}</span>` });
+        tip(n, () => `<div class="tt-title">TENSIÓN ${T}/100</div><div>La mide el Narrador del Reactor: enemigos en alerta, heridas, abatidos y el pulso. Tras mucha calma suele llegar un golpe; si estáis en las últimas, a veces un respiro.</div>`);
+        return n;
+      })(),
       el('span', { class: 'ess-count', html: `<span class="cyan">✦ ${essTotal}</span>` }),
       el('div', { class: 'right' },
         el('button', { class: 'btn small', onclick: () => this.toggleBigMap() }, `${t('exp.map')} ${keyName('map')}`),

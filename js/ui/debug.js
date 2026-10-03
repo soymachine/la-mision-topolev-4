@@ -1,4 +1,5 @@
 // Consola de depuración oculta (fase 13.5): tecla º (o `) · ?debug en la URL la abre al arrancar
+import * as NARR from '../core/narrator.js';
 import { el, esc } from '../util/dom.js';
 import { lang, missingKeys, untranslated } from '../i18n/index.js';
 import { S, save } from '../core/state.js';
@@ -99,6 +100,18 @@ export function installDebug(app) {
       for (const m of list) if (!MODIFIERS[m]) throw new Error('modificadores: ' + Object.keys(MODIFIERS).join(', '));
       S.forceMods = list; print('forzados: ' + list.join(', '));
       if (app.current() === 'base') app.base.render();
+    } },
+    narr: { a: '[persona | dia | amenaza <id> | alivio <id> | golpe [id] | respiro [id] | adapt <n>]', d: 'Narrador del Reactor (fase 25): muestra o fuerza sus decisiones', f: ([a, b]) => {
+      NARR.narrDefaults(S);
+      const N = S.narr;
+      if (NARR.PERSONAS[a]) NARR.setPersona(a);
+      else if (a === 'dia') print('decisión: ' + (NARR.narrDay() || 'nada'));
+      else if (a === 'amenaza' || a === 'alivio') { if (!(NARR.THREATS[b] || NARR.RELIEFS[b])) throw new Error('amenazas: ' + Object.keys(NARR.THREATS).join(', ') + ' · alivios: ' + Object.keys(NARR.RELIEFS).join(', ')); NARR.fireNarr(b); if (app.current() === 'base') app.base.runDialogs(); }
+      else if (a === 'golpe') { const e = needExp(); print(e.directorBeat(b || null) ? 'golpe' : 'no se pudo'); }
+      else if (a === 'respiro') { const e = needExp(); print(e.directorRelief(b || null) ? 'respiro' : 'no se pudo'); }
+      else if (a === 'adapt') N.adapt = num(b, 50);
+      const e = exp();
+      print(`${esc(NARR.persona().name)} · adaptación ${Math.round(N.adapt)} · presupuesto ${N.budget.toFixed(1)} · presagio ${N.pending ? N.pending.id + ' (día ' + N.pending.day + ')' : '—'} · crisis ${N.crisis ? N.crisis.kind + ' hasta ' + N.crisis.until : '—'}${e && e.dir ? ` · tensión ${Math.round(e.dir.T)} · calma ${e.dir.calm}` : ''}<br>${N.log.slice(-8).map((l) => `día ${l.day}: ${l.kind} ${l.id}`).join(' · ')}`);
     } },
     unlock: { a: '', d: 'abre/cierra todas las zonas de la región', f: () => { S.unlockAll = !S.unlockAll; print('todas las zonas: ' + (S.unlockAll ? 'abiertas' : 'según el progreso')); if (app.current() === 'base') app.base.render(); } },
     evzone: { a: '<tipo>', d: 'hace aparecer una zona de evento en la región', f: ([k]) => {

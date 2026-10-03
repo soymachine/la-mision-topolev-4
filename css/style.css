@@ -607,3 +607,6 @@ body.modal-open #app { filter: blur(2px) brightness(.55); transition: filter .12
 .agent-card .sq-order { cursor: pointer; border-bottom: 1px dotted var(--o4); }
 .agent-card .sq-order:hover { color: var(--o0); border-bottom-color: var(--o1); }
 .agent-card .sq-order.cur { opacity: .6; }
+/* fase 25: Narrador del Reactor */
+.narr-tag { white-space: nowrap; cursor: help; }
+.top .tension, .exp-top .tension { cursor: help; white-space: nowrap; }

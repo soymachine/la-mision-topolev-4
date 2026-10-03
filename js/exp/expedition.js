@@ -33,6 +33,7 @@ import { CompanionPart } from './companions.js';
 import { MoralePart } from './morale.js';
 import { EcologyPart } from './ecology.js';
 import { TacticsPart } from './tactics.js';
+import { DirectorPart } from './director.js';
 import { zoneWorld, reactorAlert } from '../core/ecosys.js';
 import { unreadNote } from '../core/story.js';
 import { seasonOf } from '../data/basedata.js';
@@ -210,7 +211,7 @@ export class Expedition {
       eventsDone: this.eventsDone || {}, facSeen: this.facSeen || {}, dlg: this.dlg || null, dlgQueue: this.dlgQueue || [],
       patria: this.patria || 0, truceUsed: this.truceUsed || 0, defibUsed: this.defibUsed || 0, quietT: this.quietT || 0, fac: this.fac || null, sentHome: this.sentHome || [], season: this.season || null, defenseWon: this.defenseWon || 0,
       clock: this.clock ?? null, weather: this.weather || null, trainAt: this.trainAt || 0, raidAt: this.raidAt || 0, revealT: this.revealT || 0, antennaUsed: this.antennaUsed || 0,
-      turn: this.turn, log: this.log.slice(-60), evac: this.evac, tally: this.tally,
+      turn: this.turn, log: this.log.slice(-60), evac: this.evac, tally: this.tally, dir: this.dir || null,
       surgeAt: this.surgeAt, nextTemp: this.nextTemp, nextRadio: this.nextRadio, active: this.active,
       squad: this.squad.map((sq) => { const { a, ...rest } = sq; return rest; }),
     };
@@ -839,6 +840,8 @@ export class Expedition {
     }
     this.environment();
     if (this.ended) return;
+    this.directorTick(); // fase 25: el Narrador del Reactor (tensión, golpes y respiros)
+    if (this.ended) return;
     this.tickAbilities();
     if (this.ended) return;
     this.updateTrack();
@@ -858,7 +861,7 @@ export class Expedition {
 }
 
 // Mezcla de los módulos parciales en la clase principal
-for (const Part of [CombatPart, UsePart, ExtractionPart, AIPart, EnvironmentPart, StoryPart, AbilityPart, TerrainPart, FactionPart, CompanionPart, MoralePart, EcologyPart, TacticsPart]) {
+for (const Part of [CombatPart, UsePart, ExtractionPart, AIPart, EnvironmentPart, StoryPart, AbilityPart, TerrainPart, FactionPart, CompanionPart, MoralePart, EcologyPart, TacticsPart, DirectorPart]) {
   for (const k of Object.getOwnPropertyNames(Part.prototype)) {
     if (k === 'constructor') continue;
     if (Object.prototype.hasOwnProperty.call(Expedition.prototype, k)) throw new Error('Método duplicado en Expedition: ' + k);

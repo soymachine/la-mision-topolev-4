@@ -20,6 +20,7 @@ import { fmt } from '../util/rng.js';
 import { toggleFullscreen } from './expui.js';
 import { showDialog } from './dialog.js';
 import { playScene } from './scene.js';
+import * as NARR from '../core/narrator.js';
 import * as ST from '../core/story.js';
 import * as B21 from '../core/basecore.js';
 import { installBase21 } from './base21.js';
@@ -161,6 +162,7 @@ export class BaseUI {
     // cabecera
     const top = el('div', { class: 'base-top' },
       el('span', { class: 'logo', html: t('base.logo') }),
+      (() => { const M = NARR.narrMood(); const n = el('span', { class: 'narr-tag', html: `<span style="color:${M.color}">${M.glyph}</span> <span class="dimt">${esc(M.text)}</span>` }); tip(n, () => `<div class="tt-title" style="color:${M.color}">${M.glyph} NARRADOR: ${esc(M.name.toUpperCase())}</div><div>${esc(M.desc)}</div><div class="tt-sep">${'─'.repeat(30)}</div><div class="tt-row"><span class="dimt">Adaptación</span><span>${M.adapt}/100</span></div><div class="dimt">Sube con vuestros éxitos (más presión) y baja con las bajas y los fracasos (más alivios). Se cambia en MENÚ → NARRADOR.</div>`); return n; })(),
       modeTag() ? el('span', { class: 'warn mode-tag', title: 'Modo de juego', text: modeTag() + (S.challenge ? (S.challenge.done ? ` · ${S.challenge.done.score} pts` : ` · día ${S.day}/${S.challenge.days} · ${challengeScore()} pts`) : '') }) : '',
       el('span', { class: 'dimt', html: `PUESTO PRIPYAT-7 · DÍA <b>${S.day}</b> · ${B21.dateStr()} · <span title="${esc(B21.seasonInfo().desc)}">${B21.seasonInfo().glyph} ${B21.seasonInfo().name}</span> · cuota: <span class="${S.ess >= S.quota.ess ? 'good' : 'warn'}" title="Cuota del Comité: esencia a entregar">${S.quota.ess} ✦ en ${Math.max(0, S.quota.due - S.day)} d</span> · <span title="Alerta del reactor: ${esc(ECO.alertInfo().desc)}" style="color:${ECO.alertInfo().color}">☢ ${ECO.alertInfo().name}</span>` }),
       el('div', { class: 'res' },
@@ -1056,7 +1058,9 @@ export class BaseUI {
       for (const a of S.agents) {
         const on = this.squad.has(a.id);
         const warn = this.agentWarnings(a);
-        const row = this.agentRow(a, ` <span class="chk">${on ? '[■]' : '[ ]'}</span>`, () => {
+        const sick = NARR.sickDays(a);
+        const row = this.agentRow(a, ` <span class="chk">${sick ? `<span class="bad">enfermo ${sick} d</span>` : on ? '[■]' : '[ ]'}</span>`, () => {
+          if (sick) { toast(`${a.nick} tiene fiebre: no puede bajar a la Zona en ${sick} día(s).`, 'bad'); sfx.error(); return; }
           if (on) this.squad.delete(a.id);
           else if (this.squad.size < C.squadCap()) this.squad.add(a.id);
           else { toast(`Máximo ${C.squadCap()} agentes (mejora los Barracones).`, 'bad'); sfx.error(); return; }
@@ -1268,6 +1272,19 @@ export class BaseUI {
   }
 
   // =========================================================== MENÚ
+  // fase 25: cambiar de Narrador a mitad de partida
+  narratorModal() {
+    const body = el('div', { style: { minWidth: 'min(60ch, 90vw)' } });
+    let close;
+    for (const [id, P] of Object.entries(NARR.PERSONAS)) {
+      const cur = NARR.persona() === P;
+      body.append(el('div', { class: 'module', style: { gridTemplateColumns: '4ch 1fr auto', marginBottom: '6px' } },
+        el('div', { class: 'mg', style: { color: P.color }, text: P.glyph }),
+        el('div', { html: `<b style="color:${P.color}">${esc(P.name)}</b><div class="eff">${esc(P.desc)}</div>` }),
+        el('button', { class: 'btn small ' + (cur ? 'primary' : ''), 'data-narr': id, onclick: () => { if (!cur) { NARR.setPersona(id); save(); sfx.click(); toast(`Narrador: ${P.name}`, 'good'); } close(); this.render(); } }, cur ? 'ACTUAL' : 'ELEGIR')));
+    }
+    close = modal({ title: 'NARRADOR DEL REACTOR', body, actions: [{ label: 'CERRAR' }] });
+  }
   openMenu() {
     if (modalOpen()) { closeTopModal(); return; }
     const body = el('div', { class: 'title-menu', style: { marginTop: 0 } });
@@ -1277,6 +1294,7 @@ export class BaseUI {
       btn(t('menu.continue'), () => close()),
       btn(t('menu.save'), () => { if (save()) toast(t('menu.saved', { n: slot }), 'good'); else toast(t('menu.saveFail'), 'bad', 6000); close(); }),
       btn(t('menu.settings'), () => { close(); settingsModal({ after: () => { this.render(); this.openMenu(); } }); }),
+      btn(`NARRADOR: ${NARR.persona().glyph} ${NARR.persona().name.toUpperCase()}`, () => { close(); this.narratorModal(); }),
       btn(t('menu.quit'), () => { save(); close(); this.close(); this.hooks.onQuit(); }, 'danger'),
     );
     close = modal({ title: t('menu.title'), body, width: '46ch' });

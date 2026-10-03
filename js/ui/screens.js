@@ -15,6 +15,7 @@ import { t } from '../i18n/index.js';
 import { achievementsModal } from './achievements.js';
 import { settingsModal } from './settings.js';
 import { MODES, NG_MODS, ngUnlocked, legacy, isoWeek, challengeTable } from '../core/modes.js';
+import { PERSONAS, sparkline } from '../core/narrator.js';
 import { controlsModal, keyName, helpKeysHTML, keyify } from './keys.js';
 
 // ------------------------------------------------------------ logo ASCII
@@ -85,7 +86,7 @@ export class TitleScreen {
     const body = el('div', { style: { minWidth: 'min(70ch, 90vw)' } });
     let close;
     // fase 24.7: modo de juego de la partida nueva
-    const opt = { mode: 'historia', ngMods: {}, carry: 'agent' };
+    const opt = { mode: 'historia', ngMods: {}, carry: 'agent', narr: 'comisario' };
     const modePick = () => {
       const box = el('div', { class: 'mode-pick' });
       const row = el('div', { class: 'row', style: { flexWrap: 'wrap', gap: '4px' } });
@@ -94,6 +95,10 @@ export class TitleScreen {
         row.append(el('button', { class: 'btn small' + (opt.mode === id ? ' primary' : '') + (locked ? ' dimt' : ''), 'data-mode': id, title: locked ? 'Se desbloquea al ver un final.' : M.desc, onclick: () => { if (locked) { toast('«1987» se desbloquea al ver un final de la campaña.', 'bad'); return; } sfx.click(); opt.mode = id; render(); } }, (locked ? '🔒 ' : '') + M.name));
       }
       box.append(el('div', { class: 'h', text: 'MODO' }), row, el('div', { class: 'eff', style: { margin: '4px 0' }, text: MODES[opt.mode].desc }));
+      // fase 25: el Narrador del Reactor
+      const nrow = el('div', { class: 'row', style: { flexWrap: 'wrap', gap: '4px' } });
+      for (const [id, P] of Object.entries(PERSONAS)) nrow.append(el('button', { class: 'btn small' + (opt.narr === id ? ' primary' : ''), 'data-narr': id, title: P.desc, onclick: () => { sfx.click(); opt.narr = id; render(); } }, `${P.glyph} ${P.name}`));
+      box.append(el('div', { class: 'h', text: 'NARRADOR DEL REACTOR' }), nrow, el('div', { class: 'eff', style: { margin: '4px 0' }, text: PERSONAS[opt.narr].desc }));
       if (opt.mode === 'desafio') {
         const tb = challengeTable();
         box.append(el('div', { class: 'eff', html: `Semana <b>${isoWeek()}</b> · mejores marcas en este navegador: ${tb.length ? tb.slice(0, 5).map((x, i) => `${i + 1}.º <b>${x.score}</b>`).join(' · ') : '<span class="dimt">ninguna todavía</span>'}` }));
@@ -319,6 +324,8 @@ export class ReportScreen {
     if (rep.prisoners) B.append(el('div', { class: 'warn', style: { textAlign: 'center' }, text: `⚑ ${rep.prisoners} prisionero(s) entregados al KGB: +${rep.prisoners * 150} ₽` }));
     if (rep.recruits && rep.recruits.length) B.append(el('div', { class: 'good', style: { textAlign: 'center' }, text: `✚ Se unen al puesto: ${rep.recruits.join(', ')}` }));
     if (rep.unlocked) B.append(el('div', { class: 'sep', text: '─'.repeat(200) }), el('div', { class: 'good', style: { textAlign: 'center', fontWeight: 700 }, text: `☢ NUEVA ZONA ACCESIBLE: ${rep.unlocked.toUpperCase()}` }));
+    // fase 25: la curva de tensión de la expedición (el Narrador del Reactor)
+    if (rep.tension && rep.tension.length >= 3) B.append(el('div', { class: 'rep-tension', style: { textAlign: 'center', marginTop: '.6em' }, html: `<span class="dimt">RITMO DE LA EXPEDICIÓN</span> <span class="warn" style="letter-spacing:0">${sparkline(rep.tension, 48)}</span> <span class="dimt">máx. ${Math.max(...rep.tension)}</span>` }));
     B.append(el('div', { class: 'sep', text: '─'.repeat(200) }), el('div', { class: 'dimt', text: 'Los objetos extraídos siguen en las mochilas de los agentes. Usa «DESCARGAR MOCHILA» en EQUIPO para pasarlos al almacén y vende el botín en la INTENDENCIA.' }));
     B.append(el('div', { style: { textAlign: 'center', marginTop: '1em' } }, el('button', { class: 'btn primary', onclick: () => { sfx.click(); this.hooks.onDone(); } }, 'VOLVER A LA BASE')));
     R.append(p);
@@ -557,6 +564,10 @@ ${helpKeysHTML()}
 <h2>CONFIGURACIÓN</h2>
 <p>Desde el menú principal, el menú de la base y la pausa: sonido, música, sonido ambiente y sus volúmenes (deslizadores: arrástralos o usa las flechas; Mayús, de 10 en 10), efecto CRT, pantalla completa, tamaño del texto, idioma, teclas, controles táctiles, modo daltónico, alto contraste y exportar una copia de la partida.</p>
 <p><b>Sonido ambiente</b>: grabaciones reales (CC0) distintas en cada pantalla y zona: viento en el título, la ventilación del búnker en la base, la estufa en el informe, el rumor profundo del subsuelo, el bosque, la noche, la lluvia… <b>Mapa grande (M)</b>: rueda o pellizco para ampliar, arrastrar para moverse, botones − + ⟲ y @ (centrar en el agente). <b>Botín</b>: al abrir un contenedor, los objetos aparecen uno a uno; los épicos, legendarios y míticos, con partículas. <b>EQUIPO</b>: clic derecho en un objeto para comprar otro igual (si está hoy en la Intendencia) o dividir la pila.</p>
+
+<h2>EL NARRADOR DEL REACTOR</h2>
+<p>Un director que mide cómo os va y decide qué pasa y cuándo. Se elige en NUEVA PARTIDA y se cambia en MENÚ → NARRADOR: <b>☭ EL COMISARIO</b> (la presión crece con los días y con vuestro éxito, golpes bien espaciados), <b>♨ BABUSHKA</b> (pocas amenazas y muchos alivios) y <b>☢ CHERNÓBIL</b> (azar puro). Su <b>adaptación</b> sube con las expediciones con éxito y baja con las bajas y los fracasos: cuanto mejor os va, más os aprieta; si vais mal, os echa una mano.</p>
+<p><b>En la base</b>, cada día puede mandar amenazas (ataques al Puesto, apagón, fiebre en los barracones —los enfermos no pueden salir—, inspección del KGB, escasez —la Intendencia un 30% más cara—, nidos que crecen de golpe) o alivios (suministros lanzados, subvención, voluntarios, un desertor con información, calma en la Zona: menos nidos en la próxima bajada). Las amenazas grandes se anuncian el día antes con un <b>presagio</b> en los mensajes. <b>En la expedición</b> mide la <b>TENSIÓN</b> (cabecera): tras mucha calma suele llegar un golpe (una manada que viene hacia vosotros, el pulso adelantado, una extracción que se derrumba); con el escuadrón en las últimas, a veces un respiro (una caja de suministros a vuestro lado, una grieta al exterior, los chebylitas que se retiran, aliados por radio). El informe muestra el <b>ritmo</b> de la expedición como una curva.</p>
 
 <h2>MODOS DE JUEGO</h2>
 <p>Se eligen en NUEVA PARTIDA, encima de las ranuras. <b>HISTORIA</b>: la campaña de siempre. <b>LIBRE</b>: todas las zonas abiertas, 2000 ₽, sin cuota, ataques ni actos. <b>HIERRO</b>: guardado en cada turno, sin exportar copias; si os quedáis sin agentes y sin rublos para reclutar, la partida se borra. <b>DESAFÍO SEMANAL</b>: la misma semilla para todos durante la semana (agentes, botín inicial, reclutas y mapas de las 3 primeras zonas); al acabar el día 15 se apunta la puntuación (esencia + 2 por baja + 25 por extracción − 40 por caído) en la tabla de este navegador. <b>«1987»</b>: se desbloquea al ver un final; empezáis con el mejor agente o un trofeo de la partida anterior y podéis añadir modificadores (+1 nivel a los chebylitas, alerta +1, presupuesto recortado).</p>

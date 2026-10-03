@@ -25,7 +25,8 @@ export class ExtractionPart {
     const fast = Math.max(0, ...this.team.map((o) => this.flag(o, 'evacFast')));
     this.evac = { x: ex.x, y: ex.y, left: Math.max(1, 3 - fast), name: ex.name };
     if (!ex.perm) ex.expires = Math.max(ex.expires, this.turn + 5);
-    this.say(`Evacuación solicitada en ${ex.name}. Mantened la posición <b>${this.evac.left} turnos</b>: todos los agentes en la zona serán extraídos.`, 'cyan');
+    for (const o of this.team) { o.hold = false; o.goto = null; } // todos a la extracción
+    this.say(`Evacuación solicitada en ${ex.name}. Mantened la posición <b>${this.evac.left} turnos</b>: todos los agentes junto a la extracción serán extraídos (el resto del escuadrón acude).`, 'cyan');
     this.fx.push({ type: 'evac', x: ex.x, y: ex.y });
     this.noise(ex.x, ex.y, 9);
     return true;

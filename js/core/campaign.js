@@ -14,6 +14,8 @@ import { statExpedition, checkAchievements } from './achievements.js';
 import { FACTIONS, repOf, addRep, foreignTrade as foreignTradeS } from '../data/factions.js';
 import { addStress, addAff, trust, chronicle, comedorScene, completeContracts, checkActs, familyLetter, expireSpecials, CONTRACTS } from './story.js';
 import { baseDayTick, placeBuilding, demandK, noteSale, attackResult, defenseDef } from './basecore.js';
+import * as basecoreNS from './basecore.js';
+import { narrDay, narrOnExpedition, narrHooks, narrPriceK, sickDays } from './narrator.js';
 
 // modificadores de cada zona para hoy (fase 16.4)
 export const zoneMods = (mapIdx) => (S.forceMods ? [...S.forceMods] : rollZoneMods(S.created >>> 0, S.day, mapIdx));
@@ -44,8 +46,8 @@ export function shopAvailable(b) {
 export function buyPrice(it) {
   const d = ITEMS[it.b];
   const disc = 1 - partyDiscount() / 100;
-  if (d.price) return Math.round(d.price * disc);
-  let p = itemValue(it, true) * 1.15 * disc;
+  if (d.price) return Math.round(d.price * disc * narrPriceK());
+  let p = itemValue(it, true) * 1.15 * disc * narrPriceK(); // fase 25: escasez
   if (d.cat === 'ammo') p *= 1 - S.modules.polvorin * 0.15;
   if (d.cat === 'consumable' && d.use !== 'throw') p *= 1 - S.modules.enfermeria * 0.06;
   return Math.max(1, Math.round(p));
@@ -233,6 +235,7 @@ export function upgradeModule(id) {
 
 // ---------------- Expediciones ----------------
 export function launchExpedition(mapIdx, agents, evId = null) {
+  agents = agents.filter((a) => !sickDays(a)); // fase 25: los enfermos no salen
   // munición gratis del polvorín
   const pv = S.modules.polvorin;
   for (const a of agents) {
@@ -387,6 +390,9 @@ export function finalizeExpedition(exp) {
     chronicle(`${exp.fac.rescued.name}, rescatado con vida.`);
   }
   rep.contracts = completeContracts();
+  // fase 25: el Narrador ajusta la adaptación y guarda la curva de tensión
+  rep.tension = (exp.dir && exp.dir.curve) || [];
+  if (def.id !== 'defensa') narrOnExpedition({ success: rep.result === 'success', deaths, ess: rep.ess, curve: rep.tension });
   // fase 22: mundo persistente (nidos limpios que tardan en volver, jefes abatidos)
   const calm = recordExpedition(exp);
   if (calm && anyOut) addMessage(calm);
@@ -414,6 +420,7 @@ export function nextDay() {
   worldDayTick(); // fase 22: alerta del reactor
   expireSpecials(); // fase 16.4: los encargos especiales solo valen un día
   baseDayTick(); // fase 21: investigación, celdas, edificios, cuotas, estaciones, historia, operaciones, ataques
+  narrDay(); // fase 25: el Narrador del Reactor elige amenazas y alivios
   // fase 20: descanso (y banya), cartas de casa, adicciones
   if (Math.random() < 0.15) familyLetter();
   for (const a of S.agents) {
@@ -590,3 +597,7 @@ function awardHonors(exp, sq, a) {
   if ((a.saves || 0) >= 1 || (a.healedOthers || 0) >= 100) gain('medals', 'camarada', MEDALS, '🎖');
   for (const n of news) if (n.startsWith('🎖')) addMessage(`${agentName(a)} recibe la ${n.slice(2)}.`);
 }
+
+// fase 25: el Narrador necesita crear voluntarios y saber el límite de la plantilla
+export function createAgentFor(opts = {}) { const a = createAgent(rng, { day: S.day, avoid: new Set(S.agents.map((x) => x.nick)), ...opts }); starterKit(a, rng); return a; }
+narrHooks({ basecore: basecoreNS, campaign: { rosterCap: () => rosterCap(), createAgentFor } });

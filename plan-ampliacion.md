@@ -670,6 +670,39 @@ Idea del director: los efectos actuales se quedan como **capa lógica** (se calc
 - [x] `tests/mapgen.mjs` comprueba que salen todos los trazados.
 - [ ] Siguiente: más variedad en la superficie (Prípiat, Bosque, Yanov…), que sigue con sus generadores de la fase 17.
 
+## Segunda ampliación (elegida por el director tras la revisión 7)
+De las 20 mejoras propuestas se eligieron cinco: **4** (Narrador del Reactor), **9** (entorno destructible y fluidos), **5** (nube y contaminación global), **2** (la Zona en guerra) y **18** (la Conspiración). Orden: 25 → 26 → 27 → 28. El gas y la nube son **a prueba**: si no convencen, se quitan (cada uno detrás de su propio interruptor).
+
+## FASE 25 — El Narrador del Reactor ✔
+Un director (al estilo de los narradores de RimWorld o el director de Left 4 Dead) que mide cómo os va y elige los eventos para que la partida tenga ritmo.
+- [x] 25.1 Estado `S.narr`: personalidad, **adaptación** (sube con el éxito, baja con bajas y fracasos), presupuesto de amenaza que se acumula cada día, historial de lo que ha decidido. Migración de partidas.
+- [x] 25.2 Tres personalidades elegibles al crear la partida (y cambiables en la base): **El Comisario** (curva clásica que sube siempre), **Babushka** (calma, más alivios y construcción) y **Chernóbil** (azar puro).
+- [x] 25.3 **Campaña**: cada día el Narrador gasta su presupuesto en eventos de un catálogo con coste y condiciones: ataques a la base (sustituye la tirada fija del 5%), zonas de evento, crisis (apagón, epidemia, inspección del KGB, huelga de suministros) y alivios (suministros lanzados, desertor con información, caravana, voluntarios). Avisos («presagios») en la base.
+- [x] 25.4 **Expedición**: tensión turno a turno (daño recibido, enemigos en alerta, heridos, tiempo en calma). Tras mucha calma mete un golpe (patrulla errante que viene hacia vosotros, pulso adelantado, salida que se cierra antes); con el escuadrón en las últimas, un respiro (salida temporal cerca, patrulla aliada, caja de suministros, los chebylitas se retiran). Usa los temporizadores que ya existen.
+- [x] 25.5 Interfaz: personalidad y presagio en la cabecera de la base; medidor de tensión discreto en la expedición; **curva de tensión** en ASCII en el informe («▁▂▃▅▇▅▃▁»).
+- [x] 25.6 Consola de depuración (`narr`), ayuda, admin, pruebas, plan y commit.
+  - *Hecho:* `core/narrator.js` (personalidades, adaptación, presupuesto, 6 amenazas y 5 alivios, presagios, crisis de apagón y escasez, enfermos que no pueden salir, diálogos `narr_apagon`/`narr_epidemia`/`narr_inspeccion`) y `exp/director.js` (tensión, golpes «patrulla»/«pulso»/«cierre» y respiros «suministros»/«salida»/«retirada»/«aliados»). Los ataques a la base ya no son un 5% fijo: los decide el Narrador (`startAttack`). Selector en NUEVA PARTIDA y en MENÚ → NARRADOR; estado en la cabecera de la base; TENSIÓN en la de la expedición; «ritmo de la expedición» en el informe. Consola: `narr`. Pruebas: bloque «Fase 25».
+
+## FASE 26 — Entorno destructible, fluidos y vista del aire (a prueba)
+- [ ] 26.1 **Campos de fluidos** por casilla: gas (esporas, pesado), humo (alto), vapor, polvo radiactivo y agua. Se expanden, se diluyen y los mueven las corrientes (puertas abiertas, ventiladores, conductos). El fuego genera humo.
+- [ ] 26.2 **Altura como mecánica**: agachado respiras por debajo del humo pero tragas más gas pesado; el humo denso tapa la vista (no se ve a través ni dentro).
+- [ ] 26.3 **Vista B** (decidida): el aire tiñe el fondo de la casilla, lo que está dentro se apaga y se tiñe; en humo muy denso solo una silueta «?»; en las casillas vacías, un carácter por tipo (también en el modo daltónico). Interruptor en CONFIGURACIÓN para volver a la vista clásica.
+- [ ] 26.4 **Capa AIRE** (tecla): concentración 1–9 por casilla en su color.
+- [ ] 26.5 **Destrucción**: muros que se abren con explosivos (crear rutas), suelos que se hunden al piso de abajo, tuberías que al romperse inundan o llenan de vapor, polvo radiactivo que levantan las explosiones.
+- [ ] 26.6 Tácticas nuevas: inundar un nido, asfixiar una sala cerrando puertas, cortina de humo para cruzar. Ayuda, pruebas, plan y commit.
+
+## FASE 27 — La nube y la Zona en guerra
+- [ ] 27.1 **La nube** (a prueba): se desplaza por el mapa de la región según el viento; las zonas bajo la nube irradian más y tienen lluvia negra. Polvo radiactivo en el equipo → descontaminación (tiempo y recursos); filtros en la base. Incendios forestales en el Bosque Rojo que duran días. Interruptor para desactivarla.
+- [ ] 27.2 **Dueño y presión** de cada zona (chebylitas, facciones o vosotros). Los nidos que no se limpian se extienden a las zonas vecinas; los EE. UU. o el culto lanzan ofensivas.
+- [ ] 27.3 Liberar una zona la cambia de manos: precios, encargos, patrullas aliadas y modificadores distintos. **Frentes**: si cae la zona vecina a la base, los ataques se multiplican.
+- [ ] 27.4 Mapa de la región con colores de control, flechas de ofensiva y la nube; el Narrador decide las ofensivas. Ayuda, pruebas, plan y commit.
+
+## FASE 28 — La Conspiración
+- [ ] 28.1 Cada partida genera una **conspiración** distinta (quién saboteó, quién filtra a la CIA, qué oculta Topolev) a partir de piezas: culpables, móviles, lugares y pruebas.
+- [ ] 28.2 Las pistas salen de lo que ya existe (documentos de inteligencia, interrogatorios, diarios, radio descifrada, archivos del KGB) y de pistas nuevas sembradas en los mapas.
+- [ ] 28.3 **Tablero de corcho ASCII**: las pistas se clavan y se unen con hilos; al unirlas bien se revelan lugares secretos (zona de evento propia), un traidor entre los agentes o el personal, y finales alternativos.
+- [ ] 28.4 Ayuda, pruebas, plan y commit.
+
 ## Banco de ideas (sin fase asignada)
 
 - **Vehículos en superficie:** un UAZ-469 o un BRDM para viajar rápido entre puntos de la superficie (combustible limitado y ruido).

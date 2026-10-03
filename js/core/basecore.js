@@ -10,6 +10,7 @@ import { agentStats, agentName, giveXp, agentHooks } from './agents.js';
 import { addRep } from '../data/factions.js';
 import { chronicle, addStress, trust } from './story.js';
 import { rng } from '../util/rng.js';
+import { crisisOn } from './narrator.js';
 
 export function baseDefaults(d) {
   if (!d.plots) {
@@ -92,7 +93,7 @@ export function startResearch(id) {
 }
 function tickResearch() {
   const q = S.resQueue;
-  if (!q) return;
+  if (!q || crisisOn('apagon')) return; // fase 25: sin luz no se investiga
   q.left--;
   if (q.left > 0) return;
   S.research[q.id] = S.day;
@@ -305,6 +306,7 @@ function tickSeason() {
 
 // ---------------------------------------------------------------- edificios con producción diaria
 function tickBuildings() {
+  if (crisisOn('apagon')) return; // fase 25: apagón
   const g = S.modules.invernadero || 0;
   if (g) {
     const n = g * (hasRes('r_invernadero') ? 2 : 1);
@@ -322,9 +324,17 @@ export function rollAttack(fuga) {
   if (S.mode === 'libre') return null; // fase 24.7: sin ataques en el modo libre
   let kind = null, extra = null;
   if (fuga) { kind = 'fuga'; extra = fuga.species; }
-  else if (S.day >= 12 && S.day - (S.lastAttack || 0) >= 10 && Math.random() < 0.05) kind = ['usa', 'merodeadores', 'nido'][Math.floor(Math.random() * 3)];
+  // fase 25: los demás ataques los decide el Narrador del Reactor (startAttack)
   if (!kind) return null;
   S.attack = { kind, species: extra, day: S.day };
+  (S.pendingDialogs = S.pendingDialogs || []).push('base_attack');
+  chronicle(`¡Ataque a la base! ${ATTACKS[kind].name}.`);
+  return S.attack;
+}
+// fase 25: ataque decidido por el Narrador
+export function startAttack(kind) {
+  if (S.attack || S.mode === 'libre' || !ATTACKS[kind]) return null;
+  S.attack = { kind, species: null, day: S.day };
   (S.pendingDialogs = S.pendingDialogs || []).push('base_attack');
   chronicle(`¡Ataque a la base! ${ATTACKS[kind].name}.`);
   return S.attack;

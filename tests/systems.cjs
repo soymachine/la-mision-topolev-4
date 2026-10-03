@@ -2295,6 +2295,85 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     await ctx21.close();
   }
 
+  // ================================================================ fase 25: el Narrador del Reactor
+  console.log('· Fase 25: el Narrador del Reactor');
+  {
+    const ctx22 = await b.newContext({ viewport: { width: 1440, height: 860 } });
+    const N = await ctx22.newPage();
+    N.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
+    N.on('console', (m) => { if ((m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) || m.type() === 'warning') errs.push(m.text()); });
+    await N.goto(URL); await N.waitForTimeout(800);
+    await N.click('text=NUEVA PARTIDA'); await N.waitForTimeout(150);
+    const narrBtns = await N.$$eval('.modal [data-narr]', (l) => l.length);
+    await N.click('.modal [data-narr="babushka"]'); await N.waitForTimeout(100);
+    await N.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await N.click('#screen-intro'); await N.click('text=COMENZAR');
+    await N.waitForTimeout(300);
+    const nb = await N.evaluate(async () => {
+      const NR = await import('./js/core/narrator.js'); const C = await import('./js/core/campaign.js');
+      const S = window.__topolev.S; const out = { persona: S.narr.persona, adapt: S.narr.adapt };
+      NR.setPersona('comisario');
+      // presagio: una amenaza anunciada se dispara al día siguiente
+      S.day = 20; S.narr.pending = { id: 'inspeccion', day: 20 };
+      const d1 = NR.narrDay();
+      out.omen = d1 === 'inspeccion' && S.pendingDialogs.includes('narr_inspeccion');
+      S.pendingDialogs = [];
+      // con presupuesto, el Narrador acaba eligiendo una amenaza (con presagio o sin él)
+      S.narr.budget = 60; S.narr.lastThreat = 0; let got = null;
+      for (let i = 0; i < 30 && !got; i++) { S.narr.lastThreat = 0; got = NR.narrDay(); }
+      out.threat = got;
+      // escasez: precios ×1,3
+      const it = (await import('./js/core/items.js')).createItem('bandage', 0);
+      const p0 = C.buyPrice(it); S.narr.crisis = { kind: 'escasez', until: S.day + 3 }; const p1 = C.buyPrice(it); S.narr.crisis = null;
+      out.price = [p0, p1];
+      // epidemia y alivios
+      NR.fireNarr('epidemia'); out.sick = S.agents.filter((a) => NR.sickDays(a) > 0).length;
+      const st0 = S.stash.length; NR.fireNarr('suministros'); out.supplies = S.stash.length - st0;
+      // adaptación: bajas → baja
+      const a0 = S.narr.adapt; NR.narrOnExpedition({ success: false, deaths: 1, ess: 0 }); out.adaptDrop = S.narr.adapt < a0;
+      for (const a of S.agents) a.sickUntil = 0;
+      S.pendingDialogs = [];
+      return out;
+    });
+    ok(narrBtns === 3 && nb.persona === 'babushka' && nb.adapt === 50, 'NUEVA PARTIDA: tres narradores; la partida empieza con el elegido');
+    ok(nb.omen && !!nb.threat, `presagio → amenaza al día siguiente (inspección del KGB); con presupuesto elige una amenaza (${nb.threat})`);
+    ok(nb.price[1] > nb.price[0] && nb.sick >= 1 && nb.supplies >= 3 && nb.adaptDrop, `crisis y alivios: escasez (${nb.price.join(' → ')} ₽), fiebre (${nb.sick} enfermo/s), suministros (+${nb.supplies}); las bajas bajan la adaptación`);
+    await N.click('.tab:has-text("CUARTEL")'); await N.waitForTimeout(150);
+    const head = await N.evaluate(() => !!document.querySelector('.narr-tag'));
+    await N.click('.tab:has-text("EXPEDICIÓN")'); await N.waitForTimeout(200);
+    await N.click('[data-go]'); await N.waitForTimeout(150); for (let i = 0; i < 2; i++) { const rr = await N.$$('.modal .agent-row'); await rr[i].click(); }
+    await N.click('text=LANZAR EXPEDICIÓN'); await N.waitForTimeout(300);
+    if (await N.$('.modal-back >> text=LANZAR')) await N.click('.modal-back >> text=LANZAR');
+    await N.waitForTimeout(800);
+    for (let i = 0; i < 6 && (await N.$('.modal')); i++) { await N.keyboard.press('Escape'); await N.waitForTimeout(120); }
+    const ex = await N.evaluate(() => {
+      const e = window.__topolev.exp; window.__topolev.debug.run('god');
+      if (e.dlg) e.closeDialog(); e.dlgQueue = [];
+      const out = {};
+      const n0 = e.enemies.length;
+      out.patrol = e.directorBeat('patrulla') && e.enemies.filter((x) => x.patrol).length >= 2 && e.enemies.length > n0;
+      out.patrolHunts = e.enemies.filter((x) => x.patrol).every((x) => x.state === 'alerta' && x.mem > 0);
+      out.crate = e.directorRelief('suministros') && e.objects.some((o) => o.drop && o.items.length >= 2);
+      const ex0 = e.exits.length; out.exit = e.directorRelief('salida') && e.exits.length > ex0;
+      for (const x of [...e.enemies]) if (!e.isComp(x)) e.dismissActor(x);
+      for (let i = 0; i < 20; i++) e.wait();
+      out.curve = (e.dir.curve || []).length;
+      out.meter = !!document.querySelector('.tension');
+      for (const q of e.squad) q.out = true;
+      const rep = window.__topolev.expUI.hooks.onEnd(e);
+      out.repCurve = (rep.tension || []).length;
+      window.__topolev.expUI.stop(); window.__topolev.expUI.hooks.onReport(rep);
+      return out;
+    });
+    ok(head && ex.meter, 'el Narrador en la cabecera de la base y la tensión en la de la expedición');
+    ok(ex.patrol && ex.patrolHunts, 'golpe: una patrulla aparece lejos y viene hacia el escuadrón');
+    ok(ex.crate && ex.exit, 'respiros: caja de suministros junto al escuadrón y salida temporal cerca');
+    ok(ex.curve >= 3 && ex.repCurve >= 3, `la curva de tensión se guarda y pasa al informe (${ex.repCurve} puntos)`);
+    await N.waitForTimeout(400);
+    const repTxt = await N.evaluate(() => document.body.innerText.includes('RITMO DE LA EXPEDICIÓN'));
+    ok(repTxt, 'el informe muestra el ritmo de la expedición (curva ASCII)');
+    await ctx22.close();
+  }
+
   console.log(errs.length ? 'ERRORES:\n' + errs.join('\n') : '  ✓ sin errores en consola');
   await b.close();
   if (fails || errs.length) { console.log(`FALLOS: ${fails}`); process.exit(1); }

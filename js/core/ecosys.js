@@ -30,6 +30,7 @@ export function zoneWorld(zoneId) {
     out.calmLeft = CALM_DAYS - (S.day - z.calmDay);
   } else if (z.lastVisit != null) out.grow = Math.min(2, Math.floor((S.day - z.lastVisit) / GROW_DAYS));
   if (S.ng && S.ng.lvl) out.grow += S.ng.lvl; // fase 24.7: «1987», chebylitas un nivel más
+  if (S.narr && S.narr.calmNext) out.nestK *= 0.7; // fase 25: «calma en la Zona» del Narrador
   const hb = homeBossOf(zoneId);
   if (hb && S.world.bossDown[hb] != null && S.day - S.world.bossDown[hb] < BOSS_RETURN) out.bossAway = true;
   return out;

@@ -11,6 +11,7 @@ import { repOf, addRep, FACTIONS, squadAttitude, foreignTrade } from './factions
 import { ACTORS, actorFaction } from './actors.js';
 import { createItem } from '../core/items.js';
 import { agentStats } from '../core/agents.js';
+import { NARR_DIALOGS } from '../core/narrator.js';
 
 const SURVIVOR_STORY = [
   'Llevaba la cuenta de los días rayando la pared con una hebilla. Dejó de hacerlo cuando las rayas empezaron a moverse. «Las paredes respiran, camaradas. De noche se oye cómo respiran.»',
@@ -554,3 +555,6 @@ import('../core/basecore.js').then((m) => { basecoreMod = m; });
 import('../data/basedata.js').then((m) => { ATTACKS_REF = m.ATTACKS; });
 let ATTACKS_REF = null;
 const ATTACK_INFO = () => (S.attack && ATTACKS_REF ? ATTACKS_REF[S.attack.kind] : null);
+
+// fase 25: crisis del Narrador del Reactor
+Object.assign(DIALOGS, NARR_DIALOGS);
