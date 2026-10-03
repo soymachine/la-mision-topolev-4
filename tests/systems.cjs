@@ -1215,10 +1215,21 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
       const e = window.__topolev.exp;
       for (const a of window.__topolev.S.agents) { a.baseHp = 300; a.hp = 600; }
       window.__clr = () => { for (const x of [...e.enemies]) if (!e.isComp(x)) e.dismissActor(x); if (e.dlg) e.closeDialog(); e.dlgQueue = []; };
+      // arena de pruebas: 44×18 casillas de suelo limpio e iluminado, con el escuadrón en el extremo izquierdo
+      window.__clr();
+      const AW = 44, AH = 18, x0 = Math.max(1, Math.min(e.w - AW - 2, e.cur.x - 4)), y0 = Math.max(1, Math.min(e.h - AH - 2, e.cur.y - 9));
+      const inA = (x, y) => x >= x0 && x < x0 + AW && y >= y0 && y < y0 + AH;
+      for (let y = y0; y < y0 + AH; y++) for (let x = x0; x < x0 + AW; x++) { const k = e.key(x, y); e.t[k] = 2; e.rad[k] = 0; e.gas[k] = 0; e.fire[k] = 0; e.anomaly[k] = 0; e.floorItems.delete(k); }
+      for (const o of e.objects.filter((o) => inA(o.x, o.y))) e.objMap.delete(e.key(o.x, o.y));
+      e.objects = e.objects.filter((o) => !inA(o.x, o.y)); e.mines = (e.mines || []).filter((m) => !inA(m.x, m.y));
+      const ax = x0 + 3, ay = y0 + 9;
+      e.team.forEach((q, i) => e.moveEntity(q, ax, ay + i));
+      e.agentLight = () => true; e.lightDirty = true; e.dmap = null; e.computeVisibility(true);
+      window.__P = (dx, dy) => [ax + dx, ay + dy];
       // casilla libre a distancia d (chebyshev) de un punto, con línea de visión
       // casilla libre en el anillo a distancia d (o la más cercana posible, sin bajar de 3 si d >= 3)
-      window.__at = (from, d, los = true) => {
-        const ring = (r) => { const out = []; for (let y = from.y - r; y <= from.y + r; y++) for (let x = from.x - r; x <= from.x + r; x++) if (Math.max(Math.abs(x - from.x), Math.abs(y - from.y)) === r && e.passable(x, y) && !e.entityAt(x, y) && (!los || e.los(from.x, from.y, x, y))) out.push([x, y]); return out; };
+      window.__at = (from, d, los = true, vis = false) => {
+        const ring = (r) => { const out = []; for (let y = from.y - r; y <= from.y + r; y++) for (let x = from.x - r; x <= from.x + r; x++) if (Math.max(Math.abs(x - from.x), Math.abs(y - from.y)) === r && e.passable(x, y) && !e.entityAt(x, y) && (!los || e.los(from.x, from.y, x, y)) && (!vis || e.isVisible(x, y))) out.push([x, y]); return out; };
         for (const r of [d, d + 1, d - 1, d + 2, d - 2, d + 3]) { if (r < 1 || (d >= 3 && r < 3)) continue; const c = ring(r); if (c.length) return c[Math.floor(Math.random() * c.length)]; }
         return null;
       };
@@ -1236,18 +1247,19 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
       const bo = e.spawnEnemy('bobina', 3, sp[0], sp[1], 'alerta'); const h0 = q2 ? q2.a.hp : 0; e.god = false; e.ecoOnHitAgent(bo, sq, 8, true); e.god = true; out.chain = !q2 || cheb(q2, sq) > 1 || q2.a.hp < h0; e.dismissActor(bo);
       function cheb(a, b) { return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)); }
       // sigilo
-      const far = window.__at(sq, 5);
+      e.computeVisibility(true);
+      const far = window.__P(5, 0);
       const hu = e.spawnEnemy('hueco', 6, far[0], far[1], 'alerta'); e.computeVisibility(true);
       out.hidden = e.isVisible(hu.x, hu.y) && e.hidden(hu) && !e.seen(hu);
-      const near2 = window.__at(sq, 2); e.moveEntity(hu, near2[0], near2[1]); out.revealed = !e.hidden(hu); e.dismissActor(hu);
+      const near2 = window.__P(2, 0); e.moveEntity(hu, near2[0], near2[1]); out.revealed = !e.hidden(hu); e.dismissActor(hu);
       // excavar: sale junto a su objetivo
-      const f8 = window.__at(sq, 7);
+      const f8 = window.__P(7, -3);
       const tp = e.spawnEnemy('topo', 4, f8[0], f8[1], 'alerta'); tp.cd3 = 0; e.enemyAct(tp); out.burrow = cheb(tp, sq) <= 1 || e.team.some((q) => cheb(tp, q) <= 1); e.dismissActor(tp);
       // maniquí: quieto mientras se le ve
-      const f4 = window.__at(sq, 4); const mq = e.spawnEnemy('maniqui', 4, f4[0], f4[1], 'alerta'); e.computeVisibility(true);
+      const f4 = window.__P(4, 2); const mq = e.spawnEnemy('maniqui', 4, f4[0], f4[1], 'alerta'); e.computeVisibility(true);
       const p0 = [mq.x, mq.y]; for (let i = 0; i < 3; i++) e.enemyAct(mq); out.angel = e.isVisible(mq.x, mq.y) && mq.x === p0[0] && mq.y === p0[1]; e.dismissActor(mq);
       // aullido: despierta a los demás
-      const pr = e.spawnEnemy('perro', 3, f4[0], f4[1], 'alerta'); const fz = window.__at(sq, 9, false) || window.__at(sq, 8, false); const rt = e.spawnEnemy('rata', 2, fz[0], fz[1], 'dormido');
+      const pr = e.spawnEnemy('perro', 3, f4[0], f4[1], 'alerta'); const fz = window.__P(12, -4); const rt = e.spawnEnemy('rata', 2, fz[0], fz[1], 'dormido');
       e.enemyAct(pr); out.howl = pr.howled === 1 && rt.state === 'alerta'; e.dismissActor(pr); e.dismissActor(rt);
       // se divide al morir
       const en = e.spawnEnemy('enjambre', 6, f4[0], f4[1], 'alerta'); const n0 = e.enemies.length; e.damageEnemy(en, 9999, sq); out.split = e.enemies.filter((x) => x.type === 'enjambre').length === 2 && e.enemies.length === n0 + 1; window.__clr();
@@ -1259,7 +1271,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
       return out;
     });
     ok(ab.shock && ab.blind && ab.drain && ab.web && ab.chain, 'descarga, ceguera, drenar, red y arco eléctrico');
-    ok(ab.hidden && ab.revealed, 'el liquidador hueco no se ve hasta tenerlo a 2 casillas');
+    ok(ab.hidden && ab.revealed, `el liquidador hueco no se ve hasta tenerlo a 2 casillas${ab.hidden && ab.revealed ? '' : ` (${ab.hidden}/${ab.revealed})`}`);
     ok(ab.burrow && ab.angel && ab.howl, 'el topo sale del suelo a tu lado, el maniquí no se mueve si lo miras y el perro despierta al sector');
     ok(ab.split && ab.thorns && ab.rage && ab.repair, 'el enjambre se divide, las púas pinchan, el oso se enfurece y el autómata se repara');
     // élites
@@ -1285,23 +1297,21 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     // cadena alimentaria y cebo
     const fc = await E.evaluate(async () => {
       const e = window.__topolev.exp; const sq = e.cur; const out = {}; window.__clr();
-      // lejos del escuadrón para que no lo vean
-      const far = []; for (let k = 0; k < e.w * e.h; k++) { const x = k % e.w, y = (k / e.w) | 0; if (e.passable(x, y) && !e.entityAt(x, y) && e.team.every((q) => Math.hypot(x - q.x, y - q.y) > 18)) far.push([x, y]); }
-      let pair = null; for (const [x, y] of far) { const n = [[2, 0], [0, 2], [-2, 0], [0, -2]].map(([dx, dy]) => [x + dx, y + dy]).find(([a, b2]) => e.passable(a, b2) && !e.entityAt(a, b2) && e.los(x, y, a, b2) && e.team.every((q) => Math.hypot(a - q.x, b2 - q.y) > 18)); if (n) { pair = [[x, y], n]; break; } }
-      const lobo = e.spawnEnemy('lobo', 5, pair[0][0], pair[0][1], 'errante'); const rata = e.spawnEnemy('rata', 1, pair[1][0], pair[1][1], 'errante'); rata.hp = rata.hpMax = 999;
+      // en el extremo derecho de la arena, lejos de la vista del escuadrón
+      const pl = window.__P(34, 0), pr = window.__P(36, 0);
+      const lobo = e.spawnEnemy('lobo', 5, pl[0], pl[1], 'errante'); const rata = e.spawnEnemy('rata', 1, pr[0], pr[1], 'errante'); rata.hp = rata.hpMax = 999;
       for (let i = 0; i < 6; i++) e.enemyAct(lobo);
       out.hunt = rata.hp < 999;
       // el cuervo sigue al lobo
-      const cpos = far.find(([x, y]) => Math.hypot(x - lobo.x, y - lobo.y) > 5 && Math.hypot(x - lobo.x, y - lobo.y) < 14 && !e.entityAt(x, y));
+      const cpos = window.__P(26, -6);
       const cu = e.spawnEnemy('cuervo', 4, cpos[0], cpos[1], 'errante'); const d0 = Math.hypot(cu.x - lobo.x, cu.y - lobo.y);
       for (let i = 0; i < 4; i++) e.enemyAct(cu);
       out.follow = Math.hypot(cu.x - lobo.x, cu.y - lobo.y) < d0;
       window.__clr();
       // cebo: los carnívoros lo huelen desde el doble de lejos
       const { createItem } = await import('./js/core/items.js');
-      const t1 = window.__at(sq, 3);
-      const l2pos = far.find(([x, y]) => Math.hypot(x - t1[0], y - t1[1]) > 12 && Math.hypot(x - t1[0], y - t1[1]) < 17);
-      const r2pos = far.find(([x, y]) => Math.hypot(x - t1[0], y - t1[1]) > 12 && Math.hypot(x - t1[0], y - t1[1]) < 17 && (x !== l2pos[0] || y !== l2pos[1]));
+      const t1 = window.__P(3, 0);
+      const l2pos = window.__P(18, 0), r2pos = window.__P(17, 4);
       const lb = e.spawnEnemy('lobo', 3, l2pos[0], l2pos[1], 'dormido'); const rb = e.spawnEnemy('rata', 3, r2pos[0], r2pos[1], 'dormido');
       const bait = createItem('bait', 0); sq.a.bag.push(bait);
       e.throwAt(sq, bait, t1[0], t1[1]);
