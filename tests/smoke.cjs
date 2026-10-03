@@ -1,6 +1,7 @@
 // Prueba de humo: nueva partida → expedición → bot jugando hasta extraer o morir.
 // Uso: python3 -m http.server 8000 &  →  node tests/smoke.cjs [mapIdx]
 // Requiere Playwright (npm i -D playwright). URL configurable con TOPOLEV_URL.
+// TOPOLEV_A11Y=1: con el modo daltónico y el alto contraste activados (fase 24.9).
 let pw;
 try { pw = require('playwright'); } catch { pw = require(process.env.PLAYWRIGHT_PATH || '/opt/node-tools/node_modules/playwright'); }
 const URL = process.env.TOPOLEV_URL || 'http://localhost:8000/index.html';
@@ -13,6 +14,7 @@ const mapIdx = +(process.argv[2] || 0);
   p.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
   p.on('console', (m) => { if (m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) errs.push(m.text()); });
   await p.addInitScript(() => { window.__noScenes = true; });
+  if (process.env.TOPOLEV_A11Y) await p.addInitScript(() => { try { const k = 'topolev_settings_v1'; const st = JSON.parse(localStorage.getItem(k) || '{}'); localStorage.setItem(k, JSON.stringify({ ...st, colorblind: true, contrast: true })); } catch {} });
   await p.goto(URL);
   await p.waitForTimeout(800);
   await p.click('text=NUEVA PARTIDA');

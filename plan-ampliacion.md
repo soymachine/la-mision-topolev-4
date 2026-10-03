@@ -530,7 +530,7 @@ Resumen original: cobertura media/total con indicador `[▄]` y flanqueo; sigilo
 
 ---
 
-## FASE 24 — Calidad, accesibilidad, modos y longevidad
+## FASE 24 — Calidad, accesibilidad, modos y longevidad ✔ (salvo 24.4.2/24.4.3, que se completan por partes)
 
 Resumen original: accesibilidad (modo daltónico con símbolos en las rarezas, remapeo de teclas, fuente de mayor contraste, controles táctiles); localización (textos a `js/i18n/es.js` y preparar el inglés); música generativa y más sonidos; logros y estadísticas ampliadas; modos de juego (Historia, Libre, Hierro, Desafío semanal, Nueva partida+ «1987»); enciclopedia dentro del juego.
 
@@ -608,9 +608,9 @@ Resumen original: accesibilidad (modo daltónico con símbolos en las rarezas, r
 - [x] 24.8.3 Búsqueda y enlaces cruzados (de un enemigo a sus zonas, de una zona a sus enemigos y jefe). *Hecho:* buscador (solo entre lo descubierto; no deja pasar las teclas a la expedición) y enlaces `.cx-link` que cambian de sección y resaltan la entrada.
 - [x] 24.8.4 Pruebas (lo no descubierto aparece oculto; tras ver un chebylita aparece). *Hecho:* bloque `ctx17` (y `admin.html` comprobado a mano tras mover las funciones).
 
-### 24.9 Cierre de la fase
-- [ ] 24.9.1 Revisión general de la ayuda y del Archivo con todo lo nuevo; teclas en la ayuda leídas de la tabla de controles.
-- [ ] 24.9.2 `systems.cjs` completo dos veces, `mapgen.mjs`, `smoke.cjs` en 3–4 zonas (también con el modo daltónico y el contraste activados); marcar la fase con ✔ y actualizar `plan.md`.
+### 24.9 Cierre de la fase ✔
+- [x] 24.9.1 Revisión general de la ayuda y del Archivo con todo lo nuevo; teclas en la ayuda leídas de la tabla de controles. *Hecho:* la ayuda tiene ACCESIBILIDAD (daltónico, contraste, idioma, música, táctil), MODOS DE JUEGO, ENCICLOPEDIA y LOGROS Y ESTADÍSTICAS; las teclas salen de `helpKeysHTML()` desde la 24.2; ARCHIVO tiene LOGROS Y ESTADÍSTICAS y ENCICLOPEDIA; `admin.js` tiene las secciones «Logros» y «Modos de juego»; `plan.md` corregido (drones con J).
+- [x] 24.9.2 `systems.cjs` completo dos veces, `mapgen.mjs`, `smoke.cjs` en 3–4 zonas (también con el modo daltónico y el contraste activados); marcar la fase con ✔ y actualizar `plan.md`. *Hecho:* `systems.cjs` 203/203 dos veces, `mapgen.mjs` 463 mapas sin fallos, `smoke.cjs` en las zonas 0 y 5 y, con `TOPOLEV_A11Y=1` (nuevo: daltónico + contraste), en la 8 y la 16, sin errores.
 
 ---
 
