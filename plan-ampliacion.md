@@ -662,6 +662,14 @@ Idea del director: los efectos actuales se quedan como **capa lógica** (se calc
 - [x] Si cambias mientras iba de camino (clic para viajar), **llega solo** a su destino (→, × de su color en la casilla) y allí se queda: se puede mover a varios a la vez.
 - [x] **Órdenes por agente**: cada ficha muestra la suya; clic para cambiarla solo a ese agente. Los botones de grupo siguen; **SEGUIR** reagrupa a todos (quita posiciones fijadas y destinos).
 
+## Revisión 7: variedad del terreno ✔
+- [x] Cada sector elige un **trazado** según su tipo y el mapa evita repetirlos (pesan menos los ya usados):
+  - edificios: **salas** (BSP clásico, ahora con salas ovaladas, en L y en cruz) · **nave** (gran sala con columnas, maquinaria y oficinas) · **pasillo** (corredor ancho con celdas a los lados) · **anillo** (corredor alrededor de un atrio: piscina de combustible, núcleo de grafito o columnas) · **pozo** (pozo inundado con pasarelas) · **almacén** (estanterías) · **derrumbe** (cráter de escombros).
+  - cavernas: **celular** (autómata clásico) · **gusanos** (túneles con cámaras) · **gruta** (caverna enorme con estalagmitas y charca) · **río** (cauce con puentes; de corium en el Útero) · **lago** (lago interior con islotes).
+- [x] `tools/mapas.html`: visor de mapas completos (zona, piso y semilla) con el trazado de cada sector.
+- [x] `tests/mapgen.mjs` comprueba que salen todos los trazados.
+- [ ] Siguiente: más variedad en la superficie (Prípiat, Bosque, Yanov…), que sigue con sus generadores de la fase 17.
+
 ## Banco de ideas (sin fase asignada)
 
 - **Vehículos en superficie:** un UAZ-469 o un BRDM para viajar rápido entre puntos de la superficie (combustible limitado y ruido).

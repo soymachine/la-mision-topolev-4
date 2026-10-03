@@ -12,6 +12,7 @@ import { floorsFor } from '../js/exp/expedition.js';
 const D8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]];
 const modSets = [{}, ...Object.keys(MODIFIERS).map((m) => ({ [m]: true })), Object.fromEntries(Object.keys(MODIFIERS).map((m) => [m, true]))];
 let maps = 0, fails = 0;
+const layouts = {}; // revisión: trazados de sector que han salido
 // zonas fijas (todas sus plantas y modificadores) + zonas de evento (17.3) con varias semillas
 const jobs = [];
 for (let mi = 0; mi < MAPS.length; mi++) {
@@ -26,6 +27,7 @@ for (const { label, def, mi, f, nf, si, seed } of jobs) {
   {
     const m = generateMap(def, mi, seed, { floor: f, floors: nf, mods: modSets[si] });
     maps++;
+    for (const sc of m.sectors) if (sc.layout) layouts[sc.layout] = (layouts[sc.layout] || 0) + 1;
     const W = m.w, seen = new Uint8Array(m.w * m.h), q = [m.start[1] * W + m.start[0]];
     seen[q[0]] = 1;
     for (let i = 0; i < q.length; i++) {
@@ -54,5 +56,10 @@ for (const { label, def, mi, f, nf, si, seed } of jobs) {
     if (errs.length) { fails++; console.log(`✗ ${label} piso ${f} mods ${Object.keys(modSets[si]).join(',') || '—'}: ${errs.join(', ')}`); }
   }
 }
+// todos los trazados nuevos tienen que salir alguna vez
+const ALL = ['salas', 'nave', 'pasillo', 'anillo', 'pozo', 'almacen', 'derrumbe', 'celular', 'gusanos', 'gruta', 'rio', 'lago'];
+const missing = ALL.filter((k) => !layouts[k]);
+if (missing.length) { fails++; console.log(`✗ trazados que no salen nunca: ${missing.join(', ')}`); }
+console.log(`trazados: ${ALL.map((k) => `${k} ${layouts[k] || 0}`).join(' · ')}`);
 console.log(`${maps} mapas generados, ${fails} con fallos`);
 process.exit(fails ? 1 : 0);

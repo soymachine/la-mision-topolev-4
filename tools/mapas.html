@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visor de mapas</title>
+<style>
+  :root { --bg: #000; --fg: #ff8a1f; --dim: #8a3f08; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 13px "DejaVu Sans Mono", Consolas, monospace; }
+  header { display: flex; flex-wrap: wrap; gap: 1ch 2ch; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--dim); }
+  select, input, button { background: #000; color: var(--fg); border: 1px solid var(--dim); font: inherit; padding: 2px 6px; }
+  button { cursor: pointer; }
+  #info { color: #c08040; padding: 4px 16px; white-space: pre-wrap; }
+  #wrap { padding: 8px 16px; overflow: auto; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<!-- Herramienta de desarrollo: dibuja un mapa completo (todo explorado) con los caracteres y colores del juego.
+     Uso: tools/mapas.html?zone=turbinas&floor=0&seed=123&fs=11 -->
+<header>
+  <label>Zona <select id="zone"></select></label>
+  <label>Piso <select id="floor"></select></label>
+  <label>Semilla <input id="seed" type="number" style="width:10ch"></label>
+  <button id="rnd">⟳ OTRA</button>
+  <label>Letra <input id="fs" type="number" min="6" max="20" style="width:5ch"></label>
+</header>
+<div id="info"></div>
+<div id="wrap"><canvas id="cv"></canvas></div>
+<script type="module">
+import { generateMap } from '../js/exp/mapgen.js';
+import { MAPS, floorDef } from '../js/data/world.js';
+import { TILES } from '../js/data/tiles.js';
+import { floorsFor } from '../js/exp/expedition.js';
+
+const $ = (id) => document.getElementById(id);
+const q = new URLSearchParams(location.search);
+MAPS.forEach((m, i) => $('zone').append(new Option(`${m.name} (${m.id})`, m.id)));
+$('zone').value = q.get('zone') || MAPS[0].id;
+$('seed').value = q.get('seed') || 12345;
+$('fs').value = q.get('fs') || 11;
+const hash = (x, y) => { let h = (x * 374761393 + y * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177; return (h ^ (h >>> 16)) >>> 0; };
+const OBJ = { vein: ['✦', '#5ff7ff'], cache: ['■', '#ffb02e'], locker: ['▤', '#d9a066'], crate: ['□', '#d9a066'], corpse: ['%', '#d9a066'], note: ['?', '#f0e1aa'], survivor: ['☺', '#a0e8a0'], shard: ['✧', '#5ff7ff'], trader: ['₽', '#e6c86a'], medic: ['✚', '#ff6a6a'], board: ['▦', '#c8b48c'], archive: ['▥', '#e05050'], wreck: ['✈', '#b0b8c0'], radio: ['☏', '#5fd0ff'] };
+
+function fillFloors() {
+  const mi = MAPS.findIndex((m) => m.id === $('zone').value);
+  const nf = floorsFor(mi);
+  const f0 = +(q.get('floor') || 0);
+  $('floor').innerHTML = '';
+  for (let f = 0; f < nf; f++) $('floor').append(new Option(f ? `−${f}` : 'superior', f));
+  $('floor').value = Math.min(f0, nf - 1);
+}
+function draw() {
+  const mi = MAPS.findIndex((m) => m.id === $('zone').value);
+  const f = +$('floor').value, nf = floorsFor(mi), seed = +$('seed').value >>> 0;
+  const def = floorDef(MAPS[mi], f);
+  const t0 = performance.now();
+  const m = generateMap(def, mi, seed, { floor: f, floors: nf, mods: {} });
+  const ms = performance.now() - t0;
+  const fs = +$('fs').value;
+  const cv = $('cv'), ctx = cv.getContext('2d');
+  ctx.font = `${fs}px "DejaVu Sans Mono", Consolas, monospace`;
+  const cw = Math.ceil(ctx.measureText('M').width), ch = Math.round(fs * 1.15);
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  cv.width = m.w * cw * dpr; cv.height = m.h * ch * dpr; cv.style.width = m.w * cw + 'px'; cv.style.height = m.h * ch + 'px';
+  ctx.scale(dpr, dpr);
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, m.w * cw, m.h * ch);
+  ctx.font = `${fs}px "DejaVu Sans Mono", Consolas, monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const counts = {};
+  for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) {
+    const k = y * m.w + x, td = TILES[m.t[k]];
+    counts[td.name] = (counts[td.name] || 0) + 1;
+    // roca no expuesta: negro, como en el juego
+    if (m.t[k] === 0) { let exp = false; for (let dy = -1; dy <= 1 && !exp; dy++) for (let dx = -1; dx <= 1; dx++) { const nx = x + dx, ny = y + dy; if (nx >= 0 && ny >= 0 && nx < m.w && ny < m.h && TILES[m.t[ny * m.w + nx]].walk) { exp = true; break; } } if (!exp) continue; }
+    const h = hash(x, y);
+    if (td.bg) { ctx.fillStyle = td.bg; ctx.fillRect(x * cw, y * ch, cw, ch); }
+    ctx.fillStyle = td.fg[(h >>> 8) % td.fg.length];
+    ctx.fillText(td.glyphs[h % td.glyphs.length], x * cw + cw / 2, y * ch + ch / 2 + 1);
+  }
+  const mark = (x, y, g, col) => { ctx.fillStyle = '#000'; ctx.fillRect(x * cw, y * ch, cw, ch); ctx.fillStyle = col; ctx.font = `700 ${fs}px "DejaVu Sans Mono", Consolas, monospace`; ctx.fillText(g, x * cw + cw / 2, y * ch + ch / 2 + 1); ctx.font = `${fs}px "DejaVu Sans Mono", Consolas, monospace`; };
+  for (const o of m.objects) if (OBJ[o.kind]) mark(o.x, o.y, ...OBJ[o.kind]);
+  for (const p of m.pois) if (p.type === 'nest') mark(p.x, p.y, p.boss ? '☠' : '▲', '#ff5050');
+  for (const ex of m.exits) mark(ex.x, ex.y, '⌂', '#5ff7ff');
+  if (m.lift) mark(m.lift[0], m.lift[1], '↓', '#5ff7ff');
+  mark(m.start[0], m.start[1], '@', '#fff');
+  // líneas de los sectores y su nombre
+  ctx.strokeStyle = 'rgba(255,138,31,.25)'; ctx.setLineDash([3, 3]);
+  for (const s of m.sectors) ctx.strokeRect(s.x * cw + 0.5, s.y * ch + 0.5, s.w * cw, s.h * ch);
+  ctx.setLineDash([]);
+  ctx.textAlign = 'left'; ctx.font = `700 ${fs}px "DejaVu Sans Mono", Consolas, monospace`;
+  for (const s of m.sectors) { const txt = `${s.code} ${s.type}${s.layout ? ' · ' + s.layout : ''}`; ctx.fillStyle = 'rgba(0,0,0,.8)'; ctx.fillRect(s.x * cw + 2, s.y * ch + 2, ctx.measureText(txt).width + 6, ch); ctx.fillStyle = '#ffd23f'; ctx.fillText(txt, s.x * cw + 5, s.y * ch + 2 + ch / 2); }
+  const walk = m.t.reduce((a, v) => a + (TILES[v].walk ? 1 : 0), 0);
+  $('info').textContent = `${def.name} · piso ${f ? '−' + f : 'superior'} · ${m.w}×${m.h} · ${(walk / (m.w * m.h) * 100).toFixed(0)}% transitable · ${ms.toFixed(0)} ms · semilla ${seed}`;
+  document.title = `Mapa · ${MAPS[mi].short} ${f ? '−' + f : ''}`;
+  history.replaceState(null, '', `?zone=${MAPS[mi].id}&floor=${f}&seed=${seed}&fs=${fs}`);
+  window.__ready = true;
+}
+$('zone').onchange = () => { fillFloors(); draw(); };
+$('floor').onchange = draw; $('seed').onchange = draw; $('fs').onchange = draw;
+$('rnd').onclick = () => { $('seed').value = Math.floor(Math.random() * 1e6); draw(); };
+fillFloors(); draw();
+</script>
+</body>
+</html>

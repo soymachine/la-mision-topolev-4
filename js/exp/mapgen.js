@@ -129,7 +129,18 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
       const rx = lf.x + g.int(1, Math.max(1, lf.w - rw - 1));
       const ry = lf.y + g.int(1, Math.max(1, lf.h - rh - 1));
       const tile = g.chance(0.12) ? T.GRATE : T.FLOOR;
-      carveRoom(rx, ry, rw, rh, tile);
+      // revisión: no todas las salas son rectángulos (ovaladas, en L o en cruz)
+      const shape = rw >= 7 && rh >= 5 ? g.weighted(['rect', 'oval', 'ele', 'cruz'], (k) => ({ rect: 6, oval: 1.5, ele: 1.5, cruz: 1 })[k]) : 'rect';
+      if (shape === 'oval') carveEllipse(rx + rw / 2 - 0.5, ry + rh / 2 - 0.5, rw / 2, rh / 2, tile);
+      else if (shape === 'ele') {
+        carveRoom(rx, ry, rw, rh, tile);
+        const cx = g.chance(0.5) ? rx : rx + Math.ceil(rw / 2), cy = g.chance(0.5) ? ry : ry + Math.ceil(rh / 2);
+        for (let y = cy; y < cy + Math.floor(rh / 2); y++) for (let x = cx; x < cx + Math.floor(rw / 2); x++) if (inb(x, y)) { t[I(x, y)] = T.ROCK; room[I(x, y)] = 0; }
+      } else if (shape === 'cruz') {
+        const bw = Math.max(3, Math.floor(rw / 3)), bh = Math.max(3, Math.floor(rh / 3));
+        carveRoom(rx, ry + Math.floor((rh - bh) / 2), rw, bh, tile);
+        carveRoom(rx + Math.floor((rw - bw) / 2), ry, bw, rh, tile);
+      } else carveRoom(rx, ry, rw, rh, tile);
       lf.room = { x: rx, y: ry, w: rw, h: rh };
       // maquinaria en salas grandes
       if (rw >= 9 && rh >= 7 && g.chance(0.55)) {
@@ -363,10 +374,277 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
     while (x < s.x + s.w - 9) { if (g.chance(0.45)) { for (let xx = x; xx < x + 7; xx++) t[I(xx, cy)] = T.HULL; } x += g.int(10, 16); }
   }
 
+  // ---------------- Revisión: variedad de trazados por sector ----------------
+  // Cada sector elige un trazado según su tipo (y evita repetir mucho los que ya hay en el mapa):
+  //   edificios: salas (BSP clásico) · nave · pasillo · anillo · pozo · almacen · derrumbe
+  //   cavernas:  celular (autómata clásico) · gusanos · gruta · rio · lago
+  const inSec = (s, x, y) => x > s.x && y > s.y && x < s.x + s.w - 1 && y < s.y + s.h - 1 && inb(x, y);
+  const setT = (x, y, tile, isRoom = 0) => { if (!inb(x, y)) return; t[I(x, y)] = tile; room[I(x, y)] = isRoom; };
+  function carveEllipse(cx, cy, rx, ry, tile, isRoom = 1, s = null, jitter = 0) {
+    for (let y = Math.floor(cy - ry - 1); y <= Math.ceil(cy + ry + 1); y++) for (let x = Math.floor(cx - rx - 1); x <= Math.ceil(cx + rx + 1); x++) {
+      if (s ? !inSec(s, x, y) : !inb(x, y)) continue;
+      const d = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2;
+      if (d <= 1 + (jitter ? g.float(-jitter, jitter) : 0)) { t[I(x, y)] = tile; room[I(x, y)] = isRoom; }
+    }
+  }
+  // ruido suave por sector (sumas de senos con fases al azar), en [-1, 1]
+  function makeNoise(sc = 1) {
+    const ph = [g.float(0, 6.28), g.float(0, 6.28), g.float(0, 6.28), g.float(0, 6.28)];
+    return (x, y) => (Math.sin(x * 0.31 * sc + ph[0]) + Math.sin(y * 0.37 * sc + ph[1]) + Math.sin((x + y) * 0.19 * sc + ph[2]) + Math.sin((x - y) * 0.23 * sc + ph[3])) / 4;
+  }
+  const DIR8 = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]]; // en orden circular
+  // nave: una gran sala con columnas, hileras de maquinaria y, a veces, oficinas en un extremo
+  function genHall(s) {
+    const m = g.int(2, 3);
+    const x0 = s.x + m, y0 = s.y + m, w = s.w - 2 * m, h = s.h - 2 * m;
+    carveRoom(x0, y0, w, h, g.chance(0.2) ? T.GRATE : T.FLOOR);
+    let ox0 = x0, ow = 0;
+    if (w >= 24 && g.chance(0.55)) {
+      // oficinas: tabique con despachos a un lado
+      ow = g.int(5, 7);
+      const left = g.chance(0.5);
+      const wx = left ? x0 + ow : x0 + w - 1 - ow;
+      for (let y = y0; y < y0 + h; y++) setT(wx, y, T.WALL);
+      let y = y0;
+      while (y < y0 + h) {
+        const oh = g.int(3, 5);
+        const ye = Math.min(y0 + h - 1, y + oh);
+        if (ye < y0 + h - 1) for (let x = left ? x0 : wx + 1; x < (left ? wx : x0 + w); x++) setT(x, ye, T.WALL);
+        setT(wx, g.int(y, Math.max(y, ye - 1)), T.FLOOR, 1); // puerta del despacho
+        y = ye + 1;
+      }
+      if (left) ox0 = wx + 1;
+    }
+    const hx0 = ow && ox0 !== x0 ? ox0 : x0, hw = w - (ow ? ow + 1 : 0);
+    // columnas
+    const px = g.int(4, 6), py = g.int(4, 5), big = g.chance(0.35);
+    for (let y = y0 + 2; y < y0 + h - 2; y += py) for (let x = hx0 + 2; x < hx0 + hw - 2; x += px) {
+      setT(x, y, T.WALL);
+      if (big && x + 1 < hx0 + hw - 2 && y + 1 < y0 + h - 2) { setT(x + 1, y, T.WALL); setT(x, y + 1, T.WALL); setT(x + 1, y + 1, T.WALL); }
+    }
+    // hileras de maquinaria entre columnas, con huecos para pasar
+    if (g.chance(0.7)) for (let y = y0 + 2 + Math.floor(py / 2) + (big ? 1 : 0); y < y0 + h - 2; y += py * g.int(1, 2)) {
+      let x = hx0 + 2;
+      while (x < hx0 + hw - 3) {
+        const len = g.int(2, 5);
+        if (g.chance(0.7)) for (let i = 0; i < len && x + i < hx0 + hw - 3; i++) if (t[I(x + i, y)] === T.FLOOR || t[I(x + i, y)] === T.GRATE) setT(x + i, y, T.MACHINE);
+        x += len + g.int(2, 3);
+      }
+    }
+  }
+  // pasillo: un corredor ancho a lo largo del sector y una hilera de celdas a cada lado, cada una con su puerta
+  function genSpine(s) {
+    const horiz = s.w >= s.h;
+    const P = (u, v) => (horiz ? [u, v] : [v, u]);
+    const U0 = horiz ? s.x + 2 : s.y + 2, U1 = horiz ? s.x + s.w - 3 : s.y + s.h - 3;
+    const V0 = horiz ? s.y + 2 : s.x + 2, V1 = horiz ? s.y + s.h - 3 : s.x + s.w - 3;
+    const cw = g.int(2, 3);
+    const vc = Math.floor((V0 + V1) / 2) - (cw >> 1) + g.int(-2, 2);
+    for (let u = U0 - 1; u <= U1 + 1; u++) for (let v = vc; v < vc + cw; v++) { const [x, y] = P(u, v); setT(x, y, T.FLOOR, 0); }
+    for (const side of [-1, 1]) {
+      const a = side < 0 ? V0 : vc + cw + 1, b = side < 0 ? vc - 2 : V1;
+      if (b - a < 2) continue;
+      const wallV = side < 0 ? vc - 1 : vc + cw;
+      let u = U0;
+      while (u < U1 - 2) {
+        const rw = g.int(4, 8), ue = Math.min(U1, u + rw - 1);
+        if (ue - u < 2) break;
+        const depth = g.chance(0.35) ? g.int(Math.max(3, Math.floor((b - a) / 2)), b - a + 1) : b - a + 1;
+        const aa = side < 0 ? b - depth + 1 : a, bb = side < 0 ? b : a + depth - 1;
+        if (!g.chance(0.1)) {
+          const tile = g.chance(0.15) ? T.GRATE : T.FLOOR;
+          for (let uu = u; uu <= ue; uu++) for (let v = aa; v <= bb; v++) { const [x, y] = P(uu, v); setT(x, y, tile, 1); }
+          const [dx, dy] = P(g.int(u, ue), wallV); setT(dx, dy, T.FLOOR, 0); // puerta al pasillo
+          if (g.chance(0.25) && ue + 2 <= U1) { const [ix, iy] = P(ue + 1, g.int(aa, bb)); setT(ix, iy, T.FLOOR, 1); } // paso a la celda de al lado
+        }
+        u = ue + 2;
+      }
+    }
+  }
+  // anillo: corredor alrededor de un atrio central (piscina de combustible, núcleo de grafito o columnas)
+  function genRing(s) {
+    const m = 2, cw = 2;
+    const x0 = s.x + m, y0 = s.y + m, x1 = s.x + s.w - 1 - m, y1 = s.y + s.h - 1 - m;
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (x < x0 + cw || x > x1 - cw || y < y0 + cw || y > y1 - cw) setT(x, y, T.FLOOR, 0);
+    const ax0 = x0 + cw + 1, ay0 = y0 + cw + 1, ax1 = x1 - cw - 1, ay1 = y1 - cw - 1;
+    if (ax1 - ax0 < 6 || ay1 - ay0 < 4) return;
+    for (let y = ay0; y <= ay1; y++) for (let x = ax0; x <= ax1; x++) setT(x, y, T.FLOOR, 1);
+    // entradas al atrio (una o dos por lado)
+    for (const [side, n] of [['N', g.int(1, 2)], ['S', g.int(1, 2)], ['W', g.int(0, 1)], ['E', g.int(0, 1)]]) for (let i = 0; i < n; i++) {
+      if (side === 'N' || side === 'S') setT(g.int(ax0 + 1, ax1 - 1), side === 'N' ? ay0 - 1 : ay1 + 1, T.FLOOR, 0);
+      else setT(side === 'W' ? ax0 - 1 : ax1 + 1, g.int(ay0 + 1, ay1 - 1), T.FLOOR, 0);
+    }
+    const cx = (ax0 + ax1) / 2, cy = (ay0 + ay1) / 2, rx = (ax1 - ax0) / 2, ry = (ay1 - ay0) / 2;
+    const feat = g.weighted(['piscina', 'nucleo', 'columnas'], (k) => ({ piscina: usedLayouts.pozo ? 0.3 : 0.8, nucleo: 1, columnas: 1.2 })[k]);
+    if (feat === 'piscina' && rx >= 5 && ry >= 3) {
+      // piscina de combustible gastado: agua profunda y radiactiva, con una pasarela que la cruza
+      carveEllipse(cx, cy, rx * 0.6, ry * 0.6, T.WATER, 1);
+      carveEllipse(cx, cy, rx * 0.6 - 1, ry * 0.6 - 0.8, T.DEEP, 1);
+      for (let y = ay0; y <= ay1; y++) for (let x = ax0; x <= ax1; x++) if (t[I(x, y)] === T.DEEP) hot.push([I(x, y), 1.4]);
+      const yy = Math.round(cy);
+      for (let x = ax0; x <= ax1; x++) if (t[I(x, yy)] === T.DEEP || t[I(x, yy)] === T.WATER) setT(x, yy, T.CATWALK, 1);
+    } else if (feat === 'nucleo') {
+      // núcleo: bloque de maquinaria con grafito esparcido alrededor
+      const bw = Math.max(1, Math.floor(rx / 3.5)), bh = Math.max(1, Math.floor(ry / 3));
+      for (let y = Math.round(cy) - bh; y <= Math.round(cy) + bh; y++) for (let x = Math.round(cx) - bw; x <= Math.round(cx) + bw; x++) setT(x, y, T.MACHINE, 1);
+      for (let y = ay0; y <= ay1; y++) for (let x = ax0; x <= ax1; x++) if (t[I(x, y)] === T.FLOOR && g.chance(0.12)) { setT(x, y, T.GRAPHITE, 1); hot.push([I(x, y), 0.8]); }
+    } else {
+      for (let a = 0; a < 12; a++) { const ang = (a / 12) * Math.PI * 2; setT(Math.round(cx + Math.cos(ang) * (rx - 1.5)), Math.round(cy + Math.sin(ang) * (ry - 1.2)), T.WALL); }
+    }
+  }
+  // pozo: sala grande con un pozo inundado en el centro y pasarelas que lo cruzan
+  function genPit(s) {
+    const m = g.int(2, 3);
+    const x0 = s.x + m, y0 = s.y + m, w = s.w - 2 * m, h = s.h - 2 * m;
+    carveRoom(x0, y0, w, h, T.FLOOR);
+    const cx = x0 + w / 2 - 0.5, cy = y0 + h / 2 - 0.5, rx = w * g.float(0.17, 0.25), ry = h * g.float(0.17, 0.25);
+    carveEllipse(cx, cy, rx + 1, ry + 1, T.WATER, 1);
+    carveEllipse(cx, cy, rx, ry, T.DEEP, 1, null, 0.08);
+    for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (t[I(x, y)] === T.DEEP) hot.push([I(x, y), 0.7]);
+    // pasarelas en cruz (a veces solo una)
+    const yy = Math.round(cy) + g.int(-1, 1), xx = Math.round(cx) + g.int(-2, 2);
+    for (let x = x0; x < x0 + w; x++) if (t[I(x, yy)] === T.DEEP || t[I(x, yy)] === T.WATER) setT(x, yy, T.CATWALK, 1);
+    if (g.chance(0.7)) for (let y = y0; y < y0 + h; y++) if (t[I(xx, y)] === T.DEEP || t[I(xx, y)] === T.WATER) setT(xx, y, T.CATWALK, 1);
+    // barandillas de maquinaria en las esquinas
+    for (const [cx2, cy2] of [[x0 + 1, y0 + 1], [x0 + w - 3, y0 + h - 3]]) if (g.chance(0.6)) { setT(cx2, cy2, T.MACHINE, 1); setT(cx2 + 1, cy2, T.MACHINE, 1); }
+  }
+  // almacén: estanterías largas con pasillos y cruces
+  function genStore(s) {
+    const m = 2;
+    const x0 = s.x + m, y0 = s.y + m, w = s.w - 2 * m, h = s.h - 2 * m;
+    carveRoom(x0, y0, w, h, T.FLOOR);
+    const horiz = w >= h;
+    const L0 = horiz ? x0 + 2 : y0 + 2, L1 = horiz ? x0 + w - 3 : y0 + h - 3; // a lo largo
+    const C0 = horiz ? y0 + 2 : x0 + 2, C1 = horiz ? y0 + h - 3 : x0 + w - 3; // a lo ancho
+    const gap = g.int(2, 3);
+    const cross = new Set();
+    for (let l = L0 + g.int(4, 8); l < L1 - 2; l += g.int(7, 11)) { cross.add(l); cross.add(l + 1); }
+    for (let c = C0; c <= C1; c += gap + 1) for (let l = L0; l <= L1; l++) {
+      if (cross.has(l)) continue;
+      const [x, y] = horiz ? [l, c] : [c, l];
+      setT(x, y, T.MACHINE, 1);
+    }
+  }
+  // derrumbe: salas normales con un cráter de escombros que se lo ha llevado todo por delante en el medio
+  function genCollapse(s) {
+    genIndustrial(s);
+    const nz = makeNoise(1.6);
+    const cx = s.x + s.w * g.float(0.35, 0.65), cy = s.y + s.h * g.float(0.35, 0.65);
+    const rx = s.w * g.float(0.26, 0.38), ry = s.h * g.float(0.26, 0.38);
+    for (let y = s.y + 1; y < s.y + s.h - 1; y++) for (let x = s.x + 1; x < s.x + s.w - 1; x++) {
+      if (!inSec(s, x, y)) continue;
+      const d = Math.sqrt(((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2) + nz(x, y) * 0.25;
+      if (d < 0.85) setT(x, y, g.chance(0.55) ? T.RUBBLE : g.chance(0.5) ? T.CAVE : T.FLOOR, 0);
+      else if (d < 1.05 && !walkable(t[I(x, y)]) && g.chance(0.45)) setT(x, y, T.DEBRIS, 0);
+    }
+  }
+  // gusanos: túneles serpenteantes con cámaras, que parten de un punto común
+  function genWorms(s, flooded) {
+    const x0 = s.x + 2, y0 = s.y + 2, x1 = s.x + s.w - 3, y1 = s.y + s.h - 3;
+    const hub = [Math.floor((x0 + x1) / 2) + g.int(-3, 3), Math.floor((y0 + y1) / 2) + g.int(-2, 2)];
+    carveEllipse(hub[0], hub[1], g.float(2.5, 4), g.float(2, 3), T.CAVE, 0, s, 0.3);
+    const n = g.int(4, 6);
+    for (let wi = 0; wi < n; wi++) {
+      let x = hub[0], y = hub[1], dir = g.int(0, 7);
+      const steps = g.int(60, 140), rad = g.chance(0.35) ? 1 : 0;
+      for (let st = 0; st < steps; st++) {
+        for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) if (inSec(s, x + dx, y + dy)) setT(x + dx, y + dy, T.CAVE, 0);
+        if (g.chance(0.025)) carveEllipse(x, y, g.float(2, 4), g.float(1.6, 3), T.CAVE, 0, s, 0.3); // cámara
+        if (g.chance(0.3)) dir = (dir + g.pick([-1, 1]) + 8) % 8;
+        let nx = x + DIR8[dir][0], ny = y + DIR8[dir][1];
+        if (nx < x0 || nx > x1 || ny < y0 || ny > y1) { dir = (dir + 4) % 8; nx = Math.max(x0, Math.min(x1, x)); ny = Math.max(y0, Math.min(y1, y)); }
+        x = nx; y = ny;
+      }
+    }
+    if (flooded) floodBlobs(s, g.int(1, 3), [T.CAVE]);
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (t[I(x, y)] === T.CAVE && g.chance(0.03)) t[I(x, y)] = T.RUBBLE;
+  }
+  // gruta: una caverna enorme y abierta, con estalagmitas y una charca
+  function genGrotto(s, flooded, lake = false) {
+    const nz = makeNoise(1.2);
+    const cx = s.x + s.w / 2, cy = s.y + s.h / 2, rx = s.w / 2 - 1.5, ry = s.h / 2 - 1.5;
+    for (let y = s.y + 1; y < s.y + s.h - 1; y++) for (let x = s.x + 1; x < s.x + s.w - 1; x++) {
+      const d = Math.sqrt(((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2) + nz(x, y) * 0.3;
+      if (d < 0.95) setT(x, y, T.CAVE, 0);
+    }
+    // estalagmitas sueltas (nunca dos juntas)
+    for (let y = s.y + 2; y < s.y + s.h - 2; y++) for (let x = s.x + 2; x < s.x + s.w - 2; x++) {
+      if (t[I(x, y)] !== T.CAVE || !g.chance(0.035)) continue;
+      if (D8.every(([dx, dy]) => t[I(x + dx, y + dy)] === T.CAVE)) setT(x, y, T.ROCK, 0);
+    }
+    // charca o lago (con playa de arena)
+    if (lake || flooded || g.chance(0.5)) {
+      const lx = cx + g.float(-rx, rx) * (lake ? 0.15 : 0.4), ly = cy + g.float(-ry, ry) * (lake ? 0.15 : 0.4);
+      const lr = lake ? g.float(0.32, 0.42) : g.float(0.12, 0.2);
+      const Lx = rx * lr * 2, Ly = ry * lr * 2;
+      carveEllipse(lx, ly, Lx + 1.6, Ly + 1.3, T.SAND, 0, s, 0.3);
+      carveEllipse(lx, ly, Lx + 0.6, Ly + 0.5, T.WATER, 0, s, 0.2);
+      carveEllipse(lx, ly, Lx, Ly, T.DEEP, 0, s, 0.15);
+      // islotes en los lagos grandes
+      if (lake) for (let n = 0; n < g.int(1, 3); n++) carveEllipse(lx + g.float(-Lx, Lx) * 0.6, ly + g.float(-Ly, Ly) * 0.6, g.float(1.5, 2.5), g.float(1, 2), T.CAVE, 0, s, 0.3);
+    }
+  }
+  // río: un cauce que cruza el sector de lado a lado con puentes (de corium en el Útero: ahí los puentes son de roca)
+  function genRiver(s, kind = 'agua') {
+    if (g.chance(0.5)) genCave(s, false); else genGrotto(s, false);
+    const horiz = s.w >= s.h;
+    const U0 = horiz ? s.x + 1 : s.y + 1, U1 = horiz ? s.x + s.w - 2 : s.y + s.h - 2;
+    const V0 = horiz ? s.y + 3 : s.x + 3, V1 = horiz ? s.y + s.h - 4 : s.x + s.w - 4;
+    const mid = (V0 + V1) / 2, amp = (V1 - V0) * g.float(0.12, 0.25), fr = g.float(0.12, 0.25), ph = g.float(0, 6.28);
+    const core = kind === 'corium' ? T.CORIUM : T.DEEP, bank = kind === 'corium' ? T.GRAPHITE : T.WATER;
+    const bridges = new Set();
+    for (let i = 0; i < g.int(1, 2); i++) { const b0 = g.int(U0 + 3, U1 - 4); bridges.add(b0); bridges.add(b0 + 1); }
+    for (let u = U0; u <= U1; u++) {
+      const c = mid + Math.sin(u * fr + ph) * amp;
+      const half = g.chance(0.15) ? 2 : 1.3;
+      for (let v = Math.floor(c - half - 1.5); v <= Math.ceil(c + half + 1.5); v++) {
+        const [x, y] = horiz ? [u, v] : [v, u];
+        if (!inSec(s, x, y)) continue;
+        const d = Math.abs(v - c);
+        if (bridges.has(u)) { setT(x, y, kind === 'corium' ? T.CAVE : T.CATWALK, 0); continue; }
+        if (d <= half) { setT(x, y, core, 0); if (kind === 'corium') hot.push([I(x, y), 2.5]); }
+        else if (d <= half + 1.5) { setT(x, y, bank, 0); if (kind === 'corium') hot.push([I(x, y), 1.2]); }
+      }
+    }
+  }
+  const ROOM_LAYOUTS = {
+    industrial: { salas: 3, nave: 2.2, pasillo: 1.5, anillo: 1, pozo: 0.6, almacen: 1.5, derrumbe: 0.7 },
+    ruinas: { salas: 2, derrumbe: 3, nave: 1, pasillo: 1, anillo: 0.7 },
+    laboratorio: { pasillo: 3, salas: 2, anillo: 2, pozo: 0.4, almacen: 0.6, nave: 0.8 },
+    base: { salas: 2, pasillo: 2, anillo: 1.5, nave: 1, almacen: 1 },
+    campamento: { salas: 2, nave: 1 },
+  };
+  const CAVE_LAYOUTS = {
+    caverna: { celular: 3, gusanos: 2, gruta: 2, rio: 1.2 },
+    inundado: { celular: 2, lago: 2.5, rio: 1.5, gusanos: 1 },
+    organico: { celular: 2, gusanos: 2.5, gruta: 1 },
+    corium: { celular: 2, rio: 1.5, gruta: 1.5, gusanos: 1 },
+  };
+  const usedLayouts = {};
+  // los trazados ya usados en el mapa pesan menos: así un mismo mapa mezcla varios
+  const pickLayout = (table) => { const keys = Object.keys(table); const k = g.weighted(keys, (key) => table[key] / (1 + 1.5 * (usedLayouts[key] || 0))); usedLayouts[k] = (usedLayouts[k] || 0) + 1; return k; };
+  // los sectores muy pequeños (zonas sociales, pisos estrechos) siguen con el trazado clásico
+  const roomy = (s) => s.w >= 22 && s.h >= 16;
+  function genRoomSector(s) {
+    const L = roomy(s) && ROOM_LAYOUTS[s.type] ? pickLayout(ROOM_LAYOUTS[s.type]) : 'salas';
+    s.layout = L;
+    ({ salas: genIndustrial, nave: genHall, pasillo: genSpine, anillo: genRing, pozo: genPit, almacen: genStore, derrumbe: genCollapse })[L](s);
+  }
+  function genCaveSector(s) {
+    const L = roomy(s) && CAVE_LAYOUTS[s.type] ? pickLayout(CAVE_LAYOUTS[s.type]) : 'celular';
+    s.layout = L;
+    const flooded = s.type === 'inundado';
+    if (L === 'gusanos') genWorms(s, flooded);
+    else if (L === 'gruta') genGrotto(s, flooded);
+    else if (L === 'lago') genGrotto(s, true, true);
+    else if (L === 'rio') genRiver(s, s.type === 'corium' ? 'corium' : 'agua');
+    else genCave(s, flooded);
+  }
+
   const organic = new Set();
   for (const s of sectors) {
     if (s.type === 'industrial' || s.type === 'ruinas' || s.type === 'campamento' || s.type === 'base' || s.type === 'laboratorio') {
-      genIndustrial(s);
+      genRoomSector(s);
       if (def.zones.inundado && g.chance(0.4)) floodBlobs(s, g.int(1, 2), [T.FLOOR, T.GRATE]);
     } else if (s.type === 'ciudad') genCity(s);
     else if (s.type === 'bosque') genForest(s);
@@ -375,7 +653,7 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
     else if (s.type === 'antena') genAntenna(s);
     else if (s.type === 'lago') genLake(s);
     else if (s.type === 'metro') genMetro(s);
-    else { genCave(s, s.type === 'inundado'); if (s.type === 'organico') organic.add(s.id); }
+    else { genCaveSector(s); if (s.type === 'organico') organic.add(s.id); }
     if (opts.mods && opts.mods.inundacion && !SURF[s.type]) floodBlobs(s, g.int(2, 4), [T.FLOOR, T.GRATE, T.CAVE]);
   }
 
