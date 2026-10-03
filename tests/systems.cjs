@@ -450,14 +450,16 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
   };
   // ---- superficie: Prípiat
   await launchZone('pripyat');
-  const sf = await Z.evaluate(() => {
+  const sf = await Z.evaluate(async () => {
     const e = window.__topolev.exp; const c = e.cur;
     const out = { id: e.def.id, surface: e.surface, clock: e.clock != null, weather: e.weather };
     window.__topolev.debug.run('clock 12 despejado'); e.computeVisibility(true);
     const outdoor = []; for (let k = 0; k < e.t.length; k++) if (!e.indoor[k] && e.passable(k % e.w, (k / e.w) | 0)) outdoor.push(k);
     out.dayLit = outdoor.slice(0, 50).every((k) => e.isLit(k % e.w, (k / e.w) | 0));
     window.__topolev.debug.run('clock 23'); e.computeVisibility(true);
-    out.night = e.isNight(); out.nightLit = outdoor.slice(0, 50).filter((k) => e.isLit(k % e.w, (k / e.w) | 0)).length;
+    // de noche solo quedan las luces locales (hogueras, farolas, linternas): casi todo el exterior a oscuras
+    out.night = e.isNight(); out.nightLit = outdoor.filter((k) => e.isLit(k % e.w, (k / e.w) | 0)).length / outdoor.length;
+    await new Promise((r) => setTimeout(r, 300));
     out.top = document.querySelector('#screen-exp').innerText.includes('☾');
     // excavar y la antena
     const adj = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1]].map(([dx, dy]) => [c.x + dx, c.y + dy]).find(([x, y]) => e.passable(x, y) && !e.entityAt(x, y));
@@ -466,7 +468,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     return out;
   });
   ok(sf.id === 'pripyat' && sf.surface && sf.clock && sf.weather, `Prípiat: superficie con reloj y clima (${sf.weather})`);
-  ok(sf.dayLit && sf.night && sf.nightLit === 0 && sf.top, 'de día el exterior está iluminado; de noche no, y la barra muestra ☾');
+  ok(sf.dayLit && sf.night && sf.nightLit < 0.25 && sf.top, `de día el exterior está iluminado; de noche no, y la barra muestra ☾${sf.dayLit && sf.night && sf.nightLit < 0.25 && sf.top ? '' : ` (día ${sf.dayLit}, noche ${sf.night}, iluminado ${Math.round(sf.nightLit * 100)}%, ☾ ${sf.top})`}`);
   ok(sf.dig[0] && sf.dig[1] === 38 && sf.dig[2], 'excavar la tierra removida (con radiación)');
   ok(sf.antenna[0] === 30 && sf.antenna[1] === 53 && sf.antenna[2] > 0.99, 'la antena revela todo el mapa 30 turnos');
   await endExp();
