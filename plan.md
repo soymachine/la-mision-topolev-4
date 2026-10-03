@@ -165,7 +165,7 @@ O órdenes del escuadrón · I inventario · M mapa · Espacio esperar · ? ayud
 - Fase 20 completada: arco en tres actos con escenas ASCII y 4 finales, confianza del Dr. Topolev y personal de la base con voz propia, comedor, cartas y epitafios, afinidad entre agentes, estrés con aflicciones y virtudes, 9 encargos, 80 notas en 8 colecciones, radio interceptada y crónica exportable.
 - Fase 21 completada: plano de 16 parcelas con 17 edificios, investigación (16 proyectos) y celda de contención, materiales y taller de fabricación (16 recetas, desmontar), cuota del Comité, mercado negro y precios por demanda, calendario con estaciones e historia, defensa de la base y operaciones simultáneas.
 - Fase 22 completada: 20 chebylitas nuevos con habilidades propias, élites con afijos, cadena alimentaria y cebo, 10 jefes de zona con fases y trofeos únicos, mundo persistente (nidos que vuelven, zonas que crecen) y alerta del reactor.
-- **Siguiente sesión:** seguir [`plan-ampliacion.md`](plan-ampliacion.md) por la fase 23 según el orden recomendado al final de ese archivo. Marcar allí las tareas al completarlas.
+- **Siguiente sesión:** fase 23, **desde la subtarea 23.1.1**. La fase está desglosada en subtareas en [`plan-ampliacion.md`](plan-ampliacion.md) (sección «FASE 23», con instrucciones para retomarla a medias). Al terminar cada subtarea, marcarla allí y actualizar esta línea con la siguiente; commit + push al cerrar cada subfase (23.1, 23.2…).
 
 ## FASE 12 — Ampliación del arsenal (petición del usuario)
 - [x] 12.1 69 armas (×4) en `js/data/weapons.js`, cada una con dibujo ASCII visible en su tooltip; nuevos tipos lanzador (explosión) y 5 municiones nuevas

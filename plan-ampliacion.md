@@ -431,12 +431,65 @@ Homenaje a Laika: chasis de cuatro patas de la Academia de Ciencias.
 
 ## FASE 23 — Combate táctico avanzado
 
-- [ ] **Cobertura** media/total con indicador en el tooltip de impacto (`[▄]`) y **flanqueo** (+% si disparas por un lateral sin cobertura).
-- [ ] **Sigilo real:** visibilidad según luz y movimiento, ataques por la espalda (crítico garantizado en cuerpo a cuerpo a enemigos que no te han visto), emboscadas.
-- [ ] Estado **abatido**: al llegar a 0 de salud el agente queda en el suelo 3 turnos; un compañero puede **rescatarlo** (botiquín o desfibrilador). Hace las muertes menos súbitas y más dramáticas.
-- [ ] **Fuego de supresión** y **munición especial** (perforante, incendiaria, expansiva, de esencia) como tipos de munición seleccionables.
-- [ ] Opcional: **encasquillamientos** según el estado del arma y **durabilidad** (reparación en el taller).
-- [ ] Granadas que **rebotan** en las paredes y se pueden devolver de una patada (talento).
+Resumen original: cobertura media/total con indicador `[▄]` y flanqueo; sigilo real (luz y movimiento, ataques por la espalda, emboscadas); estado **abatido** (3 turnos en el suelo, rescate con botiquín o desfibrilador); fuego de supresión y munición especial seleccionable; opcional: encasquillamientos y durabilidad; granadas que rebotan y se devuelven de una patada.
+
+### Cómo trabajar esta fase (para retomarla a medias)
+- Hacer las subfases **en orden** (23.1 → 23.7). Cada una es independiente y deja el juego jugable: al terminar una, **commit + push** con el mensaje `Fase 23.N: …`.
+- Al terminar cada **subtarea**, marcarla aquí (`- [ ]` → `- [x]`) con una línea `*Hecho:*` breve (qué archivo/función). Si la sesión se corta a mitad de una subtarea, dejarla sin marcar y añadir debajo `*En curso:*` con lo que falta.
+- Actualizar en `plan.md` → «Estado» la línea **Siguiente sesión** con la subtarea exacta por la que seguir (p. ej. «fase 23, desde 23.3.2»).
+- Pruebas: cada subfase añade su bloque a la sección `· Fase 23` de `tests/systems.cjs` (contexto propio `ctx10`, arena iluminada como en la fase 22: copiar `window.__arena`/`__P` del bloque de la fase 22). Antes de cada commit: `node tests/mapgen.mjs` y la sección nueva; al cerrar la fase, `systems.cjs` completo (2 veces) y `smoke.cjs` en 3–4 zonas.
+- Puntos de enganche ya existentes: `exp/combat.js` (`hitChance`, `canShoot`, `attack`, `damageAgent`, `agentDies`, `damageEnemy`, `killEnemy`), `exp/terrain.js` (`coverAgainst`, `isLit`, `agentLight`, `darkRadius`), `exp/ai.js` (`pickTarget`, `enemyAct`, `enemyMelee`, `enemyRanged`, IA humana `humanAct`), `exp/use.js` (`throwAt`, `explode`), `ui/expui.js` (tooltip de impacto y de enemigo, modo de lanzamiento), `exp/ecology.js` (`hidden`/`seen`, sigilo de chebylitas de la fase 22). Mezclas de la expedición: un nombre de método repetido entre partes **lanza un error** (comprobar con `grep -rn "^  nombre(" js/exp`).
+
+### 23.1 Cobertura media/total y flanqueo (M)
+- [ ] 23.1.1 **Dos niveles de cobertura** en `data/tiles.js`: `cover` ya da un %; añadir `coverLvl: 1|2` (media ≈ −25%, total ≈ −50%) a cada casilla con cobertura (barricadas, sacos, maquinaria, vagonetas, escombros…). `coverAgainst()` (terrain.js) devuelve `{ pct, lvl }` o se añade `coverLevel()`; mantener `coverAgainst` devolviendo el % para no romper a quien ya lo usa.
+- [ ] 23.1.2 **Flanqueo**: si el tirador está en un ángulo ≥ 90° respecto a la dirección en que la cobertura protege (es decir, la línea de tiro no cruza la casilla de cobertura adyacente al objetivo), la cobertura no cuenta y además **+15% de impacto** (+10% de crítico). Aplicar en `hitChance()` (agentes) y en `enemyRanged()`/IA humana (enemigos contra agentes).
+- [ ] 23.1.3 **Indicador** en el tooltip de impacto (`ui/expui.js`): `[▄]` media, `[█]` total, `[⇄ flanco]`; y un pequeño marcador en el mapa sobre el agente/enemigo que está a cubierto (render `render/ascii.js`).
+- [ ] 23.1.4 **IA**: los humanos ya buscan cobertura (fase 18); que prefieran la total y que intenten flanquear si el agente está a cubierto (mover a una casilla que anule la cobertura). Los chebylitas a distancia (cristal, sapo, bobina) ignoran esto.
+- [ ] 23.1.5 Pruebas: arena con una casilla de cobertura entre tirador y objetivo → % baja según nivel; desde un lado → sin cobertura y +15%. Ayuda (`ui/screens.js`) y Archivo (`admin.js` → «Casillas del mapa»: columna de nivel de cobertura).
+
+### 23.2 Sigilo real y ataques por la espalda (L)
+- [ ] 23.2.1 **Visibilidad del agente** (`pickTarget` en ai.js ya reduce la vista a oscuras y con linterna): añadir **movimiento** (si el agente no se movió el turno anterior, −2 a la distancia a la que lo detectan; si corrió/viaja, +2) y un estado **agachado** opcional (tecla `C`: −3 a la detección, movimiento a mitad de velocidad = cada paso cuesta 2 turnos de energía o se alterna). Guardar en `sq.crouch`; serializar.
+- [ ] 23.2.2 **Indicador de detección** en la barra/tarjeta del agente: «oculto / te han oído / te han visto» según el estado de los enemigos que lo tienen como objetivo (`e.state`, `e.mem`).
+- [ ] 23.2.3 **Ataque por la espalda**: cuerpo a cuerpo contra un enemigo que no está en `alerta` (dormido/errante) o que no tiene al atacante en su línea de visión → **crítico garantizado** (×2, o ×2,5 con el talento de Explorador que ya da críticos). Mensaje «¡Ataque por la espalda!». En `attack()`/cálculo de daño de `combat.js`.
+- [ ] 23.2.4 **Emboscadas** de los agentes: orden «emboscada» (en el menú de órdenes, `ORDERS` en `exp/shared.js`): el compañero no se mueve y dispara con +20% de impacto al primer enemigo que entre en su alcance (una vez, luego vuelve a «mantener»). Relacionado con «Vigilancia» si existe en talentos (revisar `data/specs.js`).
+- [ ] 23.2.5 Emboscadas **enemigas**: el liquidador hueco y el gato (fase 22, `stealth`) ya atacan por sorpresa; que sus primeros golpes cuenten como «ataque por la espalda» si el agente no los veía (`seen()`), y que `moraleOnAmbush` lo registre.
+- [ ] 23.2.6 Pruebas (dormido + cuerpo a cuerpo = crítico; agachado = detectado más tarde; emboscada dispara con bonus) + ayuda + Archivo («Sistemas»: tabla de modificadores de detección).
+
+### 23.3 Estado «abatido» y rescate (L) — *la más importante*
+- [ ] 23.3.1 En `damageAgent()` (combat.js): cuando `hp <= 0` y no actúan Rescate/desfibrilador/autoinyector, en vez de `agentDies` → **abatido**: `sq.downed = 3` (turnos), `hp = 0`, no puede actuar ni ser controlado; si recibe otro golpe estando abatido (o se acaban los 3 turnos) → `agentDies`. Excepciones que matan directamente: daño ≥ 50% de la salud máxima en un golpe (opcional) y radiación letal.
+- [ ] 23.3.2 **Rescatar** (F junto al abatido, o clic): con botiquín (`use: 'heal'`) → se levanta con la curación del botiquín; sin botiquín → se levanta con 1 de salud pero gasta 2 turnos. El **desfibrilador** (gadget de la fase 19, `flag defib`) pasa a servir para esto a 2 casillas (y ya no «revive» desde la muerte). El talento Rescate (Sanitario, `s_rescate`) da +1 turno de margen y levanta con 25% de salud.
+- [ ] 23.3.3 Cuenta atrás de cada turno en `environment()` o en el tick de agentes; mensajes («X se desangra: 2 turnos»), sonido y `interrupt`. Los enemigos **prefieren** rematar a un abatido si lo tienen al lado (IA en `enemyAct`/`humanAct`: objetivo prioritario). Los compañeros con orden «seguir» acuden a rescatar si tienen botiquín.
+- [ ] 23.3.4 UI: el agente abatido se dibuja tumbado (glifo distinto, p. ej. `_` o el mismo en gris parpadeando) con el contador; tarjeta del escuadrón en rojo con «ABATIDO (n)»; no se puede seleccionar como agente activo (pasar al siguiente). Si todos están abatidos o fuera, la expedición termina como ahora.
+- [ ] 23.3.5 Extracción: un abatido **no** puede extraerse por sí mismo; si un compañero lo rescata y llegan juntos, sí. Si la expedición termina con un abatido en el mapa, muere (el informe lo dice).
+- [ ] 23.3.6 Moral y relaciones (fase 20): rescatar a alguien = +15 de afinidad y −10 de estrés al rescatado; ver caer a un compañero abatido ya da estrés (`moraleOnDeath` solo al morir de verdad). Medalla/rasgo existente por salvar compañeros (`a.saves`) cuenta también los rescates.
+- [ ] 23.3.7 Guardado: `downed` en el estado del escuadrón (serializar en `expedition.js` → `squad`). Migración: nada (campo opcional).
+- [ ] 23.3.8 Pruebas: daño letal → abatido 3 turnos → rescate con botiquín → de pie; otro caso: nadie lo rescata → muere al 3.er turno; desfibrilador a 2 casillas; enemigo remata al abatido. Ayuda + Archivo (sección «Sistemas»).
+
+### 23.4 Munición especial seleccionable y fuego de supresión (L)
+- [ ] 23.4.1 **Tipos de munición** por calibre: en `data/weapons.js` (`NEW_AMMO`) o en un archivo nuevo `data/ammo.js`, variantes con `base` (el calibre: `a_545`, `a_762`, `a_9x18`, `a_12`…) y `kind`: `ap` perforante (ignora 3 de protección, −10% daño), `inc` incendiaria (prende fuego: `burn`), `hp` expansiva (+30% daño contra sin armadura, −50% contra blindados), `ess` de esencia (+20% daño contra chebylitas, brilla). Precio y tier más altos; sueltos en botín de nivel alto y en recetas del taller de fabricación (`data/basedata.js · RECIPES`).
+- [ ] 23.4.2 El arma usa **cualquier munición de su calibre**: `ammoFor(sq)` y la recarga (`reload`) cuentan munición por `base`; el arma guarda qué tipo tiene cargado (`w.ammoKind`). Recargar cambia al tipo elegido.
+- [ ] 23.4.3 **Selector** en la expedición: tecla `X` (o botón junto al arma en el panel) para ciclar el tipo de munición del arma activa entre los que lleva el agente; la siguiente recarga usa ese tipo. Mostrar el tipo en el panel del arma y en el tooltip de impacto (daño previsto con el modificador).
+- [ ] 23.4.4 Efectos en `attack()`/`damageEnemy` (combat.js): perforante (resta protección), incendiaria (`e.burn`), expansiva y de esencia según `est(e)`/mecánico/blindado (élites Blindados de la fase 22 cuentan como blindados).
+- [ ] 23.4.5 **Fuego de supresión**: acción con tecla `Z` (armas automáticas: subfusil, fusil, ametralladora; `wtype` en weapons.js) sobre una casilla/enemigo: gasta 3× munición, hace poco daño (o ninguno) pero deja a los enemigos en un **cono/radio 1** «suprimidos» 2 turnos: −30% de impacto, no avanzan (humanos se quedan a cubierto, chebylitas pierden el turno con 50%). Marcador visual. La IA humana también puede suprimir (ametralladores `mar_gunner`, `usa_operator`).
+- [ ] 23.4.6 Pruebas (cada tipo de munición aplica su efecto; recargar cambia de tipo; supresión baja el impacto enemigo) + ayuda + Archivo («Munición especial»).
+
+### 23.5 Encasquillamientos y durabilidad (M, opcional)
+- [ ] 23.5.1 `it.dur` (0–100) en armas: baja 1 por cada N disparos (más rápido con munición incendiaria/expansiva y con lluvia/agua); `createItem` la inicializa a 100 (y las armas del suelo de humanos muertos, a 40–80). Migración en `state.js · migrate()`: armas sin `dur` → 100.
+- [ ] 23.5.2 **Encasquillamiento**: probabilidad por disparo = `max(0, (60 − dur) / 400)` (0% por encima de 60); el arma encasquillada no dispara hasta **desencasquillar** (acción, 1 turno; con el talento/rasgo adecuado, gratis). Mensaje y sonido.
+- [ ] 23.5.3 **Reparación** en el Taller de fabricación (fase 21, pestaña INVESTIGACIÓN): coste en chatarra según el tier; o en el Garaje. Mostrar la durabilidad en el tooltip del arma (`core/items.js · itemTooltip`).
+- [ ] 23.5.4 Pruebas + ayuda + Archivo.
+
+### 23.6 Granadas que rebotan y patada (M)
+- [ ] 23.6.1 Trayectoria de lanzamiento en `throwAt()` (use.js): si la línea al destino choca con un muro, la granada **rebota** una vez (refleja la dirección en el eje del choque) y cae 1–2 casillas después; previsualizar la trayectoria en el modo de lanzamiento (`ui/expui.js`, `enterThrow`). Las granadas tienen `fuse` (1 turno): caen al suelo y explotan al siguiente turno (en `this.pending`, que ya existe), en vez de al instante.
+- [ ] 23.6.2 **Devolver de una patada**: talento nuevo (rama del Zapador o del Explorador en `data/specs.js`): si una granada enemiga cae a ≤1 casilla, el agente puede gastar su turno en patearla 3 casillas en la dirección contraria. Sin el talento: apartarse.
+- [ ] 23.6.3 Granadas **enemigas** (IA humana ya lanza, fase 18): que también usen la mecha de 1 turno y avisen («¡Granada!») para dar tiempo a reaccionar.
+- [ ] 23.6.4 Pruebas (rebote en un muro, mecha de 1 turno, patada con el talento) + ayuda + Archivo.
+
+### 23.7 Cierre de la fase
+- [ ] 23.7.1 Revisar el equilibrio con `smoke.cjs` en varias zonas (que el bot no muera siempre por los abatidos ni la supresión).
+- [ ] 23.7.2 Ayuda completa (`ui/screens.js`: sección «COMBATE TÁCTICO») y teclas nuevas en la lista de controles (`C` agacharse, `X` munición, `Z` supresión).
+- [ ] 23.7.3 Archivo (`admin.js`): «Munición especial», «Cobertura y flanqueo», «Detección y sigilo», «Abatidos».
+- [ ] 23.7.4 `systems.cjs` completo dos veces, `mapgen.mjs`, `smoke.cjs` en 3–4 zonas; marcar aquí la fase con ✔ y actualizar `plan.md` («Fase 23 completada…» y «Siguiente sesión: fase 24»).
 
 ---
 
