@@ -498,11 +498,15 @@ Resumen original: cobertura media/total con indicador `[▄]` y flanqueo; sigilo
 - [x] 23.4.6 Pruebas (cada tipo de munición aplica su efecto; recargar cambia de tipo; supresión baja el impacto enemigo) + ayuda + Archivo («Munición especial»).
   - *Hecho:* pruebas en `· Fase 23`; ayuda (teclas N y Z) y Archivo («Munición especial»).
 
-### 23.5 Encasquillamientos y durabilidad (M, opcional)
-- [ ] 23.5.1 `it.dur` (0–100) en armas: baja 1 por cada N disparos (más rápido con munición incendiaria/expansiva y con lluvia/agua); `createItem` la inicializa a 100 (y las armas del suelo de humanos muertos, a 40–80). Migración en `state.js · migrate()`: armas sin `dur` → 100.
-- [ ] 23.5.2 **Encasquillamiento**: probabilidad por disparo = `max(0, (60 − dur) / 400)` (0% por encima de 60); el arma encasquillada no dispara hasta **desencasquillar** (acción, 1 turno; con el talento/rasgo adecuado, gratis). Mensaje y sonido.
-- [ ] 23.5.3 **Reparación** en el Taller de fabricación (fase 21, pestaña INVESTIGACIÓN): coste en chatarra según el tier; o en el Garaje. Mostrar la durabilidad en el tooltip del arma (`core/items.js · itemTooltip`).
-- [ ] 23.5.4 Pruebas + ayuda + Archivo.
+### 23.5 Encasquillamientos y durabilidad (M, opcional) ✔
+- [x] 23.5.1 `it.dur` (0–100) en armas: baja 1 por cada N disparos (más rápido con munición incendiaria/expansiva y con lluvia/agua); `createItem` la inicializa a 100 (y las armas del suelo de humanos muertos, a 40–80). Migración en `state.js · migrate()`: armas sin `dur` → 100.
+  - *Hecho:* `it.dur` (sin el campo = 100, sin migración): `wearWeapon()` en tactics.js, −0,5 por disparo (×1,6 incendiaria/expansiva, ×1,5 con lluvia o en el agua); las armas que sueltan los humanos salen al 40–80%.
+- [x] 23.5.2 **Encasquillamiento**: probabilidad por disparo = `max(0, (60 − dur) / 400)` (0% por encima de 60); el arma encasquillada no dispara hasta **desencasquillar** (acción, 1 turno; con el talento/rasgo adecuado, gratis). Mensaje y sonido.
+  - *Hecho:* probabilidad `(60 − dur) / 400` por disparo en `attack()` (combat.js); encasquillada no dispara; R → `unjam()` (gratis con `quickReload`); los compañeros la desencasquillan solos.
+- [x] 23.5.3 **Reparación** en el Taller de fabricación (fase 21, pestaña INVESTIGACIÓN): coste en chatarra según el tier; o en el Garaje. Mostrar la durabilidad en el tooltip del arma (`core/items.js · itemTooltip`).
+  - *Hecho:* `repairCost()`/`repairWeapon()` en basecore.js (chatarra según el tier) y bloque «REPARAR ARMAS» en el Taller (pestaña INVESTIGACIÓN, `ui/base21.js`); estado y munición cargada en el tooltip (`core/items.js`).
+- [x] 23.5.4 Pruebas + ayuda + Archivo.
+  - *Hecho:* pruebas en `· Fase 23`; ayuda y Archivo (en «Munición especial»).
 
 ### 23.6 Granadas que rebotan y patada (M) ✔
 - [x] 23.6.1 Trayectoria de lanzamiento en `throwAt()` (use.js): si la línea al destino choca con un muro, la granada **rebota** una vez (refleja la dirección en el eje del choque) y cae 1–2 casillas después; previsualizar la trayectoria en el modo de lanzamiento (`ui/expui.js`, `enterThrow`). Las granadas tienen `fuse` (1 turno): caen al suelo y explotan al siguiente turno (en `this.pending`, que ya existe), en vez de al instante.

@@ -1452,7 +1452,8 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
       // emboscada enemiga: el primer golpe de un liquidador hueco hace ×1,5
       const [hx, hy] = window.__P(1, 1); const hu = e.spawnEnemy('hueco', 6, hx, hy, 'alerta');
       out.enemyAmbush = !hu.ambushed && e.ecoMeleeMult(hu, sq) >= 1; // (el salto ya es ×2)
-      e.god = true; e.enemyMelee(hu, sq); out.enemyAmbush = out.enemyAmbush && hu.ambushed === 1;
+      e.god = true; for (let i = 0; i < 30 && !hu.ambushed; i++) e.enemyMelee(hu, sq); // (se gasta con el primer golpe que acierta)
+      out.enemyAmbush = out.enemyAmbush && hu.ambushed === 1;
       e.dismissActor(hu); window.__clr();
       return out;
     });
@@ -1546,6 +1547,29 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     ok(am.loadAp && am.back, 'munición especial: N elige el tipo, R lo carga y lo cargado vuelve a la mochila al cambiar');
     ok(am.fx && am.inc, 'perforante, expansiva y de esencia cambian el daño; la incendiaria prende fuego');
     ok(am.supp && am.penalty && am.noPistol, 'fuego de supresión (Z) con armas automáticas: suprime 2 turnos y −30% de impacto');
+    // 23.5 durabilidad, encasquillamientos y reparación
+    const du = await K.evaluate(async () => {
+      const e = window.__topolev.exp; const out = {}; window.__clr(); window.__home(); e.god = true;
+      const sq = e.team.find((q) => !q.downed) || e.cur; e.active = e.squad.indexOf(sq);
+      const ak = window.__mk('ak74', 0); ak.ld = 30; sq.a.equip.w1 = ak; sq.cur = 'w1';
+      const [tx, ty] = window.__P(5, 0); const t = e.spawnEnemy('golem', 5, tx, ty, 'alerta'); t.hp = t.hpMax = 9999;
+      // a estrenar no se encasquilla; desgaste por disparo
+      ak.dur = 100; e.attack(sq, t); out.wear = ak.dur < 100 && !ak.jammed;
+      // gastada: acaba encasquillándose; atascada no dispara; R la desencasquilla
+      ak.dur = 0; let tries = 0; while (!ak.jammed && tries < 200) { ak.ld = 30; e.attack(sq, t); tries++; }
+      const ld = ak.ld; const fired = e.attack(sq, t);
+      out.jam = ak.jammed === 1 && fired === false && ak.ld === ld;
+      e.reload(sq, true); out.unjam = !ak.jammed;
+      e.dismissActor(t);
+      // reparar en el taller con chatarra
+      const S = window.__topolev.S; const B = await import('./js/core/basecore.js');
+      S.modules.taller_fab = 1; S.stash.push(window.__mk('chatarra', 0, undefined, 50));
+      const cost = B.repairCost(ak); const r = B.repairWeapon(ak);
+      out.repair = r.ok && ak.dur === 100 && cost > 0;
+      return out;
+    });
+    ok(du.wear && du.jam && du.unjam, 'durabilidad: el arma se gasta, gastada se encasquilla (no dispara) y R la desencasquilla');
+    ok(du.repair, 'reparar armas en el Taller de fabricación con chatarra');
     // 23.6 granadas que rebotan, con mecha, y patada
     const gr = await K.evaluate(() => {
       const e = window.__topolev.exp; const out = {}; window.__clr(); window.__floor(); window.__home(); e.god = true;

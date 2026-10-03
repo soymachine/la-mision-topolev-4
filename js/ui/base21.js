@@ -102,6 +102,16 @@ export function installBase21(BaseUI) {
         tip(row, () => itemTooltip(it));
         M.body.append(row);
       }
+      // fase 23.5: reparar armas gastadas (almacén y equipo de los agentes)
+      const worn = [...S.stash, ...S.agents.flatMap((a) => [a.equip.w1, a.equip.w2])].filter((it) => it && ITEMS[it.b].cat === 'weapon' && it.dur != null && it.dur < 100);
+      M.body.append(el('div', { class: 'sep', text: '─'.repeat(70) }), el('div', { class: 'h', text: 'REPARAR ARMAS' }));
+      if (!worn.length) M.body.append(el('div', { class: 'dimt', text: 'Todas las armas están en buen estado.' }));
+      for (const it of worn.slice(0, 30)) {
+        const row = el('div', { class: 'row', style: { justifyContent: 'space-between' } }, el('span', { html: itemHTML(it) + ` <span class="${it.dur >= 60 ? 'good' : it.dur >= 30 ? 'warn' : 'bad'}">${Math.round(it.dur)}%</span>` }),
+          el('button', { class: 'btn small ' + (B.fabLvl() ? '' : 'disabled'), onclick: () => { const r = B.repairWeapon(it); if (r.ok) { sfx.buy(); toast(`Reparada (−${r.cost} chatarra).`, 'good'); save(); this.render(); } else { sfx.error(); toast(r.msg, 'bad'); } } }, `REPARAR · ${B.repairCost(it)} chatarra`));
+        tip(row, () => itemTooltip(it));
+        M.body.append(row);
+      }
       // contención
       const R = panel({ title: `CELDA DE CONTENCIÓN · ${S.specimens.length}/${B.cellCap()}`, bodyCls: 'scroll' });
       R.body.append(el('pre', { class: 'ascii-art', text: '  ╔═╦═╦═╦═╗\n  ║#║ ║#║ ║\n  ╚═╩═╩═╩═╝' }), el('div', { class: 'dimt', text: 'Cada espécimen produce esencia todos los días. Cuanto mejor la celda, menos fugas.' }));

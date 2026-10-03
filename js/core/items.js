@@ -274,7 +274,8 @@ export function itemTooltip(it, compare = null, extra = '') {
     h += row('Daño', `${s.dmg[0]}–${s.dmg[1]}${s.burst > 1 ? ` ×${s.burst}` : ''}${cmp(avg, oavg)}`);
     h += row('Precisión', `${s.acc}%${cmp(s.acc, cs && cs.acc)}`);
     h += row('Alcance', `${s.range}${cmp(s.range, cs && cs.range)}`);
-    if (s.mag) h += row('Cargador', `${it.ld ?? s.mag}/${s.mag}`);
+    if (s.mag) h += row('Cargador', `${it.ld ?? s.mag}/${s.mag}${it.ammoKind && ITEMS[it.ammoKind] ? ` (${{ ap: 'perforante', inc: 'incendiaria', hp: 'expansiva', ess: 'de esencia' }[ITEMS[it.ammoKind].kind]})` : ''}`);
+    if (it.dur != null && it.dur < 100) h += row('Estado', `<span class="${it.dur >= 60 ? 'good' : it.dur >= 30 ? 'warn' : 'bad'}">${Math.round(it.dur)}%</span>${it.dur < 60 ? ' <span class="dimt">(puede encasquillarse)</span>' : ''}${it.jammed ? ' <span class="bad">ENCASQUILLADA</span>' : ''}`); // fase 23.5
     if (s.ammo) h += row('Munición', AMMO_NAMES[s.ammo]);
     h += row('Crítico', `${s.crit}%`);
     if (s.pierce) h += row('Perforación', s.pierce >= 99 ? 'total' : s.pierce);

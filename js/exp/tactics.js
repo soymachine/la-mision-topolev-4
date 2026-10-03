@@ -3,6 +3,8 @@
 import { cheb, rng, line } from '../util/rng.js';
 import { itemStats } from '../core/items.js';
 import { AMMO_KINDS } from '../data/ammo.js';
+import { T } from '../data/tiles.js';
+const T_WATER = T.WATER, T_DEEP = T.DEEP;
 import { ACTORS } from '../data/actors.js';
 import { ITEMS } from '../data/items.js';
 import { addStress, addAff } from '../core/story.js';
@@ -136,6 +138,30 @@ export class TacticsPart {
     this.say(`🔫 ${this.nm(sq)} abre fuego de supresión (${rounds} balas): ${n} enemigo(s) suprimidos 2 turnos.`, 'o1');
     return true;
   }
+  // ---------------------------------------------------------------- durabilidad y encasquillamientos (23.5)
+  // cada disparo desgasta el arma (más con munición incendiaria o expansiva y con el arma mojada);
+  // por debajo del 60% puede encasquillarse. Devuelve true si se ha encasquillado (el turno se pierde).
+  wearWeapon(sq, w) {
+    if (w.dur == null) w.dur = 100;
+    const k = this.ammoKindOf(sq);
+    const wet = (this.surface && this.weather === 'lluvia') || [T_WATER, T_DEEP].includes(this.tile(sq.x, sq.y));
+    w.dur = Math.max(0, w.dur - 0.5 * (k === 'inc' || k === 'hp' ? 1.6 : 1) * (wet ? 1.5 : 1));
+    if (rng.chance(Math.max(0, (60 - w.dur) / 400))) {
+      w.jammed = 1;
+      this.fx.push({ type: 'miss', x: sq.x, y: sq.y });
+      this.say(`🔧 ¡A ${this.nm(sq)} se le encasquilla el arma! (estado ${Math.round(w.dur)}%) Pulsa <b>R</b> para desencasquillarla.`, 'bad');
+      return true;
+    }
+    return false;
+  }
+  unjam(sq, w) {
+    w.jammed = 0;
+    const quick = this.flag(sq, 'quickReload');
+    this.say(`${this.nm(sq)} desencasquilla el arma${quick ? ' al instante' : ''}.`, 'dimt');
+    this.emit('update');
+    return !quick;
+  }
+
   // ---------------------------------------------------------------- granadas (23.6)
   // las paredes (casillas opacas) detienen la granada; por encima de sacos y consolas pasa
   nadeBlocked(x, y) { return !this.inb(x, y) || this.opaque(x, y); }

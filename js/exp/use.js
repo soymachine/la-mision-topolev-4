@@ -165,6 +165,7 @@ export class UsePart {
   reload(sq = this.cur, silent = false) {
     const w = this.weapon(sq);
     if (!w) return false;
+    if (w.jammed) return this.unjam(sq, w); // fase 23.5
     const ws = itemStats(w);
     if (!ws.mag) { if (!silent) this.say('Esta arma no usa munición.', 'dimt'); return false; }
     // fase 23.4: cualquier munición del calibre; se carga la elegida (N) y, si se cambia de tipo, lo cargado vuelve a la mochila

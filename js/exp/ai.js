@@ -46,6 +46,7 @@ export class AIPart {
         if (d < bd && this.canShoot(sq, e) === 'ok' && (ws.wtype !== 'melee' ? d <= ws.range * 1.5 : true)) { best = e; bd = d; }
       }
       if (best) { if (sq.order === 'emboscada') this.ambushFire(sq, best); else this.attack(sq, best); return; }
+      if (w && w.jammed) { this.reload(sq, true); return; } // fase 23.5: desencasquillar
       // recargar si está vacío y hay enemigos cerca
       if (w && ws.mag && w.ld < ws.mag * 0.3 && this.ammoFor(sq) > 0) { this.reload(sq, true); return; }
       // cambiar a la otra arma si esta está seca

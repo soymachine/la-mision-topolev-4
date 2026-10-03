@@ -80,6 +80,9 @@ export class CombatPart {
       this.noise(sq.x, sq.y, ws.noise);
       return true;
     }
+    // fase 23.5: arma encasquillada (R para desencasquillar); el desgaste puede encasquillarla al disparar
+    if (w.jammed) { if (sq === this.cur) this.say(`${this.nm(sq)}: ¡el arma está encasquillada! Pulsa <b>R</b> para desencasquillarla.`, 'bad'); return false; }
+    if (this.wearWeapon(sq, w)) return true;
     const shots = Math.min(ws.burst, w.ld);
     for (let i = 0; i < shots; i++) {
       w.ld--;
@@ -252,7 +255,7 @@ export class CombatPart {
     this.fx.push({ type: 'kill', x: e.x, y: e.y, glyph: def.glyph, color: actorColor(e), delay, boss: !!def.boss });
     // personas: sueltan su arma, algo de munición y lo que llevaran
     if (human) {
-      if (e.w && !def.noDrop) { e.w.ld = Math.max(0, Math.min(e.ld || 0, itemStats(e.w).mag || 0)); this.addFloor(e.x, e.y, e.w); }
+      if (e.w && !def.noDrop) { e.w.ld = Math.max(0, Math.min(e.ld || 0, itemStats(e.w).mag || 0)); e.w.dur = rng.int(40, 80); this.addFloor(e.x, e.y, e.w); } // fase 23.5: gastada
       const ws = e.w ? itemStats(e.w) : null;
       if (ws && ws.ammo && rng.chance(0.7)) this.addFloor(e.x, e.y, createItem(ws.ammo, 0, rng, Math.max(4, Math.round((ITEMS[ws.ammo].pack || 10) * rng.float(0.3, 0.8)))));
       for (const b of def.loot || []) if (rng.chance(0.35)) this.addFloor(e.x, e.y, createItem(b, 0, rng, ITEMS[b].stack > 1 ? (ITEMS[b].cat === 'ammo' ? Math.round(ITEMS[b].pack * 0.6) : 1) : undefined));

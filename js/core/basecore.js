@@ -188,6 +188,19 @@ export function scrapYield(it) {
   else if (d.cat === 'companion' && it.broken) { add('chatarra', 4); add('electronica', 3); add('parts', 2); }
   return out;
 }
+// fase 23.5: reparar armas gastadas en el Taller de fabricación (chatarra según el tier)
+export const repairCost = (it) => Math.max(1, Math.ceil(((100 - (it.dur ?? 100)) / 25) * (1 + (ITEMS[it.b].tier || 0) / 2)));
+export function repairWeapon(it) {
+  if (!fabLvl()) return { ok: false, msg: 'Hace falta el Taller de fabricación.' };
+  if (it.dur == null || it.dur >= 100) return { ok: false, msg: 'Está como nueva.' };
+  const n = repairCost(it);
+  const have = S.stash.filter((x) => x.b === 'chatarra').reduce((k, x) => k + (x.q || 1), 0);
+  if (have < n) return { ok: false, msg: `Faltan ${n - have} de chatarra.` };
+  let need = n;
+  for (const x of [...S.stash]) { if (x.b !== 'chatarra' || need <= 0) continue; const mv = Math.min(x.q || 1, need); need -= mv; if ((x.q || 1) > mv) x.q -= mv; else S.stash.splice(S.stash.indexOf(x), 1); }
+  it.dur = 100; it.jammed = 0;
+  return { ok: true, cost: n };
+}
 export function scrapItem(it) {
   const d = ITEMS[it.b];
   if (!fabLvl()) return { ok: false, msg: 'Hace falta el Taller de fabricación.' };
