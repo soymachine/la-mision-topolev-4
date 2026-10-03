@@ -9,6 +9,7 @@ import { ACQUIRED, MEDALS, woundCost, RETIRE_LEVEL, MAX_INSTRUCTORS, INSTRUCTOR_
 import { SPECS } from '../data/specs.js';
 import { rollZoneMods } from '../data/modifiers.js';
 import { recordExpedition, worldDayTick } from './ecosys.js';
+import { statExpedition, checkAchievements } from './achievements.js';
 import { FACTIONS, repOf, addRep, foreignTrade as foreignTradeS } from '../data/factions.js';
 import { addStress, addAff, trust, chronicle, comedorScene, completeContracts, checkActs, familyLetter, expireSpecials } from './story.js';
 import { baseDayTick, placeBuilding, demandK, noteSale, attackResult, defenseDef } from './basecore.js';
@@ -377,11 +378,14 @@ export function finalizeExpedition(exp) {
   chronicle(`Expedición a ${def.name}: ${{ success: 'éxito', partial: 'éxito parcial', fail: 'fracaso' }[rep.result]}. ${rep.ess} ✦, ${rep.kills} bajas.${deaths ? ` Caídos: ${rep.agents.filter((r) => r.status !== 'extraído').map((r) => r.name).join(', ')}.` : ''}`);
   if (rep.unlocked) chronicle(`Nueva zona accesible: ${rep.unlocked}.`);
   comedorScene(rep);
+  // fase 24.6: estadísticas por zona, esencia del día y racha sin bajas
+  statExpedition(MAPS.some((m) => m.id === def.id) ? def.id : null, { extracted: anyOut, deaths, ess: rep.ess });
   S.lastReport = rep;
   S.exp = null;
   nextDay();
   checkActs();
   ensureVolunteer();
+  rep.achievements = checkAchievements().map((a) => a.id); // fase 24.6
   save();
   return rep;
 }
@@ -408,6 +412,7 @@ export function nextDay() {
     const st2 = agentStats(a);
     a.hp = Math.min(a.hp, st2.hpMaxEff);
   }
+  checkAchievements(); // fase 24.6: día 30, alerta crítica…
 }
 
 // zonas de evento temporales (fase 17.3): caducan y aparecen nuevas

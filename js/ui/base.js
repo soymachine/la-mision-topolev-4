@@ -33,6 +33,7 @@ import { floorsFor } from '../exp/expedition.js';
 import * as ECO from '../core/ecosys.js';
 import { a11yButtons } from './a11y.js';
 import { t } from '../i18n/index.js';
+import { achievementsModal } from './achievements.js';
 import { controlsModal, keyName } from './keys.js';
 
 const TABS = [
@@ -1141,6 +1142,7 @@ export class BaseUI {
       el('div', { class: 'sep', text: '─'.repeat(60) }),
       el('button', { class: 'btn primary', onclick: () => this.hooks.onHelp() }, 'INSTRUCCIONES'),
       el('button', { class: 'btn', onclick: () => this.openChronicle() }, 'CRÓNICA DEL DIRECTOR'),
+      el('button', { class: 'btn', onclick: () => achievementsModal() }, t('menu.achievements')),
     );
     g.append(L, M, R);
     return g;

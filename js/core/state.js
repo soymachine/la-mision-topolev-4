@@ -10,6 +10,7 @@ import { FACTIONS } from '../data/factions.js';
 import { storyDefaults } from './story.js';
 import { baseDefaults } from './basecore.js';
 import { worldDefaults } from './ecosys.js';
+import { statsDefaults } from './achievements.js';
 import { compressToUTF16, decompressFromUTF16 } from '../util/lz.js';
 
 // Guardado v2: 3 ranuras comprimidas (LZ/UTF-16) + ficha resumen por ranura
@@ -125,6 +126,7 @@ function upgrade(d) {
   storyDefaults(d);
   baseDefaults(d);
   worldDefaults(d);
+  statsDefaults(d); // fase 24.6: estadísticas ampliadas
   // fase 18: la reputación pasa a ser absoluta (−100…+100) partiendo de la postura inicial de cada facción
   if (!d.repV) { for (const [f, F] of Object.entries(FACTIONS)) if (F.rep0 != null) d.rep[f] = Math.max(-100, Math.min(100, F.rep0 + (d.rep[f] || 0))); d.repV = 1; }
   for (const a of d.agents || []) upgradeAgent(a);

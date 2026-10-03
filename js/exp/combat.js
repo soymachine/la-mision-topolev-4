@@ -18,6 +18,7 @@ import { FACTIONS } from '../data/factions.js';
 import { addAff } from '../core/story.js';
 import { ACTORS, actorColor, actorFaction, isHuman } from '../data/actors.js';
 import { HUMANS } from '../data/humans.js';
+import { statKill, statBump, checkAchievements } from '../core/achievements.js';
 
 export class CombatPart {
   // ---------------------------------------------------------------- combate
@@ -126,7 +127,7 @@ export class CombatPart {
     const flank = !melee && this.coverInfo(sq.x, sq.y, e.x, e.y).flank ? 10 : 0; // flanqueo: +10% de crítico
     // fase 23.2: ataque por la espalda (cuerpo a cuerpo a un enemigo que no sabe que estás ahí) = crítico seguro
     const back = melee && sq.a && this.unaware(e) && !ACTORS[e.type].boss;
-    if (back) this.say(`🗡 ¡Ataque por la espalda de ${this.nm(sq)}!`, 'o1');
+    if (back) { this.say(`🗡 ¡Ataque por la espalda de ${this.nm(sq)}!`, 'o1'); statBump('backstabs'); }
     const crit = back || rng.chance((ws.crit + (st.crit || 0) + flank) / 100);
     if (crit) dmg *= 1.8 * (1 + (sq.a ? this.flag(sq, 'critDmg') : 0) / 100);
     const es = this.est(e);
@@ -281,7 +282,12 @@ export class CombatPart {
     if (def.boss) this.addFloor(e.x, e.y, createItem('crystal', rng.int(2, 4), rng));
     this.ecoOnDeath(e, src); // fase 22: se divide, explota, botín de élite, trofeo
     const bySquad = !src || this.isSquad(src);
-    if (bySquad) { this.tally.kills++; S.stats.kills++; }
+    if (bySquad) {
+      this.tally.kills++; S.stats.kills++;
+      const wb = src && src.a && this.weapon(src); // fase 24.6: bajas por especie y por arma, jefes y élites
+      statKill(e, wb ? wb.b : null, { boss: !!def.boss, elite: !!(e.elite && e.elite.length) });
+      if (def.boss) checkAchievements();
+    }
     if (src && src.id) { this.trigger('kill', { type: e.type, faction: actorFaction(e), lvl: e.lvl }, src); this.moraleOnKill(src, e); }
     if (src && src.id && def.boss) { src.bossKills = (src.bossKills || 0) + 1; this.acquire(src, 'jefes'); }
     if (!human && bySquad) bestiaryKill(e.type);

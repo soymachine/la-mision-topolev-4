@@ -6,6 +6,8 @@ export default {
   'menu.saves': 'SAVED GAMES',
   'menu.help': 'HOW TO PLAY',
   'menu.controls': 'CONTROLS',
+  'menu.achievements': 'ACHIEVEMENTS & STATS',
+  'ach.unlocked': '🏆 Achievement: {n}',
   'menu.fullscreen': 'FULL SCREEN',
   'menu.sound': 'SOUND: {v}',
   'menu.music': 'MUSIC: {v}',

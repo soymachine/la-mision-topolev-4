@@ -10,6 +10,7 @@ import { uiBurst } from './fx.js';
 import { toggleFullscreen } from './expui.js';
 import { a11yButtons } from './a11y.js';
 import { t } from '../i18n/index.js';
+import { achievementsModal } from './achievements.js';
 import { controlsModal, keyName, helpKeysHTML, keyify } from './keys.js';
 
 // ------------------------------------------------------------ logo ASCII
@@ -67,6 +68,7 @@ export class TitleScreen {
     if (has) menu.append(btn(t('menu.saves'), () => this.slotsModal('load')));
     menu.append(btn(t('menu.help'), () => this.hooks.onHelp()));
     menu.append(btn(t('menu.controls'), () => controlsModal()));
+    menu.append(btn(t('menu.achievements'), () => achievementsModal()));
     menu.append(btn(t('menu.fullscreen'), () => toggleFullscreen()));
     menu.append(btn(t('menu.sound', { v: t(settings.sound ? 'yes' : 'no') }), () => { settings.sound = !settings.sound; saveSettings(); music.sync(); this.open(); }));
     menu.append(btn(t('menu.crt', { v: t(settings.crt ? 'yes' : 'no') }), () => { settings.crt = !settings.crt; document.body.classList.toggle('no-crt', !settings.crt); saveSettings(); this.open(); }));
@@ -509,6 +511,9 @@ ${helpKeysHTML()}
 <p><b>MÚSICA</b>: un drone generativo que cambia con la zona (superficie, subsuelo, laboratorios, corium) y se vuelve más tenso con el peligro (enemigos en alerta, el pulso del reactor, un jefe a la vista, un agente abatido); en la base suena un tema tranquilo. <b>VOL. MÚSICA</b> y <b>VOL. EFECTOS</b> se ajustan por separado.</p>
 <p><b>IDIOMA</b>: español o inglés (English). En inglés ya están traducidos los menús, las pestañas de la base, el HUD de la expedición, los controles y los nombres de zonas, chebylitas y objetos básicos; lo que aún no tiene traducción sale en español.</p>
 <p><b>CONTROLES TÁCTILES</b> (AUTO / SÍ / NO; en AUTO se activan solos en pantallas táctiles): durante la expedición aparece una cruceta de 8 direcciones (el punto del centro espera un turno; manteniéndola pulsada se repite) y botones para interactuar (F), apuntar (⌖; en el modo apuntar pasa al siguiente objetivo y F dispara), recargar, curarse, habilidad, granada, agacharse, cambiar de agente, inventario y ✕ (cancelar o menú). Tocar el mapa es como hacer clic (ir, atacar, abrir); <b>mantener pulsado</b> muestra la información de la casilla; <b>pellizcar</b> acerca o aleja; <b>arrastrar el radar</b> mueve la vista. En pantallas estrechas el panel del agente se abre con ☰.</p>
+
+<h2>LOGROS Y ESTADÍSTICAS</h2>
+<p>En el menú principal y en el ARCHIVO: 36 logros (extracciones, jefes, trofeos, rachas sin bajas, rescates, finales secretos…) que se guardan aparte de las partidas, así que no se pierden al borrar una ranura; y las estadísticas de la partida: por zona, bajas por especie y por arma, abatidos levantados, granadas devueltas, ataques por la espalda, día récord de esencia.</p>
 
 <h2>CONSEJOS</h2>
 <ul>

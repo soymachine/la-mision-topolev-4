@@ -508,3 +508,11 @@ body.touch .btn { min-height: 34px; }
   .touch-acts { grid-template-columns: repeat(4, 44px); grid-auto-rows: 44px; gap: 2px; }
   .touch-pad { grid-template-columns: repeat(3, 44px); grid-auto-rows: 44px; gap: 2px; }
 }
+
+/* ---------- logros (fase 24.6) ---------- */
+.ach-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(34ch, 1fr)); gap: 2px 1.5ch; margin: 4px 0 8px; }
+.ach { display: grid; grid-template-columns: 3ch 1fr; gap: 0 1ch; padding: 3px 1ch; border-left: 2px solid var(--o6); opacity: .55; }
+.ach.got { opacity: 1; border-left-color: var(--warn); }
+.ach .ach-g { color: var(--warn); text-align: center; }
+.ach-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1ch 3ch; }
+@media (max-width: 760px) { .ach-stats { grid-template-columns: 1fr; } }

@@ -1688,6 +1688,58 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     await ctx11.close();
   }
   {
+    // 24.6 logros y estadísticas: suben las estadísticas, se desbloquea un logro y sobrevive a borrar la ranura
+    const ctx15 = await b.newContext({ viewport: { width: 1440, height: 860 } });
+    const Ac = await ctx15.newPage();
+    Ac.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
+    Ac.on('console', (m) => { if ((m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) || m.type() === 'warning') errs.push(m.text()); });
+    await Ac.goto(URL); await Ac.waitForTimeout(800);
+    await Ac.click('text=NUEVA PARTIDA'); await Ac.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await Ac.click('#screen-intro'); await Ac.click('text=COMENZAR');
+    await Ac.waitForTimeout(300);
+    await Ac.click('.tab:has-text("EXPEDICIÓN")'); await Ac.waitForTimeout(200);
+    for (let i = 0; i < 2; i++) { const rows = await Ac.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+    await Ac.click('text=LANZAR EXPEDICIÓN'); await Ac.waitForTimeout(300);
+    if (await Ac.$('.modal-back >> text=LANZAR')) await Ac.click('.modal-back >> text=LANZAR');
+    await Ac.waitForTimeout(800);
+    // una baja real del escuadrón: estadísticas por especie y por arma
+    const k = await Ac.evaluate(() => {
+      const e = window.__topolev.exp; const S = window.__topolev.S; window.__topolev.debug.run('god');
+      for (const x of [...e.enemies]) if (!e.isComp(x)) e.dismissActor(x);
+      const c = e.cur; const cell = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => [c.x + dx, c.y + dy]).find(([x, y]) => e.passable(x, y) && !e.entityAt(x, y));
+      const r = e.spawnEnemy('rata', 1, cell[0], cell[1], 'dormido');
+      const before = (S.stats.killsBy || {}).rata || 0;
+      e.damageEnemy(r, 999, c);
+      const w = e.weapon(c);
+      return { by: S.stats.killsBy.rata - before, wpn: w ? S.stats.killsWeapon[w.b] || 0 : 1, kills: S.stats.kills };
+    });
+    ok(k.by === 1 && k.wpn >= 1 && k.kills >= 1, 'estadísticas ampliadas: bajas por especie y por arma');
+    // logro: primera extracción (simulada) → toast, y queda guardado fuera de la partida
+    const a1 = await Ac.evaluate(async () => {
+      const A = await import('./js/core/achievements.js'); const S = window.__topolev.S;
+      const had = A.hasAchievement('ext1');
+      S.stats.extractions = Math.max(1, S.stats.extractions);
+      A.statExpedition('admin', { extracted: true, deaths: 0, ess: 120 });
+      const fresh = A.checkAchievements().map((x) => x.id);
+      const again = A.checkAchievements().length;
+      return { had, fresh, again, zone: S.stats.zones.admin, best: S.stats.bestDay, streak: S.stats.noLoss, toast: [...document.querySelectorAll('.toast')].some((x) => /Logro/.test(x.textContent)) };
+    });
+    ok(!a1.had && a1.fresh.includes('ext1') && a1.again === 0 && a1.toast, `logro «Volver a casa» desbloqueado una sola vez, con aviso (${a1.fresh.join(', ')})`);
+    ok(a1.zone && a1.zone.ext === 1 && a1.best && a1.best.ess === 120 && a1.streak === 1, 'estadísticas por zona, día récord y racha sin bajas');
+    // borrar la ranura: el logro sigue
+    await Ac.reload(); await Ac.waitForTimeout(800);
+    await Ac.evaluate(async () => { const st = await import('./js/core/state.js'); st.wipe(1); });
+    await Ac.reload(); await Ac.waitForTimeout(800);
+    const wiped = await Ac.evaluate(async () => { const st = await import('./js/core/state.js'); return !st.slotInfo(1); });
+    const kept = await Ac.evaluate(async () => { const A = await import('./js/core/achievements.js'); return A.hasAchievement('ext1'); });
+    await Ac.click('text=LOGROS Y ESTADÍSTICAS'); await Ac.waitForTimeout(200);
+    const scr = await Ac.evaluate(() => ({ got: !!document.querySelector('.modal .ach.got[data-ach="ext1"]'), secret: !!Array.from(document.querySelectorAll('.modal .ach')).find((x) => x.textContent.includes('???')) }));
+    ok(wiped && kept && scr.got && scr.secret, 'el logro persiste tras borrar la ranura; pantalla de logros (con secretos ocultos)');
+    // migración: una partida vieja sin las estadísticas nuevas
+    const mig = await Ac.evaluate(async () => { const A = await import('./js/core/achievements.js'); const d = { stats: { kills: 5, extractions: 2 } }; A.statsDefaults(d); return d.stats.kills === 5 && d.stats.rescues === 0 && typeof d.stats.zones === 'object' && d.stats.bestNoLoss === 0; });
+    ok(mig, 'migración: las partidas viejas reciben las estadísticas nuevas sin perder las antiguas');
+    await ctx15.close();
+  }
+  {
     // 24.5 música generativa y sonido: temas por pantalla y zona, intensidad, volúmenes separados y sonidos nuevos
     const ctx14 = await b.newContext({ viewport: { width: 1440, height: 860 } });
     const Au = await ctx14.newPage();

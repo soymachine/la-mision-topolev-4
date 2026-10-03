@@ -1,6 +1,7 @@
 // Narrativa y moral de la campaña (fase 20): actos, confianza de Topolev, crónica, comedor, cartas,
 // epitafios, afinidad entre agentes, estrés y encargos.
 import { S, addMessage } from './state.js';
+import { checkAchievements } from './achievements.js';
 import { ITEMS } from '../data/items.js';
 import { MAPS, mapIndex, zoneOpen, openCount } from '../data/world.js';
 import { SCENES, ENDINGS, STAFF, COMEDOR, LETTERS_FROM, EPITAPHS, LAST_LETTERS, ACTS } from '../data/story.js';
@@ -88,6 +89,7 @@ export function endGame(id) {
   S.endingLines = L;
   queueScene('end:' + id);
   chronicle(`FINAL: ${ENDINGS[id].name}.`);
+  checkAchievements(); // fase 24.6: logros de los finales
 }
 
 // ---------------------------------------------------------------- personal de la base

@@ -8,8 +8,9 @@ import { BaseUI } from './ui/base.js';
 import { TitleScreen, IntroScreen, ReportScreen, HelpScreen } from './ui/screens.js';
 import { installDebug } from './ui/debug.js';
 import { applyA11y } from './ui/a11y.js';
-import { applyLang } from './i18n/index.js';
-import { music } from './audio.js';
+import { applyLang, t } from './i18n/index.js';
+import { music, sfx } from './audio.js';
+import { setAchievementNotifier } from './core/achievements.js';
 
 let current = null;
 let prevScreen = 'title';
@@ -28,6 +29,7 @@ async function boot() {
   applyUiScale(settings);
   document.body.classList.toggle('no-crt', !settings.crt);
   applyLang(); // fase 24.4: idioma de la interfaz y de los datos
+  setAchievementNotifier((a) => { toast(t('ach.unlocked', { n: a.name }), 'good', 5000); sfx.upgrade(); }); // fase 24.6
   applyA11y(); // fase 24.1: modo daltónico y alto contraste
   try {
     await Promise.race([

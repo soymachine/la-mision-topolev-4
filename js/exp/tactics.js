@@ -8,6 +8,7 @@ const T_WATER = T.WATER, T_DEEP = T.DEEP;
 import { ACTORS } from '../data/actors.js';
 import { ITEMS } from '../data/items.js';
 import { addStress, addAff } from '../core/story.js';
+import { statBump } from '../core/achievements.js';
 
 export class TacticsPart {
   // ---------------------------------------------------------------- sigilo (23.2)
@@ -95,6 +96,7 @@ export class TacticsPart {
     t.downed = 0; t.a.hp = Math.max(1, Math.min(st.hpMaxEff, hp));
     addAff(sq.a, t.a, 15); addStress(t.a, -10);
     sq.a.saves = (sq.a.saves || 0) + 1;
+    statBump('rescues'); // fase 24.6
     this.fx.push({ type: 'heal', x: t.x, y: t.y }, { type: 'snd', s: 'revive' });
     this.say(`✚ ${this.nm(sq)} levanta a ${this.nm(t)} con ${how} (${t.a.hp} de salud).`, 'good');
     this.emit('update');
@@ -208,6 +210,7 @@ export class TacticsPart {
     p.x = land.x; p.y = land.y; p.enemy = 0;
     this.fx.push({ type: 'throw', x0: sq.x, y0: sq.y, x1: p.x, y1: p.y, glyph: '•' });
     this.say(`🦶 ¡${this.nm(sq)} devuelve la granada de una patada!`, 'o1');
+    statBump('nadesKicked');
     return true;
   }
   // humanos con arma automática: a veces suprimen a los agentes (−30% de impacto 2 turnos)

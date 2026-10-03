@@ -8,6 +8,8 @@ export default {
   'menu.saves': 'PARTIDAS GUARDADAS',
   'menu.help': 'INSTRUCCIONES',
   'menu.controls': 'CONTROLES',
+  'menu.achievements': 'LOGROS Y ESTADÍSTICAS',
+  'ach.unlocked': '🏆 Logro: {n}',
   'menu.fullscreen': 'PANTALLA COMPLETA',
   'menu.sound': 'SONIDO: {v}',
   'menu.music': 'MÚSICA: {v}',
