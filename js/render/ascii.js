@@ -513,6 +513,11 @@ export class MapRenderer {
       const sp = 4 + (4 - c.t) * 5;
       glyph(c.x, c.y, String(c.t), `rgba(255,${120 + 80 * Math.sin(T_ * sp)},40,${0.7 + 0.3 * Math.sin(T_ * sp)})`, null, 1.05, true);
     }
+    // ---- granadas con mecha en el suelo (fase 23.6) ----
+    for (const p of e.pending || []) {
+      if (p.kind !== 'nade' || !e.visible[p.y * e.w + p.x]) continue;
+      glyph(p.x, p.y, '•', `rgba(255,${p.enemy ? 59 : 210},48,${0.6 + 0.4 * Math.sin(T_ * 10)})`, null, 1.1, true);
+    }
     // ---- enemigos detectados por el detector de movimiento ----
     if (e.sense > 0 || e.team.some((q) => q.trackR)) {
       for (const en of e.enemies) {

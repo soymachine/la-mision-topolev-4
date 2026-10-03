@@ -25,6 +25,9 @@ export class UsePart {
   interact() {
     return this.act((sq) => {
       // 1. extracción
+      // fase 23.6: devolver una granada enemiga de una patada
+      const nd = this.nadeNear(sq);
+      if (nd && this.flag(sq, 'kickNade')) return this.kickNade(sq, nd);
       // fase 23.3: levantar a un compañero abatido
       const dn = this.downedNear(sq);
       if (dn) return this.rescue(sq, dn);
@@ -399,9 +402,11 @@ export class UsePart {
       this.noise(tx, ty, 12);
       return true;
     }
-    this.say(`${this.nm(sq)} lanza ${d.name}.`, 'o1');
+    // fase 23.6: rebota en las paredes y estalla al final del turno (mecha)
+    const land = this.grenadePath(sq.x, sq.y, tx, ty);
+    this.say(`${this.nm(sq)} lanza ${d.name}${land.bounced ? ': rebota en la pared' : ''}. Estalla al final del turno.`, 'o1');
     const bp = 1 + this.flag(sq, 'blastPct') / 100;
-    this.explode(tx, ty, d.blast, [Math.round(d.dmg[0] * bp), Math.round(d.dmg[1] * bp)], sq, d.fire || 0, 260, { pierce: d.pierce || 0, essBoost: d.essBoost || 0, noise: d.noise || 14 });
+    this.armNade({ x: land.x, y: land.y, at: this.turn, blast: d.blast, dmg: [Math.round(d.dmg[0] * bp), Math.round(d.dmg[1] * bp)], fire: d.fire || 0, pierce: d.pierce || 0, essBoost: d.essBoost || 0, noise: d.noise || 14, src: sq.id });
     return true;
   }
 

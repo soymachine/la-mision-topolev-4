@@ -40,7 +40,7 @@ export const SPECS = {
     name: 'Zapador', glyph: '*', color: '#ffb02e', fantasy: 'Explosivos, trampas y máquinas.',
     ability: { id: 'charge', name: 'Colocar carga', glyph: '✱', cd: 18, target: false, desc: 'Deja una carga de demolición en su casilla. Estalla al cabo de 3 turnos (radio 2). Apártate.' },
     branches: [
-      { name: 'Explosivos', talents: ['z_bolsillos', 'z_dinamita', 'z_hueca', 'z_brazo'] },
+      { name: 'Explosivos', talents: ['z_bolsillos', 'z_dinamita', 'z_hueca', 'z_brazo', 'z_patada'] },
       { name: 'Trampas', talents: ['z_minador', 'z_desactiva', 'z_cebo', 'z_cables'] },
       { name: 'Máquinas', talents: ['z_mecanico', 'z_chatarra', 'z_ingeniero', 'z_blindaje'] },
     ],
@@ -126,6 +126,7 @@ export const SPEC_TALENTS = {
   z_dinamita: T('zapador', 0, 1, { name: 'Dinamitero', glyph: '*', desc: 'Tus explosiones hacen un 25% más de daño.', flags: { blastPct: 25 } }),
   z_hueca: T('zapador', 0, 2, { name: 'Carga hueca', glyph: '✱', desc: 'Colocar carga: radio 3 y +50% de daño.', flags: { chargePlus: 1 } }),
   z_brazo: T('zapador', 0, 2, { name: 'Brazo de lanzador', glyph: '↗', desc: '+2 de alcance al lanzar objetos.', flags: { throwRange: 2 } }),
+  z_patada: T('zapador', 0, 2, { name: 'Devolución', glyph: '↶', desc: 'F junto a una granada enemiga: la devuelves de una patada 3 casillas más allá.', flags: { kickNade: 1 } }),
   z_minador: T('zapador', 1, 1, { name: 'Minador', glyph: '^', desc: 'Tus trampas hacen un 50% más de daño.', flags: { trapDmg: 50 } }),
   z_desactiva: T('zapador', 1, 1, { name: 'Desactivador', glyph: 'ϟ', desc: 'Inmune a las anomalías eléctricas.', flags: { antiAnomaly: 1 } }),
   z_cebo: T('zapador', 1, 2, { name: 'Cebo', glyph: '¤', desc: 'Tus trampas inmovilizan 2 turnos más.', flags: { trapStun: 2 } }),

@@ -1546,6 +1546,41 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     ok(am.loadAp && am.back, 'munición especial: N elige el tipo, R lo carga y lo cargado vuelve a la mochila al cambiar');
     ok(am.fx && am.inc, 'perforante, expansiva y de esencia cambian el daño; la incendiaria prende fuego');
     ok(am.supp && am.penalty && am.noPistol, 'fuego de supresión (Z) con armas automáticas: suprime 2 turnos y −30% de impacto');
+    // 23.6 granadas que rebotan, con mecha, y patada
+    const gr = await K.evaluate(() => {
+      const e = window.__topolev.exp; const out = {}; window.__clr(); window.__floor(); window.__home(); e.god = true;
+      const sq = e.team.find((q) => !q.downed) || e.cur; e.active = e.squad.indexOf(sq); e.moveEntity(sq, ...window.__P(0, 0));
+      // sin pared: cae donde apuntas; con pared en medio: rebota y cae antes
+      const [tx, ty] = window.__P(6, 0);
+      const free = e.grenadePath(sq.x, sq.y, tx, ty);
+      window.__set(4, 0, 1); // muro
+      const bo = e.grenadePath(sq.x, sq.y, tx, ty);
+      out.bounce = !free.bounced && free.x === tx && bo.bounced && bo.x < window.__P(4, 0)[0];
+      window.__set(4, 0, 2);
+      // mecha: no estalla al lanzarla, sino al final del turno
+      const w = e.spawnEnemy('golem', 5, tx, ty, 'dormido'); w.hp = w.hpMax = 999;
+      const nade = window.__mk('rgd5', 0); sq.a.bag.push(nade);
+      e.throwAt(sq, nade, tx, ty);
+      const before = w.hp, armed = e.pending.some((p) => p.kind === 'nade');
+      e.wait();
+      out.fuse = armed && before === 999 && w.hp < 999 && !e.pending.some((p) => p.kind === 'nade');
+      e.dismissActor(w);
+      // granada enemiga junto al agente: sin el talento no se devuelve; con «Devolución», F la manda lejos
+      const [nx, ny] = window.__P(1, 0);
+      e.armNade({ x: nx, y: ny, at: e.turn + 1, blast: 1, dmg: [10, 10], src: 'prueba', enemy: 1 });
+      const p = e.pending.find((q) => q.kind === 'nade');
+      out.noKick = !e.kickNade(sq, p) && p.x === nx;
+      sq.a.talents = [...(sq.a.talents || []), 'z_patada'];
+      out.flag = !!e.flag(sq, 'kickNade');
+      e.interact();
+      out.kick = Math.max(Math.abs(p.x - sq.x), Math.abs(p.y - sq.y)) >= 3 && !p.enemy;
+      e.pending = e.pending.filter((q) => q.kind !== 'nade');
+      sq.a.talents = sq.a.talents.filter((t) => t !== 'z_patada');
+      window.__clr();
+      return out;
+    });
+    ok(gr.bounce && gr.fuse, 'granadas: rebotan en las paredes y estallan al final del turno (mecha)');
+    ok(gr.noKick && gr.flag && gr.kick, `talento «Devolución»: F junto a una granada enemiga la devuelve de una patada${gr.noKick && gr.flag && gr.kick ? '' : ' ' + JSON.stringify(gr)}`);
     await ctx10.close();
   }
 

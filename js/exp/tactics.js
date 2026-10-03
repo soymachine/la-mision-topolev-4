@@ -1,6 +1,6 @@
 // Expedición · Combate táctico (fase 23): sigilo real (agacharse, detección), ataques por la espalda y emboscadas.
 // (métodos mezclados en Expedition: ver expedition.js)
-import { cheb, rng } from '../util/rng.js';
+import { cheb, rng, line } from '../util/rng.js';
 import { itemStats } from '../core/items.js';
 import { AMMO_KINDS } from '../data/ammo.js';
 import { ACTORS } from '../data/actors.js';
@@ -134,6 +134,50 @@ export class TacticsPart {
     this.resolveHit(sq, tgt, { ...ws, dmg: [Math.max(1, Math.round(ws.dmg[0] / 2)), Math.max(1, Math.round(ws.dmg[1] / 2))] }, this.ast(sq), false);
     this.noise(sq.x, sq.y, (ws.noise || 10) + 4);
     this.say(`🔫 ${this.nm(sq)} abre fuego de supresión (${rounds} balas): ${n} enemigo(s) suprimidos 2 turnos.`, 'o1');
+    return true;
+  }
+  // ---------------------------------------------------------------- granadas (23.6)
+  // las paredes (casillas opacas) detienen la granada; por encima de sacos y consolas pasa
+  nadeBlocked(x, y) { return !this.inb(x, y) || this.opaque(x, y); }
+  // trayectoria hasta el destino; si choca con una pared, rebota una vez y cae 1–2 casillas más allá
+  grenadePath(x0, y0, tx, ty) {
+    const pts = line(x0, y0, tx, ty);
+    let px = x0, py = y0;
+    for (let i = 1; i < pts.length; i++) {
+      const [x, y] = pts[i];
+      if (!this.nadeBlocked(x, y)) { px = x; py = y; continue; }
+      let dx = Math.sign(x - px), dy = Math.sign(y - py);
+      if (dx && dy) {
+        const hx = this.nadeBlocked(px + dx, py), hy = this.nadeBlocked(px, py + dy);
+        if (hx && !hy) dx = -dx; else if (hy && !hx) dy = -dy; else { dx = -dx; dy = -dy; }
+      } else { dx = -dx; dy = -dy; }
+      const steps = Math.max(1, Math.min(2, pts.length - i));
+      for (let s = 0; s < steps && !this.nadeBlocked(px + dx, py + dy); s++) { px += dx; py += dy; }
+      return { x: px, y: py, bounced: true };
+    }
+    return { x: px, y: py, bounced: false };
+  }
+  // granada con mecha: queda en el suelo y explota al final del turno indicado (lista `pending`, se guarda)
+  armNade(n) { this.pending.push({ kind: 'nade', ...n }); }
+  nadeTick() {
+    for (const p of [...this.pending]) {
+      if (p.kind !== 'nade' || p.at > this.turn) continue;
+      this.pending.splice(this.pending.indexOf(p), 1);
+      const src = this.squad.find((q) => q.id === p.src && this.inMap(q)) || this.enemies.find((o) => o.uid === p.src) || null;
+      this.explode(p.x, p.y, p.blast, p.dmg, src, p.fire || 0, 0, { pierce: p.pierce || 0, essBoost: p.essBoost || 0, noise: p.noise || 14 });
+      if (this.ended) return;
+    }
+  }
+  // patada (talento Devolución): una granada enemiga a tu lado sale despedida 3 casillas lejos de ti
+  nadeNear(sq) { return this.pending.find((p) => p.kind === 'nade' && p.enemy && cheb(p.x, p.y, sq.x, sq.y) <= 1) || null; }
+  kickNade(sq, p) {
+    if (!this.flag(sq, 'kickNade')) { this.say(`¡Granada! ${this.nm(sq)} no sabe devolverla: ¡apartaos!`, 'warn'); return false; }
+    let dx = Math.sign(p.x - sq.x), dy = Math.sign(p.y - sq.y);
+    if (!dx && !dy) { const t = this.enemies.find((o) => o.uid === p.src); dx = t ? Math.sign(t.x - sq.x) : 1; dy = t ? Math.sign(t.y - sq.y) : 0; }
+    const land = this.grenadePath(p.x, p.y, p.x + dx * 3, p.y + dy * 3);
+    p.x = land.x; p.y = land.y; p.enemy = 0;
+    this.fx.push({ type: 'throw', x0: sq.x, y0: sq.y, x1: p.x, y1: p.y, glyph: '•' });
+    this.say(`🦶 ¡${this.nm(sq)} devuelve la granada de una patada!`, 'o1');
     return true;
   }
   // humanos con arma automática: a veces suprimen a los agentes (−30% de impacto 2 turnos)

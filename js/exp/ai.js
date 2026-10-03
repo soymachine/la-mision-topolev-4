@@ -385,9 +385,12 @@ export class AIPart {
         const foes = this.combatants().filter((o) => this.hostile(e, o) && cheb(o.x, o.y, tgt.x, tgt.y) <= r).length;
         if (!friends && (foes >= 2 || rng.chance(0.4))) {
           e.nadeUsed = 1;
-          this.fx.push({ type: 'throw', x0: e.x, y0: e.y, x1: tgt.x, y1: tgt.y, glyph: '•' });
-          if (this.isVisible(e.x, e.y) || this.isVisible(tgt.x, tgt.y)) this.say(`💣 ¡${this.enm(e)} lanza ${d.name.toLowerCase().startsWith('carga') ? 'una carga de Semtex' : 'una granada'}!`, 'bad');
-          this.explode(tgt.x, tgt.y, r, d.dmg, e, d.fire || 0, 260, { noise: d.noise || 14 });
+          // fase 23.6: rebota y estalla al final del turno siguiente: hay tiempo para apartarse (o devolverla)
+          const land = this.grenadePath(e.x, e.y, tgt.x, tgt.y);
+          this.fx.push({ type: 'throw', x0: e.x, y0: e.y, x1: land.x, y1: land.y, glyph: '•' });
+          if (this.isVisible(e.x, e.y) || this.isVisible(land.x, land.y)) this.say(`💣 ¡${this.enm(e)} lanza ${d.name.toLowerCase().startsWith('carga') ? 'una carga de Semtex' : 'una granada'}! Estalla el próximo turno: ¡apartaos!`, 'bad');
+          this.armNade({ x: land.x, y: land.y, at: this.turn + 1, blast: r, dmg: d.dmg, fire: d.fire || 0, noise: d.noise || 14, src: e.uid, enemy: 1 });
+          this.interrupt = true;
           return;
         }
       }

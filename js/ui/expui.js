@@ -698,7 +698,10 @@ export class ExpeditionUI {
       const inRange = Math.hypot(m.cx - c.x, m.cy - c.y) <= d.range + 0.5;
       ov.line = [c.x, c.y, m.cx, m.cy, inRange];
       const br = d.blast || d.smoke || d.gas || (d.trap && d.trap.blast) || 0;
-      if (br) ov.blast = { x: m.cx, y: m.cy, r: br };
+      // fase 23.6: las granadas explosivas rebotan: la explosión se previsualiza donde caerá
+      const land = d.dmg && d.blast && d.use === 'throw' && !d.lure && !d.smoke && !d.gas && !d.stun ? e.grenadePath(c.x, c.y, m.cx, m.cy) : null;
+      if (land && land.bounced) ov.line = [c.x, c.y, land.x, land.y, inRange];
+      if (br) ov.blast = land ? { x: land.x, y: land.y, r: br } : { x: m.cx, y: m.cy, r: br };
     }
     this.r.overlay = ov;
   }

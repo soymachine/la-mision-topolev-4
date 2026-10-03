@@ -23,6 +23,8 @@ export class EnvironmentPart {
     const N = this.w * this.h;
     this.downedTick(); // fase 23.3: los abatidos se desangran
     if (this.ended) return;
+    this.nadeTick(); // fase 23.6: granadas con mecha
+    if (this.ended) return;
     // respiraderos de gas
     for (const v of this.vents) {
       if (rng.chance(0.5)) {

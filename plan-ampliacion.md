@@ -504,11 +504,15 @@ Resumen original: cobertura media/total con indicador `[▄]` y flanqueo; sigilo
 - [ ] 23.5.3 **Reparación** en el Taller de fabricación (fase 21, pestaña INVESTIGACIÓN): coste en chatarra según el tier; o en el Garaje. Mostrar la durabilidad en el tooltip del arma (`core/items.js · itemTooltip`).
 - [ ] 23.5.4 Pruebas + ayuda + Archivo.
 
-### 23.6 Granadas que rebotan y patada (M)
-- [ ] 23.6.1 Trayectoria de lanzamiento en `throwAt()` (use.js): si la línea al destino choca con un muro, la granada **rebota** una vez (refleja la dirección en el eje del choque) y cae 1–2 casillas después; previsualizar la trayectoria en el modo de lanzamiento (`ui/expui.js`, `enterThrow`). Las granadas tienen `fuse` (1 turno): caen al suelo y explotan al siguiente turno (en `this.pending`, que ya existe), en vez de al instante.
-- [ ] 23.6.2 **Devolver de una patada**: talento nuevo (rama del Zapador o del Explorador en `data/specs.js`): si una granada enemiga cae a ≤1 casilla, el agente puede gastar su turno en patearla 3 casillas en la dirección contraria. Sin el talento: apartarse.
-- [ ] 23.6.3 Granadas **enemigas** (IA humana ya lanza, fase 18): que también usen la mecha de 1 turno y avisen («¡Granada!») para dar tiempo a reaccionar.
-- [ ] 23.6.4 Pruebas (rebote en un muro, mecha de 1 turno, patada con el talento) + ayuda + Archivo.
+### 23.6 Granadas que rebotan y patada (M) ✔
+- [x] 23.6.1 Trayectoria de lanzamiento en `throwAt()` (use.js): si la línea al destino choca con un muro, la granada **rebota** una vez (refleja la dirección en el eje del choque) y cae 1–2 casillas después; previsualizar la trayectoria en el modo de lanzamiento (`ui/expui.js`, `enterThrow`). Las granadas tienen `fuse` (1 turno): caen al suelo y explotan al siguiente turno (en `this.pending`, que ya existe), en vez de al instante.
+  - *Hecho:* `grenadePath()` en tactics.js (las paredes opacas la detienen; rebote único reflejando el eje que choca, 1–2 casillas más); `throwAt()` (use.js) arma la granada en `pending` (`kind: 'nade'`, se guarda) y `nadeTick()` la hace estallar al final del turno; previsualización del rebote en el modo de lanzamiento (expui.js) y granada parpadeando en el mapa (ascii.js).
+- [x] 23.6.2 **Devolver de una patada**: talento nuevo (rama del Zapador o del Explorador en `data/specs.js`): si una granada enemiga cae a ≤1 casilla, el agente puede gastar su turno en patearla 3 casillas en la dirección contraria. Sin el talento: apartarse.
+  - *Hecho:* talento `z_patada` «Devolución» (Zapador, rama Explosivos, nivel II, `kickNade`): F junto a una granada enemiga → `kickNade()` la manda 3 casillas en dirección contraria; sin el talento, aviso de apartarse.
+- [x] 23.6.3 Granadas **enemigas** (IA humana ya lanza, fase 18): que también usen la mecha de 1 turno y avisen («¡Granada!») para dar tiempo a reaccionar.
+  - *Hecho:* IA humana (ai.js): rebota, estalla al final del turno siguiente y avisa «¡apartaos!» (`interrupt`).
+- [x] 23.6.4 Pruebas (rebote en un muro, mecha de 1 turno, patada con el talento) + ayuda + Archivo.
+  - *Hecho:* pruebas en `· Fase 23` (rebote, mecha, patada) y ayuda (sección de combate).
 
 ### 23.7 Cierre de la fase
 - [ ] 23.7.1 Revisar el equilibrio con `smoke.cjs` en varias zonas (que el bot no muera siempre por los abatidos ni la supresión).
