@@ -816,6 +816,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
       e.act((q) => e.throwAt(q, cam, wolf.x, wolf.y));
       out.photo = !!(window.__topolev.S.photos && window.__topolev.S.photos.lobo) && cam.ch === 11 && sq.a.bag.includes(cam);
       // grabadora
+      const c3 = window.__adj(e, sq, 1) || window.__adj(e, sq, 2); const recT = e.spawnEnemy('lobo', 1, c3[0], c3[1], 'dormido'); recT.hp = recT.hpMax = 999; e.computeVisibility(true); // a la vista seguro
       const rec = window.__mk('recorder', 0); sq.a.bag.push(rec);
       e.act((q) => e.useItem(q, rec));
       out.rec = rec.rec;
