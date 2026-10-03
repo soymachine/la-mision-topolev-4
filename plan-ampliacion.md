@@ -532,17 +532,75 @@ Resumen original: cobertura media/total con indicador `[▄]` y flanqueo; sigilo
 
 ## FASE 24 — Calidad, accesibilidad, modos y longevidad
 
-- [ ] **Accesibilidad:** modo daltónico (las rarezas también con símbolo), remapeo de teclas, fuente con mayor contraste, controles táctiles (móvil y tableta).
-- [ ] **Localización:** extraer todos los textos a `js/i18n/es.js` y preparar el inglés.
-- [ ] **Música generativa** (drones de WebAudio que cambian con la zona y el peligro) y más efectos de sonido.
-- [ ] **Logros** y **estadísticas** ampliadas.
-- [ ] **Modos de juego:**
-  - Historia, con el arco principal.
-  - Libre (sandbox).
-  - **Hierro**: una sola ranura de guardado, sin recargar.
-  - **Desafío semanal** con semilla fija y tabla de puntuación local.
-  - **Nueva partida+ «1987»**: modificadores acumulables y enemigos más duros.
-- [ ] Enciclopedia dentro del juego (versión jugable de `admin.html` con lo ya descubierto).
+Resumen original: accesibilidad (modo daltónico con símbolos en las rarezas, remapeo de teclas, fuente de mayor contraste, controles táctiles); localización (textos a `js/i18n/es.js` y preparar el inglés); música generativa y más sonidos; logros y estadísticas ampliadas; modos de juego (Historia, Libre, Hierro, Desafío semanal, Nueva partida+ «1987»); enciclopedia dentro del juego.
+
+### Cómo trabajar esta fase (para retomarla a medias)
+- Igual que en la fase 23: subfases **en orden** (24.1 → 24.9), cada una deja el juego jugable; al cerrar una, **commit + push** con `Fase 24.N: …`.
+- Al terminar cada **subtarea**, marcarla aquí con una línea `*Hecho:*`; si se corta a medias, dejarla sin marcar con `*En curso:*` y lo que falta. Actualizar la línea **Siguiente sesión** de `plan.md` con la subtarea exacta.
+- Pruebas: sección nueva `· Fase 24` en `tests/systems.cjs` (contexto propio `ctx11`). Los ajustes viven en `core/state.js · settings` (localStorage `topolev_settings_v1`): toda opción nueva necesita valor por defecto en `loadSettings()` y no debe romper partidas guardadas. Antes de cada commit: `node tests/mapgen.mjs` y la sección nueva; al cerrar la fase, `systems.cjs` completo dos veces y `smoke.cjs` en 3–4 zonas.
+- Puntos de enganche: `ui/screens.js` (`TitleScreen` = menú principal y ajustes, `HelpScreen`), `ui/expui.js` (teclado `onKey`, tarjetas, tooltips, ratón), `ui/base.js` (pestañas de la base), `render/ascii.js` (colores del mapa), `core/items.js` (`itemHTML`, `itemTooltip`, `rarityColor`), `data/rarity.js`, `audio.js` (`sfx`, `setVolume`), `css/style.css` (variables de color en `:root`), `admin.js` (catálogo reutilizable para la enciclopedia).
+- La 24.4 (localización) es la más grande: hacerla **por partes** (infraestructura y la interfaz primero; los datos del juego, por archivos) y no bloquear las demás subfases por ella.
+
+### 24.1 Modo daltónico y alto contraste (M)
+- [ ] 24.1.1 **Ajustes nuevos** en `settings` (`colorblind: false`, `contrast: false`) con sus botones en el menú principal (`TitleScreen`) y también accesibles durante la partida (menú de pausa / tecla de ajustes si existe; si no, desde la base). Se aplican al instante (clases `cb` y `hc` en `<body>`).
+- [ ] 24.1.2 **Rarezas con símbolo**: cada rareza de `data/rarity.js` gana `sym` (· común, + no común, ◆ raro, ★ épico, ✦ legendario, ✪ mítico) y un color alternativo seguro para daltonismo (paleta Okabe-Ito). Con `colorblind`, `itemHTML`, el tooltip, la lista de botín del suelo, el almacén y las tiendas muestran el símbolo delante del nombre y usan los colores alternativos (`rarityColor` centraliza el cambio).
+- [ ] 24.1.3 **No solo color en el mapa**: actitud de las personas (hostil/neutral/aliado) con una marca distinta además del color del borde (p. ej. `!`, `?`, `+` en la esquina); élites ya llevan ★; barras de vida con el % en el tooltip; estados de los agentes (VISTO/OÍDO/OCULTO, ABATIDO, SUPRIMIDO) ya llevan texto.
+- [ ] 24.1.4 **Alto contraste**: variables de `:root` alternativas en `body.hc` (texto más claro, fondos más oscuros, bordes visibles), fuente en negrita, sin efecto CRT, y en el lienzo ASCII colores más luminosos (factor de luminosidad mínima en `render/ascii.js` cuando `settings.contrast`).
+- [ ] 24.1.5 Pruebas (activar cada modo cambia las clases, los símbolos aparecen, `rarityColor` cambia) + ayuda + Archivo (rarezas con símbolo).
+
+### 24.2 Remapeo de teclas (M)
+- [ ] 24.2.1 Tabla de **acciones** (`data/keys.js` o en `ui/expui.js`): mover (8 direcciones + numérico), esperar, interactuar F, recoger G, recargar R, cambiar arma X, apuntar T, curar H, habilidad V, linterna L, agacharse C, munición N, supresión Z, compañero D, granada B, inventario I, mapa M, órdenes O, siguiente agente Tab, ayuda ?, zoom +/−. Valores por defecto = los de ahora.
+- [ ] 24.2.2 `settings.keys` guarda solo lo cambiado; `onKey()` en expui.js traduce la tecla pulsada a una acción a través de la tabla (en vez del `switch` con letras fijas).
+- [ ] 24.2.3 Pantalla **CONTROLES** (menú principal): lista de acciones con su tecla, clic para reasignar («pulsa una tecla…»), aviso si choca con otra acción, botón «restaurar».
+- [ ] 24.2.4 La ayuda y los tooltips que nombran teclas (p. ej. «pulsa **F**») leen la tecla actual (función `keyName('interactuar')`).
+- [ ] 24.2.5 Pruebas (reasignar R → recarga con la nueva tecla; restaurar).
+
+### 24.3 Controles táctiles (L)
+- [ ] 24.3.1 Detección de pantalla táctil (`matchMedia('(pointer: coarse)')`) y ajuste `touch: auto|on|off`.
+- [ ] 24.3.2 **Barra de acciones** en pantalla durante la expedición: cruceta de 8 direcciones (o tocar una casilla para ir), esperar, F, recargar, apuntar, curar, habilidad, granada, cambiar de agente. Botones grandes (≥ 44 px).
+- [ ] 24.3.3 Gestos: toque = lo mismo que clic; **pulsación larga** = tooltip; pellizco = zoom; arrastrar el minimapa = desplazar la vista.
+- [ ] 24.3.4 Base y menús usables en pantalla estrecha (rejillas de 3 columnas que pasen a 1–2; modales con scroll). Revisar `css/style.css`.
+- [ ] 24.3.5 Pruebas con Playwright emulando un móvil (`hasTouch`, viewport estrecho): la barra aparece y mover/esperar funcionan.
+
+### 24.4 Localización (XL, por partes)
+- [ ] 24.4.1 **Infraestructura**: `js/i18n/index.js` con `t(clave, vars)` (interpolación `{x}`, plural sencillo), idioma en `settings.lang` (`es` por defecto), carga de `js/i18n/es.js` y `js/i18n/en.js`; si falta una clave en inglés, cae al español (y en la consola de depuración se listan las que faltan).
+- [ ] 24.4.2 Extraer los textos de la **interfaz** (menú principal, pestañas y botones de la base, panel de expedición, informe, ayuda) a `es.js`.
+- [ ] 24.4.3 Extraer los **mensajes del registro** de la expedición más frecuentes (combate, extracción, objetos) — los de `exp/*.js` que se repiten.
+- [ ] 24.4.4 Datos del juego por archivos: nombres y descripciones de objetos, enemigos, zonas, talentos… con un sistema de «sobrescritura» por idioma (`i18n/en/items.js` con `{ id: { name, desc } }`) en lugar de duplicar los archivos de datos.
+- [ ] 24.4.5 Traducción **inglesa** de la interfaz (24.4.2) como primer paso; selector de idioma en el menú; el resto se puede ir completando.
+- [ ] 24.4.6 Pruebas: cambiar a inglés cambia el menú y las pestañas; claves que faltan caen al español sin romper nada.
+
+### 24.5 Música generativa y sonido (M)
+- [ ] 24.5.1 Motor de **drones** en `audio.js` (WebAudio: 2–3 osciladores desafinados + filtro + LFO) con una «paleta» por estrato/zona (superficie, subsuelo, laboratorio, corium) y que sube de intensidad con el peligro (enemigos en alerta, pulso del reactor, jefe a la vista).
+- [ ] 24.5.2 Música tranquila en la base (otro tema); fundidos al entrar/salir de la expedición.
+- [ ] 24.5.3 **Volúmenes separados** (música / efectos) en los ajustes; `settings.music`.
+- [ ] 24.5.4 Sonidos nuevos para lo añadido en las fases 19–23: granada con mecha (tic-tac), abatido (latido), levantar, supresión, encasquillar, agacharse, aullido/alarma de chebylitas, cambio de fase de jefe, élite a la vista.
+- [ ] 24.5.5 Pruebas (sin errores con el sonido activado en Playwright; los volúmenes se guardan).
+
+### 24.6 Logros y estadísticas ampliadas (M)
+- [ ] 24.6.1 `data/achievements.js`: 30–40 logros con condición (primera extracción, 10 jefes, todos los trofeos, sin bajas en 10 expediciones, levantar a 20 abatidos, colección completa, cada final…). Se guardan **fuera de la partida** (localStorage propio, compartido entre ranuras).
+- [ ] 24.6.2 Comprobación en los momentos clave (fin de expedición, muerte de jefe, `nextDay`, encargos, finales) y aviso con un toast y sonido.
+- [ ] 24.6.3 **Estadísticas ampliadas** en `S.stats`: por zona (expediciones, extracciones, muertes), bajas por especie y por arma, rescates, granadas devueltas, críticos por la espalda, esencia por día, día récord… con migración para partidas viejas.
+- [ ] 24.6.4 Pantalla de **logros y estadísticas** (desde el menú principal y desde ARCHIVO).
+- [ ] 24.6.5 Pruebas (un logro se desbloquea y persiste tras borrar la ranura; estadísticas que suben).
+
+### 24.7 Modos de juego (L)
+- [ ] 24.7.1 Selector de **modo** al crear partida (`S.mode`): Historia (lo de ahora, por defecto), Libre, Hierro, Desafío semanal, «1987». Se muestra en la ranura y en la cabecera de la base.
+- [ ] 24.7.2 **Libre (sandbox)**: todas las zonas abiertas, sin cuota del Comité ni ataques a la base (o configurables), más rublos al empezar; sin actos ni finales.
+- [ ] 24.7.3 **Hierro**: guardado automático continuo en una sola ranura, sin «cargar partida» mientras dura (salir = guardar); al perder a todo el escuadrón y quedarse sin reclutas, la partida se borra (pantalla de «fin»).
+- [ ] 24.7.4 **Desafío semanal**: semilla fija por semana ISO (`RNG` de la creación de agentes, del botín inicial y de los mapas de las 3 primeras zonas); objetivo de 15 días; **puntuación** (esencia + bajas + extracciones − muertes) y **tabla local** con las mejores marcas.
+- [ ] 24.7.5 **Nueva partida+ «1987»**: se desbloquea al ver un final; empieza con un agente veterano o un trofeo de la partida anterior y modificadores acumulables (+1 nivel a los chebylitas, alerta del reactor +1, menos rublos…), elegibles al crearla.
+- [ ] 24.7.6 Pruebas (cada modo crea su estado; Hierro no permite cargar; desafío con la misma semilla genera lo mismo; 1987 aplica sus modificadores).
+
+### 24.8 Enciclopedia dentro del juego (M)
+- [ ] 24.8.1 Pestaña o pantalla **ENCICLOPEDIA** (desde ARCHIVO y el menú de pausa) que reutiliza las secciones de `admin.js` (extraer las funciones de render a un módulo común, p. ej. `ui/codex.js`, para no duplicar).
+- [ ] 24.8.2 Solo muestra **lo descubierto**: chebylitas vistos (`S.bestiary`), objetos encontrados (registrar `S.seenItems` al recoger o comprar), zonas abiertas, facciones conocidas, notas leídas, trofeos conseguidos; lo demás aparece como «???».
+- [ ] 24.8.3 Búsqueda y enlaces cruzados (de un enemigo a sus zonas, de una zona a sus enemigos y jefe).
+- [ ] 24.8.4 Pruebas (lo no descubierto aparece oculto; tras ver un chebylita aparece).
+
+### 24.9 Cierre de la fase
+- [ ] 24.9.1 Revisión general de la ayuda y del Archivo con todo lo nuevo; teclas en la ayuda leídas de la tabla de controles.
+- [ ] 24.9.2 `systems.cjs` completo dos veces, `mapgen.mjs`, `smoke.cjs` en 3–4 zonas (también con el modo daltónico y el contraste activados); marcar la fase con ✔ y actualizar `plan.md`.
 
 ---
 
