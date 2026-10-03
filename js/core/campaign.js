@@ -297,7 +297,7 @@ export function finalizeExpedition(exp) {
       const bonusXp = 15 * def.lvl[1];
       const ups = giveXp(a, bonusXp);
       row.lvl = a.lvl; row.lvlUp = a.lvl - sq.lvl0;
-      row.items = [...Object.values(a.equip).filter(Boolean), ...a.bag].map((it) => ({ name: itemName(it), r: it.r, q: it.q }));
+      row.items = [...Object.values(a.equip).filter(Boolean), ...a.bag].map((it) => ({ name: itemName(it), r: it.r, q: it.q, it: JSON.parse(JSON.stringify(it)) })); // it: copia para el tooltip del informe
       for (const it of [...Object.values(a.equip).filter(Boolean), ...a.bag]) {
         if (!S.stats.bestItem || it.r > S.stats.bestItem.r) S.stats.bestItem = { name: itemName(it), r: it.r };
       }

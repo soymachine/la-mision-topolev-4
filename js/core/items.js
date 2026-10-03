@@ -182,6 +182,7 @@ export function gadgetEffectLines(it) {
   if (x.aura) L.push(`<b>Aura ${x.aura.r} casillas</b> (tú y aliados): ${modsText(x.aura.mods)}`);
   if (x.team) L.push(`<b>Equipo</b> (${x.team.min}+ agentes lo llevan): ${modsText(x.team.mods)}`);
   const f = x.flags || {};
+  if (f.radarLoot || f.radarCheb || f.radarFac) L.push(`<b>Radar:</b> ${[f.radarLoot ? `botín a ${f.radarLoot}` : '', f.radarCheb ? `chebylitas a ${f.radarCheb}` : '', f.radarFac ? `otras facciones a ${f.radarFac}` : ''].filter(Boolean).join(' · ')} casillas`);
   if (f.killHeal) L.push(`<b>Al matar:</b> cura ${f.killHeal}`);
   if (f.killFrenzy) L.push(`<b>Al matar:</b> +${f.killFrenzy}% daño 3 turnos`);
   if (f.thorns) L.push(`<b>Espinas:</b> ${f.thorns} de daño a quien te ataque cuerpo a cuerpo`);
@@ -349,6 +350,24 @@ export function itemHTML(it, opts = {}) {
   return `<span class="ig" style="color:${col}">${itemGlyph(it)}</span><span class="in" style="color:${col}">${rarSym(it.r)}${esc(itemName(it))}</span>${it.q > 1 ? `<span class="iq">×${it.q}</span>` : ''}${opts.extra || ''}`;
 }
 
+// Dividir una pila (revisión fase 24): saca n unidades de it a una pila nueva justo detrás, en la misma lista
+export function splitStack(list, it, n) {
+  n = Math.floor(n);
+  if (!it || !(it.q > 1) || n < 1 || n >= it.q) return null;
+  const piece = { ...JSON.parse(JSON.stringify(it)), uid: uid('i'), q: n };
+  it.q -= n;
+  list.splice(list.indexOf(it) + 1, 0, piece);
+  return piece;
+}
+// juntar src sobre dst (mismo objeto y rareza): pasa lo que quepa; devuelve cuántas unidades se han movido
+export function stackOnto(dst, src) {
+  const d = ITEMS[dst.b];
+  if (!src || src === dst || src.b !== dst.b || src.r !== dst.r || (d.stack || 1) <= 1) return 0;
+  const mv = Math.min((d.stack || 1) - dst.q, src.q);
+  if (mv <= 0) return 0;
+  dst.q += mv; src.q -= mv;
+  return mv;
+}
 // Fusiona pilas: añade it a la lista respetando el máximo de la pila. Devuelve el resto (o null)
 export function mergeInto(list, it, maxSlots = Infinity) {
   const d = ITEMS[it.b];

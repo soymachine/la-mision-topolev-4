@@ -1,5 +1,6 @@
 // Renderer ASCII en canvas: capa estática cacheada (terreno) + capa dinámica (entidades, efectos)
 import { TILES, T } from '../data/tiles.js';
+import { exitKnown } from '../exp/intel.js';
 import { ENEMIES, enemyColor } from '../data/enemies.js';
 import { ACTORS, actorColor, actorFaction, isHuman } from '../data/actors.js';
 import { FACTIONS } from '../data/factions.js';
@@ -461,6 +462,7 @@ export class MapRenderer {
     }
     // ---- extracciones (siempre visibles) ----
     for (const ex of e.exits) {
+      if (!exitKnown(e, ex)) continue;
       const temp = !ex.perm;
       const left = temp ? ex.expires - e.turn : 99;
       const p = 0.55 + 0.45 * Math.sin(T_ * 4);

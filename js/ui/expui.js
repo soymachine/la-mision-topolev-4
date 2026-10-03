@@ -16,7 +16,7 @@ import { ORDERS, ESSENCE_COLOR } from '../exp/shared.js';
 import { astar } from '../exp/path.js';
 import { cheb, rng } from '../util/rng.js';
 import { sfx, music, themeForZone } from '../audio.js';
-import { uiFly } from './fx.js';
+import { uiFly, uiFlyFrom } from './fx.js';
 import { NOTES, FOREIGN_NOTES } from '../data/lore.js';
 import { showDialog } from './dialog.js';
 
@@ -26,6 +26,7 @@ import { a11yButtons } from './a11y.js';
 import { actionForKey, dirOf, controlsModal, keyName, keyify } from './keys.js';
 import { buildTouchBar, mapGestures, minimapDrag } from './touch.js';
 import { t } from '../i18n/index.js';
+import { nestIdentified, NEST_ID_KILLS } from '../exp/intel.js';
 import { codexModal } from './codex.js';
 const SOCIAL_TIP = { trader: 'Compra y venta.', medic: 'Curas y tratamiento de la radiación.', board: 'Rumores y trabajos.', archive: 'Expedientes del KGB.' };
 export function toggleFullscreen() {
@@ -227,7 +228,7 @@ export class ExpeditionUI {
         case 'kill': setTimeout(() => sfx.kill(), f.delay || 0); break;
         case 'hurt': setTimeout(() => sfx.hurt(), f.delay || 0); break;
         case 'explosion': setTimeout(() => sfx.explosion(), f.delay || 0); break;
-        case 'essence': case 'mine': sfx.essence(); this.flyEssence(); break;
+        case 'essence': case 'mine': sfx.essence(); this.flyEssence(f); break;
         case 'pickup': sfx.pickup(); break;
         case 'levelup': sfx.levelup(); break;
         case 'death': sfx.death(); break;
@@ -243,9 +244,14 @@ export class ExpeditionUI {
       }
     }
   }
-  flyEssence() {
+  // las partículas salen de la casilla de la esencia (no del centro del mapa) y vuelan al contador
+  flyEssence(f) {
     const target = this.top.querySelector('.ess-count');
-    if (target) setTimeout(() => uiFly(this.mapHost, target, 6), 50);
+    if (!target) return;
+    const rc = this.r.canvas.getBoundingClientRect();
+    const [sx, sy] = f ? this.r.toScreen(f.x, f.y) : [rc.width / 2, rc.height / 2];
+    const px = rc.left + sx + this.r.cw / 2, py = rc.top + sy + this.r.ch / 2;
+    setTimeout(() => uiFlyFrom(px, py, target, 6), 50);
   }
 
   onTurn() {
@@ -953,10 +959,12 @@ export class ExpeditionUI {
   markerTooltip(m) {
     const e = this.exp;
     if (m.exit) return `<div class="tt-title cyan">⌂ ${esc(m.exit.name)}</div><div class="dimt">${m.exit.perm ? 'Extracción permanente' : `Temporal: ${m.exit.expires - e.turn} turnos`}</div>`;
+    if (m.conn === 'puerta blindada') return '<div class="tt-title" style="color:#dcb450">▣ Puerta blindada</div><div class="dimt">Da a una cámara con botín. Necesita una tarjeta, Técnica 7, un soplete o un terminal cercano.</div>';
     if (m.conn) return `<div class="tt-title cyan">${esc(m.conn)}</div><div class="dimt">${m.conn === 'sima' ? 'Baja al piso inferior (con cuerda, sin daño). F junto a ella.' : m.conn.includes('↓') ? 'Baja al piso inferior: más peligro, mejor botín. Reunid al escuadrón y pulsad F.' : 'Sube al piso superior. Reunid al escuadrón y pulsad F.'}</div>`;
     const p = m.poi;
     const sec = e.sectors[p.sector];
     let h = `<div class="tt-title">${esc(p.name)}</div>`;
+    if (p.type === 'nest' && !nestIdentified(p) && !p.cleared) return `<div class="tt-title">? Grupo sin identificar</div><div class="dimt">El radar detecta movimiento, pero no qué es. Se identifica al verlo, con un radar de chebylitas o tras abatir ${NEST_ID_KILLS} de su especie.</div>${sec ? `<div class="dimt">Sector ${sec.code} · ${esc(sec.name)}</div>` : ''}`;
     if (p.type === 'nest') { const d = ENEMIES[p.boss || p.enemy]; h += `<div>Nivel <b style="color:${enemyColor(d.hue, p.lvl)}">${p.lvl}</b>${p.cleared ? ' · <span class="good">despejado</span>' : ''}${p.boss ? ' · <span class="bad">☠ jefe</span>' : ''}</div><div class="tt-lore">${S.bestiary[p.boss || p.enemy] ? esc(d.lore) : 'Especie no catalogada.'}</div>`; }
     if (p.type === 'vein') h += `<div class="cyan">${p.cleared ? 'Agotada' : 'Esencia extraíble'} · Nv ${p.lvl}</div>`;
     if (p.type === 'cache') h += `<div>${p.cleared ? 'Saqueado' : 'Suministros sin abrir'}${S.modules.radar >= 2 && !p.cleared ? ` · mejor objeto: <span style="color:${rarityColor(p.best)}">${['común', 'no común', 'raro', 'épico', 'legendario', 'mítico'][p.best]}</span>` : ''}</div>`;

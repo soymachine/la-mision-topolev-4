@@ -132,7 +132,7 @@ export class MoralePart {
     const m = rng.pick(pool.length ? pool : INTERCEPTS);
     const s = this.sectorAt(o.x, o.y);
     for (let y = o.y - 1; y <= o.y + 1; y++) for (let x = o.x - 1; x <= o.x + 1; x++) if (this.inb(x, y)) this.explored[this.key(x, y)] = 1;
-    if (!this.pois.some((p) => p.x === o.x && p.y === o.y)) this.pois.push({ type: 'cache', x: o.x, y: o.y, lvl: o.lvl || 1, name: 'Alijo (radio interceptada)', best: 1 });
+    if (!this.pois.some((p) => p.x === o.x && p.y === o.y)) this.pois.push({ type: 'cache', x: o.x, y: o.y, lvl: o.lvl || 1, name: 'Alijo (radio interceptada)', best: 1, found: 1 });
     this.dirty = true;
     this.say(`📻 <span style="color:${(FACTIONS[m.f] || {}).color || ''}">Interceptado (${(FACTIONS[m.f] || {}).short || '?'})</span>: ${m.t.replace(/\{s\}/g, s ? s.code : '?')} <span class="cyan">(marcado en el radar)</span>`, 'o1');
     return true;
@@ -154,12 +154,12 @@ export class MoralePart {
       } else if (d.kind === 'sabotage') {
         const o = { kind: 'sabotage', x: spot[0], y: spot[1], opened: false, items: [], contract: c.id };
         this.objects.push(o); this.objMap.set(this.key(o.x, o.y), o);
-        this.pois.push({ type: 'cache', x: o.x, y: o.y, lvl: this.def.lvl[1], name: 'Centro de mando (sabotaje)', best: 3 });
+        this.pois.push({ type: 'cache', x: o.x, y: o.y, lvl: this.def.lvl[1], name: 'Centro de mando (sabotaje)', best: 3, found: 1 });
         this.say(`📻 Encargo «${d.name}»: el centro de mando está marcado en el radar.`, 'cyan');
       } else if (d.kind === 'missing') {
         const o = { kind: 'survivor', x: spot[0], y: spot[1], opened: true, items: [], line: 0, lvl: this.def.lvl[0], missing: c.who, contract: c.id };
         this.objects.push(o); this.objMap.set(this.key(o.x, o.y), o);
-        this.pois.push({ type: 'cache', x: o.x, y: o.y, lvl: this.def.lvl[0], name: `Radiobaliza de ${c.who}`, best: 2 });
+        this.pois.push({ type: 'cache', x: o.x, y: o.y, lvl: this.def.lvl[0], name: `Radiobaliza de ${c.who}`, best: 2, found: 1 });
         this.say(`📻 Encargo «${d.name}»: la radiobaliza de ${esc(c.who)} se capta en este mapa.`, 'cyan');
       }
     }
@@ -171,7 +171,7 @@ export class MoralePart {
       if (!spot) return;
       const o = { kind: 'objective', x: spot[0], y: spot[1], opened: false, items: [], contract: c.id, label: d.label, goal: d.kind };
       this.objects.push(o); this.objMap.set(this.key(o.x, o.y), o);
-      this.pois.push({ type: 'cache', x: o.x, y: o.y, lvl: this.def.lvl[1], name: `${d.label} (encargo)`, best: 3 });
+      this.pois.push({ type: 'cache', x: o.x, y: o.y, lvl: this.def.lvl[1], name: `${d.label} (encargo)`, best: 3, found: 1 });
     }
     const where = (this.mods || []).includes('tormenta') ? 'en algún punto del mapa (sin radar: a ojo)' : 'marcado en el radar';
     const goal = d.kind === 'activate' ? `${d.label.toLowerCase()} ${where}` : d.kind === 'retrieve' ? `${d.label.toLowerCase()} ${where}; sacad lo que guarda` : d.kind === 'kills' ? `abatid ${d.n} chebylitas` : d.kind === 'essence' ? `recoged ${d.n} ✦` : `aguantad el pulso del reactor ${d.wait} turnos`;

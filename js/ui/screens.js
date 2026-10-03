@@ -1,6 +1,7 @@
 // Pantallas: título, intro, informe de expedición, instrucciones
-import { el, panel, esc, confirmBox, modal, toast, UI_SCALES, cycleUiScale } from '../util/dom.js';
+import { el, panel, esc, confirmBox, modal, toast, tip, UI_SCALES, cycleUiScale } from '../util/dom.js';
 import { ITEMS } from '../data/items.js';
+import { itemHTML, itemTooltip } from '../core/items.js';
 import { S, hasSave, settings, saveSettings, listSlots, slotInfo, lastSlot, exportSlot, importToSlot, wipe } from '../core/state.js';
 import { RARITIES } from '../data/rarity.js';
 import { ENEMIES, enemyColor } from '../data/enemies.js';
@@ -294,18 +295,30 @@ export class ReportScreen {
     );
     const essEl = el('span', { class: 'cyan', style: { fontSize: '20px', fontWeight: 800 }, text: '0' });
     B.append(el('div', { style: { textAlign: 'center', margin: '.5em 0' } }, el('span', { class: 'h', text: 'ESENCIA RECUPERADA  ' }), essEl, el('span', { class: 'cyan', text: ' ✦' }), rep.essRaw && rep.ess !== rep.essRaw ? el('span', { class: 'dimt', text: `  (${rep.essRaw} + bonificación del laboratorio)` }) : ''));
+    // un agente por columna, todos en la misma fila; los objetos extraídos con su tooltip al pasar el ratón
+    const cols = el('div', { class: 'rep-agents', style: { gridTemplateColumns: `repeat(${Math.max(1, rep.agents.length)}, minmax(0, 1fr))` } });
     for (const ag of rep.agents) {
-      const box = el('div', { style: { margin: '6px 0' } });
-      box.append(el('div', { html: `<span style="color:${ag.color};font-weight:700">@</span> <b>${esc(ag.name)}</b> <span class="dimt">Nv ${ag.lvl}</span> — ${ag.status === 'extraído' ? '<span class="cyan">⇑ EXTRAÍDO</span>' : '<span class="bad">✝ MUERTO EN COMBATE</span>'}${ag.lvlUp > 0 ? ` <span class="warn">★ +${ag.lvlUp} nivel</span>` : ''} <span class="dimt">· ${ag.kills} bajas · ${ag.ess} ✦</span>` }));
-      if (ag.news && ag.news.length) box.append(el('div', { style: { paddingLeft: '3ch' }, html: ag.news.map((n) => `<span class="${n.startsWith('✖') ? 'bad' : n.startsWith('🎖') ? 'warn' : 'o1'}">${esc(n)}</span>`).join('<span class="o5"> · </span>') }));
-      if (ag.status === 'extraído' && ag.items.length) {
-        box.append(el('div', { style: { paddingLeft: '3ch' }, html: ag.items.map((it) => `<span style="color:${RARITIES[it.r].color}">${esc(it.name)}${it.q > 1 ? ' ×' + it.q : ''}</span>`).join('<span class="o5"> · </span>') }));
-      } else if (ag.status !== 'extraído') {
-        box.append(el('div', { class: 'dimt', style: { paddingLeft: '3ch' }, text: ag.recovered ? 'Su equipo y el botín recogido se han perdido, salvo el contenedor de seguridad.' : 'Todo su equipo y el botín recogido se han perdido.' }));
-        if (ag.recovered) box.append(el('div', { style: { paddingLeft: '3ch' }, html: `<span class="cyan">📡 Recuperado por la baliza:</span> ${ag.recovered.map((n) => esc(n)).join('<span class="o5"> · </span>')}${ag.essKept ? ` <span class="cyan">· ${ag.essKept} ✦</span>` : ''}` }));
+      const out = ag.status === 'extraído';
+      const box = el('div', { class: 'rep-agent' + (out ? '' : ' dead') });
+      box.append(el('div', { class: 'rep-name', html: `<span style="color:${ag.color};font-weight:700">@</span> <b>${esc(ag.name)}</b>` }),
+        el('div', { html: `${out ? '<span class="cyan">⇑ EXTRAÍDO</span>' : '<span class="bad">✝ MUERTO EN COMBATE</span>'}` }),
+        el('div', { class: 'dimt', html: `Nv ${ag.lvl}${ag.lvlUp > 0 ? ` <span class="warn">★ +${ag.lvlUp}</span>` : ''} · ${ag.kills} bajas · <span class="cyan">${ag.ess} ✦</span>` }));
+      if (ag.news && ag.news.length) box.append(el('div', { class: 'rep-news', html: ag.news.map((n) => `<div class="${n.startsWith('✖') ? 'bad' : n.startsWith('🎖') ? 'warn' : 'o1'}">${esc(n)}</div>`).join('') }));
+      if (out && ag.items.length) {
+        const list = el('div', { class: 'rep-items' });
+        for (const x of ag.items) {
+          const row = el('div', { class: 'rep-item', html: x.it ? itemHTML(x.it) : `<span style="color:${RARITIES[x.r].color}">${esc(x.name)}${x.q > 1 ? ' ×' + x.q : ''}</span>` });
+          if (x.it) tip(row, () => itemTooltip(x.it));
+          list.append(row);
+        }
+        box.append(el('div', { class: 'h', style: { marginTop: '.4em' }, text: `OBJETOS (${ag.items.length})` }), list);
+      } else if (!out) {
+        box.append(el('div', { class: 'dimt', text: ag.recovered ? 'Su equipo y el botín recogido se han perdido, salvo el contenedor de seguridad.' : 'Todo su equipo y el botín recogido se han perdido.' }));
+        if (ag.recovered) box.append(el('div', { html: `<span class="cyan">📡 Recuperado por la baliza:</span> ${ag.recovered.map((n) => esc(n)).join('<span class="o5"> · </span>')}${ag.essKept ? ` <span class="cyan">· ${ag.essKept} ✦</span>` : ''}` }));
       }
-      B.append(box);
+      cols.append(box);
     }
+    B.append(cols);
     if (rep.compItems && rep.compItems.length) B.append(el('div', { class: 'cyan', style: { textAlign: 'center' }, text: `§ Traído por los compañeros: ${rep.compItems.join(', ')}` }));
     if (rep.prisoners) B.append(el('div', { class: 'warn', style: { textAlign: 'center' }, text: `⚑ ${rep.prisoners} prisionero(s) entregados al KGB: +${rep.prisoners * 150} ₽` }));
     if (rep.recruits && rep.recruits.length) B.append(el('div', { class: 'good', style: { textAlign: 'center' }, text: `✚ Se unen al puesto: ${rep.recruits.join(', ')}` }));
@@ -384,7 +397,8 @@ export class HelpScreen {
 <li><span class="cyan">✦</span> vetas de esencia (ponte al lado y pulsa <b>F</b>; hace ruido).</li>
 <li><span style="color:#ffb02e">■</span> alijos de suministros con buen botín (a menudo vigilados).</li>
 <li><span style="color:#b8f53d">☢</span> focos de radiación · <span style="color:#c06cff">≋</span> fugas de esporas · <span style="color:#7fb8ff">ϟ</span> anomalías eléctricas.</li>
-<li><span class="cyan">⌂</span> extracciones: las <b>permanentes</b> están en los extremos del mapa; las <b>temporales</b> aparecen por radio en puntos aleatorios durante unos turnos.</li>
+<li><span class="cyan">⌂</span> extracciones: las <b>permanentes</b> están en los extremos del mapa, pero el radar tarda unos turnos (menos con el módulo Radar) en triangularlas; las <b>temporales</b> aparecen por radio en puntos aleatorios durante 84–126 turnos.</li>
+<li><b>?</b> en el radar: un grupo de chebylitas sin identificar. Se identifica al verlo, con un radar de chebylitas o tras abatir 5 de su especie (para siempre). Los <b>alijos</b> y las <b>puertas blindadas</b> no aparecen hasta verlos o detectarlos con un radar de botín.</li>
 </ul>
 
 <h2>CONTROLES DE EXPEDICIÓN</h2>

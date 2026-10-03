@@ -4,6 +4,7 @@ import { ENEMIES, enemyColor } from '../data/enemies.js';
 import { actorColor } from '../data/actors.js';
 import { rarityColor } from '../core/items.js';
 import { FONT } from './ascii.js';
+import { exitKnown, nestIdentified, poiKnown, doorKnown, speciesKnown } from '../exp/intel.js';
 
 export class Minimap {
   constructor(canvas) {
@@ -25,10 +26,13 @@ export class Minimap {
   updateTerrain() {
     const e = this.exp;
     const d = this.img.data;
+    this.doors = [];
     for (let k = 0; k < e.w * e.h; k++) {
+      if (e.t[k] === T.ARMORDOOR && doorKnown(e, k)) this.doors.push(k);
       const i = k * 4;
-      if (!e.explored[k]) { d[i + 3] = 0; continue; }
       const t = e.t[k];
+      // puertas blindadas detectadas por un radar de botín, aunque no se hayan visto
+      if (!e.explored[k]) { if (t === T.ARMORDOOR && doorKnown(e, k)) { d[i] = 220; d[i + 1] = 180; d[i + 2] = 80; d[i + 3] = 255; } else d[i + 3] = 0; continue; }
       const v = e.visible[k] > 0;
       let r, g, b;
       if (t === T.WATER || t === T.DEEP) { r = 30; g = v ? 120 : 60; b = v ? 120 : 60; }
@@ -96,9 +100,14 @@ export class Minimap {
     const storm = !!opts.storm;
     for (const p of e.pois) {
       if (storm && !e.explored[p.y * e.w + p.x]) continue; // tormenta: sin radar, solo lo ya visto
+      if (!poiKnown(e, p)) continue; // alijos: ocultos hasta verlos o detectarlos
       const [x, y] = P(p.x, p.y);
       let g, col, label = null;
-      if (p.type === 'nest') {
+      const ided = p.type !== 'nest' || nestIdentified(p);
+      if (p.type === 'nest' && !ided && !p.cleared) {
+        // grupo sin identificar: solo se sabe que ahí hay algo
+        col = '#9a8a7a'; g = '?';
+      } else if (p.type === 'nest') {
         const def = ENEMIES[p.boss || p.enemy];
         col = p.cleared ? '#5a4a3a' : enemyColor(def.hue, p.lvl);
         g = p.cleared ? '✓' : p.boss ? '☠' : '▲';
@@ -127,7 +136,7 @@ export class Minimap {
         ctx.textAlign = 'center';
         ctx.font = `700 ${fz}px ${FONT}`;
       }
-      if (big && p.type === 'nest' && !p.cleared) {
+      if (big && p.type === 'nest' && !p.cleared && ided) {
         ctx.font = `${Math.round(fz * 0.75)}px ${FONT}`;
         ctx.fillStyle = col; ctx.fillText(`${ENEMIES[p.boss || p.enemy].name} Nv ${p.lvl}`, x, y + fz * 1.1);
         ctx.font = `700 ${fz}px ${FONT}`;
@@ -140,7 +149,7 @@ export class Minimap {
       const sensed = e.sensed(en);
       if (!vis && (storm || (!sensed && !(opts.radar >= 3 && en.state === 'errante')))) continue;
       const [x, y] = P(en.x, en.y);
-      ctx.fillStyle = actorColor(en);
+      ctx.fillStyle = vis || en.radarT === e.turn || speciesKnown(en.type) || !ENEMIES[en.type] ? actorColor(en) : '#9a8a7a'; // sin identificar: gris
       ctx.globalAlpha = vis ? 1 : 0.45 + 0.2 * Math.sin(T_ * 4);
       const r = Math.max(1.5, s * 0.6);
       ctx.fillRect(x - r, y - r, r * 2, r * 2);
@@ -148,6 +157,7 @@ export class Minimap {
     }
     // extracciones
     for (const ex of e.exits) {
+      if (!exitKnown(e, ex)) continue; // el radar aún no las ha triangulado
       const [x, y] = P(ex.x, ex.y);
       const pulse = (T_ * 0.8) % 1;
       ctx.strokeStyle = `rgba(95,247,255,${1 - pulse})`;
@@ -161,6 +171,13 @@ export class Minimap {
         ctx.font = `700 ${fz}px ${FONT}`;
       }
       this.markers.push({ x, y, r: fz * 0.8, exit: ex });
+    }
+    // puertas blindadas conocidas (vistas o detectadas por un radar de botín)
+    for (const k of this.doors || []) {
+      const [x, y] = P(k % e.w, (k / e.w) | 0);
+      ctx.fillStyle = '#000'; ctx.fillRect(x - fz * 0.55, y - fz * 0.6, fz * 1.1, fz * 1.2);
+      ctx.fillStyle = '#dcb450'; ctx.fillText('▣', x, y + 1);
+      this.markers.push({ x, y, r: fz * 0.8, conn: 'puerta blindada' });
     }
     for (const p of e.pending) { const [x, y] = P(p.x, p.y); ctx.fillStyle = '#5ff7ff'; ctx.fillText('◊', x, y); }
     // montacargas y simas (fase 16.2)

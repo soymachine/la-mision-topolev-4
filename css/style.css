@@ -127,7 +127,7 @@ body.no-crt #crt { display: none; }
 
 /* ---------- Modal ---------- */
 #modal-root { position: fixed; inset: 0; z-index: 950; pointer-events: none; }
-.modal-back { position: absolute; inset: 0; background: rgba(0,0,0,.72); pointer-events: auto; display: flex; align-items: center; justify-content: center; animation: fadein .15s; }
+.modal-back { position: absolute; inset: 0; background: rgba(0,0,0,.8); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); pointer-events: auto; display: flex; align-items: center; justify-content: center; animation: fadein .15s; }
 .modal { background: var(--bg); max-width: 90vw; max-height: 88vh; min-width: 40ch; animation: popin .18s ease-out; }
 .modal .panel-body { max-height: calc(88vh - 2 * var(--lh)); }
 .modal .actions { margin-top: var(--lh); display: flex; gap: 2ch; justify-content: flex-end; flex-wrap: wrap; }
@@ -530,3 +530,26 @@ body.touch .btn { min-height: 34px; }
 .cx-entry.focus { border-left-color: var(--warn); background: var(--o6); }
 .cx-lore { font-style: italic; }
 .cx-link { color: var(--cyan); cursor: pointer; text-decoration: underline dotted; }
+
+/* ---------- informe de expedición en columnas (revisión fase 24) ---------- */
+.report-box { width: min(150ch, 97vw); }
+.rep-agents { display: grid; gap: 1ch; margin: 8px 0; align-items: start; }
+.rep-agent { border: 1px solid var(--o5); padding: 6px 1ch; min-width: 0; }
+.rep-agent.dead { border-color: #4a1210; opacity: .85; }
+.rep-name { font-size: 1.08em; border-bottom: 1px dashed var(--o5); padding-bottom: 3px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rep-news { margin-top: 4px; font-size: .92em; }
+.rep-items { max-height: 42vh; overflow-y: auto; }
+.rep-item { padding: 1px .5ch; cursor: help; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rep-item:hover { background: var(--o6); }
+@media (max-width: 760px) { .rep-agents { grid-template-columns: 1fr !important; } }
+
+/* ---------- modales siempre por encima (revisión fase 24) ---------- */
+body.modal-open #app { filter: blur(2px) brightness(.55); transition: filter .12s; }
+#modal-root .modal-back:not(:last-child) > .modal { filter: blur(1.5px) brightness(.6); }
+.modal { position: relative; isolation: isolate; }
+.split-range { flex: 1; accent-color: var(--o2); }
+.report-box { height: auto; max-height: 94vh; }
+.rep-item .ig { display: inline-block; width: 2ch; }
+.rep-item .iq { margin-left: 1ch; color: var(--o0); }
+.rep-item { display: flex; gap: .5ch; }
+.rep-item .in { flex: 1; overflow: hidden; text-overflow: ellipsis; }

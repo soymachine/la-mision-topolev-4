@@ -449,7 +449,7 @@ function renderMaps() {
         <div>Desbloqueo: ${!m.req.length ? 'desde el inicio' : `extraer con éxito de ${m.req.map((r) => esc(MAPS[mapIndex(r)].name)).join(' o ')}`}</div>
         <div style="margin-top:.5em">${sectors}</div>
       </td><td>${enemies}</td></tr></table></div>`;
-  }).join('') + '<p class="desc">Todas las zonas tienen 2 extracciones permanentes en los extremos (3 con Radar 5) y extracciones temporales cada 70–120 turnos. Tras 300–420 turnos (+20 por tier) el reactor emite un pulso que sube la radiación ambiente. En superficie hay reloj (2 min por turno; de 21:00 a 6:00 es de noche), luz natural de día y clima (ver «Clima»).</p>';
+  }).join('') + '<p class="desc">Todas las zonas tienen 2 extracciones permanentes en los extremos (3 con Radar 5) y extracciones temporales cada 70–120 turnos que duran 84–126 (+12 por nivel de Radar; la baliza, 45). El radar triangula las permanentes al cabo de 24 − 3×Radar turnos (mín. 6). Los nidos salen como «?» hasta verlos, detectarlos con un radar de chebylitas o abatir 5 de su especie; los alijos y las puertas blindadas, ocultos hasta verlos o detectarlos con un radar de botín. Tras 300–420 turnos (+20 por tier) el reactor emite un pulso que sube la radiación ambiente. En superficie hay reloj (2 min por turno; de 21:00 a 6:00 es de noche), luz natural de día y clima (ver «Clima»).</p>';
 }
 
 function renderModules() {

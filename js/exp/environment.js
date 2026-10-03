@@ -2,6 +2,7 @@
 // (métodos mezclados en Expedition: ver expedition.js)
 /* eslint-disable no-unused-vars */
 import { RNG, rng, clamp, cheb, line, uid } from '../util/rng.js';
+import { exitRevealTurn } from './intel.js';
 import { T, TILES } from '../data/tiles.js';
 import { MAPS } from '../data/world.js';
 import { ENEMIES, scaleEnemy, enemyColor } from '../data/enemies.js';
@@ -154,16 +155,18 @@ export class EnvironmentPart {
     for (const p of [...this.pending]) {
       if (p.at <= this.turn) {
         this.pending.splice(this.pending.indexOf(p), 1);
-        this.spawnTempExit(p.x, p.y, 15, 'Baliza de emergencia');
+        this.spawnTempExit(p.x, p.y, 45, 'Baliza de emergencia');
         this.say('⌂ La baliza ha abierto una extracción de emergencia.', 'cyan');
       }
     }
+    if (this.turn === exitRevealTurn() && this.exits.some((x) => x.perm)) this.say('📡 El radar ha triangulado los puntos de extracción (<span class="cyan">⌂</span>): ya aparecen en el mapa.', 'cyan');
     if (this.turn >= this.nextTemp) {
       this.nextTemp = this.turn + rng.int(70, 120) - S.modules.radar * 9;
       const spot = this.findTempExitSpot();
       if (spot) {
         const names = ['Grieta al exterior', 'Montacargas de emergencia', 'Conducto de ventilación', 'Escalera de incendios', 'Pozo de drenaje'];
-        const dur = rng.int(28, 42) + S.modules.radar * 4 + Math.max(0, ...this.team.map((o) => this.flag(o, 'exitPlus')));
+        // (×3 desde la revisión de la fase 24: daba poco margen para llegar)
+        const dur = (rng.int(28, 42) + S.modules.radar * 4) * 3 + Math.max(0, ...this.team.map((o) => this.flag(o, 'exitPlus')));
         const nm = rng.pick(names);
         const s = this.sectorAt(spot[0], spot[1]);
         this.spawnTempExit(spot[0], spot[1], dur, nm);

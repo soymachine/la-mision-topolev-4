@@ -155,6 +155,7 @@ export function modal({ title = '', body, actions = [], width, onClose, frame = 
     const i = modalStack.indexOf(close);
     if (i >= 0) modalStack.splice(i, 1);
     back.remove();
+    document.body.classList.toggle('modal-open', modalStack.length > 0);
     onClose && onClose(v);
   };
   for (const a of actions) {
@@ -164,6 +165,9 @@ export function modal({ title = '', body, actions = [], width, onClose, frame = 
   if (dismiss) back.addEventListener('pointerdown', (e) => { if (e.target === back) close(null); });
   root.append(back);
   modalStack.push(close);
+  // con un modal abierto, el resto de la interfaz queda debajo, oscurecido y difuminado, y sin tooltips encima
+  document.body.classList.add('modal-open');
+  hideTooltip();
   return close;
 }
 export function modalOpen() { return modalStack.length > 0; }
@@ -228,18 +232,19 @@ function startDrag(src, opts, ev) {
   opts.onStart && opts.onStart(data);
   document.body.style.cursor = 'grabbing';
 }
-function zoneAt(x, y) {
+// la zona más interior que acepta lo arrastrado (así un objeto dentro de una mochila puede ser zona de «juntar pilas»
+// sin tapar a la mochila cuando se arrastra otra cosa)
+function zoneAt(x, y, data) {
   for (const e of document.elementsFromPoint(x, y)) {
     let t = e;
-    while (t) { if (t._dz && zones.has(t)) return t; t = t.parentElement; }
+    while (t) { if (t._dz && zones.has(t) && t._dz.accepts(data)) return t; t = t.parentElement; }
   }
   return null;
 }
 function updateDrag(ev) {
   const d = dragState;
   d.ghost.style.left = ev.clientX + 'px'; d.ghost.style.top = ev.clientY + 'px';
-  const z = zoneAt(ev.clientX, ev.clientY);
-  const ok = z && z._dz.accepts(d.data) ? z : null;
+  const ok = zoneAt(ev.clientX, ev.clientY, d.data);
   if (ok !== d.over) {
     if (d.over) d.over.classList.remove('drop-hover');
     if (ok) ok.classList.add('drop-hover');

@@ -1982,6 +1982,95 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     await ctx12.close();
   }
 
+  console.log('· Revisión: radar, niebla del minimapa, informe, modales y pilas');
+  {
+    const ctx18 = await b.newContext({ viewport: { width: 1440, height: 860 } });
+    const Rv = await ctx18.newPage();
+    Rv.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
+    Rv.on('console', (m) => { if ((m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) || m.type() === 'warning') errs.push(m.text()); });
+    await Rv.goto(URL); await Rv.waitForTimeout(800);
+    await Rv.click('text=NUEVA PARTIDA'); await Rv.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await Rv.click('#screen-intro'); await Rv.click('text=COMENZAR');
+    await Rv.waitForTimeout(300);
+    // ---- EQUIPO: dividir una pila, juntarla y soltar en otro agente
+    await Rv.click('.tab:has-text("EQUIPO")'); await Rv.waitForTimeout(200);
+    await Rv.evaluate(async () => { const I = await import('./js/core/items.js'); const S = window.__topolev.S; S.stash = S.stash.filter((x) => x.b !== 'a_9x18'); S.stash.push(I.createItem('a_9x18', 0, undefined, 40)); });
+    await Rv.click('.tab:has-text("EQUIPO")'); await Rv.waitForTimeout(150);
+    const ammoRow = () => Rv.$$('#screen-base .grid3 > .panel:nth-child(3) .item:has-text("9×18")');
+    await (await ammoRow())[0].click({ button: 'right' }); await Rv.waitForTimeout(150);
+    await Rv.evaluate(() => { const r = document.querySelector('.modal .split-range'); r.value = 15; r.dispatchEvent(new Event('input')); });
+    await Rv.click('.modal >> text=DIVIDIR'); await Rv.waitForTimeout(200);
+    const sp = await Rv.evaluate(() => window.__topolev.S.stash.filter((x) => x.b === 'a_9x18').map((x) => x.q).sort((a, b) => a - b).join(','));
+    ok(sp === '15,25', `dividir una pila de munición en dos (${sp})`);
+    // arrastrar una pila sobre la otra: se juntan
+    const drag = async (from, to) => { const a = await from.boundingBox(), c = await to.boundingBox(); await Rv.mouse.move(a.x + a.width / 2, a.y + a.height / 2); await Rv.mouse.down(); await Rv.mouse.move(a.x + a.width / 2 + 10, a.y + a.height / 2 + 10, { steps: 3 }); await Rv.mouse.move(c.x + c.width / 2, c.y + c.height / 2, { steps: 8 }); await Rv.mouse.up(); await Rv.waitForTimeout(200); };
+    let rows = await ammoRow(); await drag(rows[1], rows[0]);
+    const mg = await Rv.evaluate(() => window.__topolev.S.stash.filter((x) => x.b === 'a_9x18').map((x) => x.q).join(','));
+    ok(mg === '40', `soltar una pila sobre la otra las junta (${mg})`);
+    // soltar en un agente que no es el seleccionado: va a su mochila
+    rows = await ammoRow(); await rows[0].click({ button: 'right' }); await Rv.waitForTimeout(100);
+    await Rv.click('.modal >> text=DIVIDIR'); await Rv.waitForTimeout(150);
+    const agents = await Rv.$$('#screen-base .grid3 > .panel:nth-child(1) .agent-row');
+    rows = await ammoRow(); await drag(rows[0], agents[2]);
+    const give = await Rv.evaluate(() => { const S = window.__topolev.S; const a = S.agents[2]; return { bag: a.bag.filter((x) => x.b === 'a_9x18').reduce((n, x) => n + x.q, 0), stash: S.stash.filter((x) => x.b === 'a_9x18').reduce((n, x) => n + x.q, 0) }; });
+    ok(give.bag >= 20 && give.stash === 20, `arrastrar al tercer agente (no seleccionado) lo mete en su mochila (${JSON.stringify(give)})`);
+    // modales: el resto de la interfaz queda debajo, difuminado
+    const mo = await Rv.evaluate(async () => { const D = await import('./js/util/dom.js'); D.showTooltip('x', 10, 10); D.confirmBox('PRUEBA', 'texto'); const r = { cls: document.body.classList.contains('modal-open'), tip: document.querySelector('#tooltip').classList.contains('hidden'), blur: getComputedStyle(document.querySelector('#app')).filter }; D.closeTopModal(); return { ...r, after: document.body.classList.contains('modal-open') }; });
+    ok(mo.cls && mo.tip && /blur/.test(mo.blur) && !mo.after, 'con un modal abierto la interfaz queda debajo, oscurecida y sin tooltips');
+    // ---- expedición: niebla del minimapa y radares
+    await Rv.click('.tab:has-text("EXPEDICIÓN")'); await Rv.waitForTimeout(200);
+    for (let i = 0; i < 2; i++) { const rr = await Rv.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rr[i].click(); }
+    await Rv.click('text=LANZAR EXPEDICIÓN'); await Rv.waitForTimeout(300);
+    if (await Rv.$('.modal-back >> text=LANZAR')) await Rv.click('.modal-back >> text=LANZAR');
+    await Rv.waitForTimeout(800);
+    for (let i = 0; i < 6 && (await Rv.$('.modal')); i++) { await Rv.keyboard.press('Escape'); await Rv.waitForTimeout(120); }
+    const fog = await Rv.evaluate(async () => {
+      const I = await import('./js/exp/intel.js'); const e = window.__topolev.exp; const S = window.__topolev.S; window.__topolev.debug.run('god');
+      const perm = e.exits.filter((x) => x.perm);
+      const hidden0 = perm.filter((x) => !e.explored[e.key(x.x, x.y)]).every((x) => !I.exitKnown(e, x));
+      const t0 = e.turn; e.turn = I.exitRevealTurn(); const later = perm.every((x) => I.exitKnown(e, x)); e.turn = t0;
+      const caches = e.pois.filter((p) => p.type === 'cache' && !p.seen && !p.found);
+      const cacheHidden = caches.every((p) => !I.poiKnown(e, p));
+      const nest = e.pois.find((p) => p.type === 'nest' && !p.seen && !p.boss);
+      const unk = nest ? !I.nestIdentified(nest) : true;
+      if (nest) { S.bestiary[nest.enemy] = { seen: 1, kills: I.NEST_ID_KILLS }; }
+      const known = nest ? I.nestIdentified(nest) : true;
+      if (nest) S.bestiary[nest.enemy].kills = 0;
+      return { perm: perm.length, hidden0, later, caches: caches.length, cacheHidden, unk, known };
+    });
+    ok(fog.hidden0 && fog.later, `salidas permanentes ocultas al empezar y trianguladas unos turnos después (${fog.perm})`);
+    ok(fog.cacheHidden && fog.unk && fog.known, `alijos ocultos (${fog.caches}) y nidos como «?» hasta abatir 5 de su especie`);
+    const rad = await Rv.evaluate(async () => {
+      const I = await import('./js/core/items.js'); const T = (await import('./js/data/tiles.js')).T; const e = window.__topolev.exp; const c = e.cur;
+      c.a.equip.g1 = I.createItem('radar_duga', 0);
+      const cell = [[3, 0], [-3, 0], [0, 3], [0, -3], [2, 2]].map(([dx, dy]) => [c.x + dx, c.y + dy]).find(([x, y]) => e.inb(x, y));
+      const cache = { type: 'cache', x: cell[0], y: cell[1], lvl: 1, name: 'Alijo de prueba', best: 1 };
+      const nest = { type: 'nest', x: cell[0], y: cell[1], lvl: 1, name: 'Nido · prueba', enemy: 'rata', cleared: false, members: 0 };
+      e.pois.push(cache, nest);
+      const dk = e.key(c.x + 5, c.y); const dOld = e.t[dk]; const exOld = e.explored[dk]; e.t[dk] = T.ARMORDOOR; e.explored[dk] = 0;
+      e.computeVisibility(true);
+      const r = { cache: !!cache.radar, nest: !!nest.radar, door: !!e.explored[dk] };
+      e.t[dk] = dOld; e.explored[dk] = exOld; e.pois.splice(e.pois.indexOf(cache), 2);
+      return r;
+    });
+    ok(rad.cache && rad.nest && rad.door, `radar «Duga-M»: marca el alijo, identifica el nido y descubre la puerta blindada (${JSON.stringify(rad)})`);
+    const tmp = await Rv.evaluate(() => { const e = window.__topolev.exp; e.nextTemp = e.turn; const n0 = e.exits.length; e.environment(); const ex = e.exits[e.exits.length - 1]; return e.exits.length > n0 ? ex.expires - e.turn : -1; });
+    ok(tmp >= 84, `las extracciones temporales duran al menos el triple (${tmp} turnos)`);
+    // informe: una columna por agente y tooltip en los objetos
+    const rp = await Rv.evaluate(async () => {
+      const { ReportScreen } = await import('./js/ui/screens.js'); const I = await import('./js/core/items.js');
+      const host = document.createElement('div'); document.body.append(host);
+      const it = I.createItem('makarov', 2);
+      new ReportScreen(host, { onDone() {} }).open({ result: 'success', map: 'X', day: 1, turns: 10, kills: 2, ess: 5, essRaw: 5, agents: [
+        { name: 'A', color: '#fff', lvl: 1, lvlUp: 0, kills: 1, ess: 3, status: 'extraído', items: [{ name: 'Pistola', r: 2, q: 1, it }], news: [] },
+        { name: 'B', color: '#fff', lvl: 1, lvlUp: 0, kills: 1, ess: 2, status: 'muerto', items: [], news: [] }] });
+      const g = host.querySelector('.rep-agents'); const row = host.querySelector('.rep-item');
+      const r = { cols: getComputedStyle(g).gridTemplateColumns.split(' ').length, tip: row && row.dataset.hasTip === '1' };
+      host.remove(); return r;
+    });
+    ok(rp.cols === 2 && rp.tip, 'informe: agentes en columnas y tooltip en los objetos extraídos');
+    await ctx18.close();
+  }
+
   console.log(errs.length ? 'ERRORES:\n' + errs.join('\n') : '  ✓ sin errores en consola');
   await b.close();
   if (fails || errs.length) { console.log(`FALLOS: ${fails}`); process.exit(1); }

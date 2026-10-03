@@ -42,8 +42,14 @@ export function uiText(px, py, text, color = '#ffd23f') {
 // partículas que vuelan de un punto a otro (p. ej. esencia hacia el contador)
 export function uiFly(fromEl, toEl, n = 10, ch = '✦', color = '#5ff7ff') {
   if (!fromEl || !toEl) return;
-  const a = fromEl.getBoundingClientRect(), b = toEl.getBoundingClientRect();
-  const [x0, y0] = toCell(a.left + a.width / 2, a.top + a.height / 2);
+  const a = fromEl.getBoundingClientRect();
+  uiFlyFrom(a.left + a.width / 2, a.top + a.height / 2, toEl, n, ch, color);
+}
+// desde un punto de la pantalla (px de la ventana) hasta un elemento: p. ej. la esencia recogida en el mapa → contador
+export function uiFlyFrom(px, py, toEl, n = 10, ch = '✦', color = '#5ff7ff') {
+  if (!toEl) return;
+  const b = toEl.getBoundingClientRect();
+  const [x0, y0] = toCell(px, py);
   const [x1, y1] = toCell(b.left + b.width / 2, b.top + b.height / 2);
   for (let i = 0; i < n; i++) {
     parts.add({ x: x0, y: y0, x0: x0 + (Math.random() - 0.5) * 4, y0: y0 + (Math.random() - 0.5) * 3, tx: x1, ty: y1, arc: 3 + Math.random() * 6, life: 0.5 + Math.random() * 0.4, ch, color, glow: 12, delay: i * 35, noFade: true, ease: (k) => k * k, scale: 1.3 });

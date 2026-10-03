@@ -185,6 +185,7 @@ export class AbilityPart {
   sensed(en) {
     if (en.companion || (en.type && ACTORS[en.type] && ACTORS[en.type].companion)) return true;
     if (en.pingT != null && this.turn - en.pingT <= 1) return true;
+    if (en.radarT === this.turn) return true; // radar de gadget (fase 24, revisión)
     for (const q of this.team) {
       const d = Math.hypot(q.x - en.x, q.y - en.y);
       if (this.sense > 0 && d <= this.senseR) return true;

@@ -5,7 +5,7 @@ import { ITEMS, CAT_INFO } from '../data/items.js';
 import { MAPS, MODULES, MODULE_MAX, moduleCost, TRAITS, zoneOpen, openCount, STRATA, EVENT_ZONES, eventDef, mapIndex } from '../data/world.js';
 import { ENEMIES, enemyColor, ABIL_TEXT } from '../data/enemies.js';
 import { RARITIES, rarityWeights } from '../data/rarity.js';
-import { itemHTML, itemTooltip, itemName, itemStats, sortItems, mergeInto, rarityColor, itemValue, forgeCost, infuse, FORGE_CATS, slotsOf, modFits, installMod, removeMod, WTYPE_NAMES, caseRefusal, caseUsed } from '../core/items.js';
+import { itemHTML, itemTooltip, itemName, itemStats, sortItems, mergeInto, rarityColor, itemValue, forgeCost, infuse, FORGE_CATS, slotsOf, modFits, installMod, removeMod, WTYPE_NAMES, caseRefusal, caseUsed, splitStack, stackOnto } from '../core/items.js';
 import { MOD_SLOTS } from '../data/mods.js';
 import { talentFlag } from '../core/agents.js';
 import { agentStats, agentName, EQUIP_SLOTS, canEquip, bagCapacity, traitOf, xpForLevel, pendingAscent, pickTalent, talentDef, effAttrs, specOf, needsSpec, chooseSpec, currentOffer, rerollOffer, MAX_LEVEL, synOk } from '../core/agents.js';
@@ -244,7 +244,12 @@ export class BaseUI {
     const g = el('div', { class: 'grid3' });
     // lista de agentes
     const L = panel({ title: 'AGENTES', bodyCls: 'scroll' });
-    for (const a of S.agents) L.body.append(this.agentRow(a));
+    for (const a of S.agents) {
+      // soltar un objeto sobre cualquier agente (no solo el seleccionado): lo equipa si tiene la ranura libre, si no a la mochila
+      const row = this.agentRow(a);
+      dropzone(row, { accepts: (d) => d && d.it && ['stash', 'bag', 'equip', 'vault'].includes(d.src) && d.a !== a, onDrop: (d) => this.giveTo(a, d) });
+      L.body.append(row);
+    }
     if (!S.agents.length) L.body.append(el('div', { class: 'dimt', text: 'No hay agentes. Recluta en BARRACONES.' }));
     L.body.append(el('div', { class: 'sep', text: '─'.repeat(60) }), el('button', { class: 'btn', onclick: () => this.show('barracones') }, 'RECLUTAR'));
     // ficha
@@ -413,9 +418,10 @@ export class BaseUI {
     const bag = el('div', { style: { minHeight: '6em' } });
     for (const it of sortItems([...a.bag])) {
       const r = el('div', { class: 'item', html: itemHTML(it) });
-      tip(r, () => itemTooltip(it, this.compareFor(a, it), '<div class="dimt">Arrastra a una ranura o al almacén. Doble clic: al almacén.</div>'));
+      tip(r, () => itemTooltip(it, this.compareFor(a, it), `<div class="dimt">Arrastra a una ranura, al almacén o a otro agente. Doble clic: al almacén.${it.q > 1 ? ' Clic derecho: dividir la pila.' : ''}</div>`));
       draggable(r, { data: () => ({ src: 'bag', a, it }), ghost: () => itemHTML(it) });
       r.addEventListener('dblclick', () => this.moveItem({ src: 'bag', a, it }, { dst: 'stash' }));
+      this.stackable(r, it, a.bag, bagCapacity(a), 'la mochila');
       bag.append(r);
     }
     if (!a.bag.length) bag.append(el('div', { class: 'dimt', text: 'Vacía. Arrastra aquí munición, medicinas y granadas.' }));
@@ -455,12 +461,13 @@ export class BaseUI {
       const extra = mode === 'sell' ? `<span class="iq o0">${C.sellPrice(it)} ₽</span>` : '';
       const r = el('div', { class: 'item', html: itemHTML(it, { extra }) });
       const a = this.selAgent;
-      tip(r, () => itemTooltip(it, a ? this.compareFor(a, it) : null, mode === 'sell' ? `<div class="tt-sep">${'─'.repeat(40)}</div><div class="o0">Venta: ${C.sellPrice(it)} ₽</div><div class="dimt">Doble clic o arrastra a VENDER.</div>${ITEMS[it.b].essenceValue ? '<div class="cyan">Clic derecho: convertir en esencia.</div>' : ''}` : '<div class="dimt">Arrastra a un agente. Doble clic: equipar o meter en la mochila del agente seleccionado.</div>'));
+      tip(r, () => itemTooltip(it, a ? this.compareFor(a, it) : null, mode === 'sell' ? `<div class="tt-sep">${'─'.repeat(40)}</div><div class="o0">Venta: ${C.sellPrice(it)} ₽</div><div class="dimt">Doble clic o arrastra a VENDER.</div>${ITEMS[it.b].essenceValue ? '<div class="cyan">Clic derecho: convertir en esencia.</div>' : ''}` : `<div class="dimt">Arrastra a un agente (a cualquiera de la lista). Doble clic: equipar o meter en la mochila del agente seleccionado.${it.q > 1 ? ' Clic derecho: dividir la pila.' : ''}</div>`));
       draggable(r, { data: () => ({ src: 'stash', it }), ghost: () => itemHTML(it) });
       if (mode === 'sell') {
         r.addEventListener('dblclick', (ev) => this.doSell(it, ev));
         r.addEventListener('contextmenu', (ev) => { ev.preventDefault(); if (ITEMS[it.b].essenceValue) this.doConvert(it, ev); });
       } else {
+        this.stackable(r, it, S.stash, C.stashCap(), 'el almacén');
         r.addEventListener('dblclick', () => {
           if (!a) return;
           if (ITEMS[it.b].cat === 'mod') {
@@ -620,6 +627,45 @@ export class BaseUI {
   }
 
   // mueve objetos entre almacén, mochilas y ranuras
+  // ---- pilas (revisión fase 24): clic derecho = dividir; soltar sobre el mismo objeto = juntar
+  stackable(r, it, list, cap, where) {
+    const d = ITEMS[it.b];
+    if ((d.stack || 1) <= 1) return;
+    r.addEventListener('contextmenu', (ev) => { ev.preventDefault(); this.splitModal(it, list, cap, where); });
+    dropzone(r, { accepts: (dd) => dd && dd.it && dd.it !== it && dd.it.b === it.b && dd.it.r === it.r && it.q < d.stack && ['stash', 'bag', 'vault'].includes(dd.src), onDrop: (dd) => this.mergeStack(dd, it) });
+  }
+  splitModal(it, list, cap, where) {
+    if (!(it.q > 1)) { toast('Solo hay una unidad.', 'dimt'); return; }
+    if (list.length >= cap) { sfx.error(); toast(`No hay hueco en ${where} para otra pila.`, 'bad'); return; }
+    let n = Math.floor(it.q / 2);
+    const val = el('b', { text: `${n} / ${it.q - n}` });
+    const rng2 = el('input', { type: 'range', min: 1, max: it.q - 1, value: n, class: 'split-range', oninput: () => { n = +rng2.value; val.textContent = `${n} / ${it.q - n}`; } });
+    const body = el('div', { style: { minWidth: 'min(46ch, 90vw)' } },
+      el('div', { html: itemHTML(it) }),
+      el('div', { class: 'dimt', style: { margin: '.4em 0' }, text: 'Cuántas unidades pasan a la pila nueva (nueva / se quedan):' }),
+      el('div', { class: 'row' }, rng2, val));
+    modal({ title: 'DIVIDIR PILA', body, actions: [{ label: 'CANCELAR' }, { label: 'DIVIDIR', cls: 'primary', fn: () => { if (splitStack(list, it, n)) { sfx.pickup(); save(); this.render(); } } }] });
+  }
+  mergeStack(from, dst) {
+    const src = from.it;
+    const mv = stackOnto(dst, src);
+    if (!mv) { sfx.error(); toast('La pila ya está llena.', 'bad'); return; }
+    if (src.q <= 0) {
+      if (from.src === 'stash') S.stash.splice(S.stash.indexOf(src), 1);
+      else if (from.src === 'bag') from.a.bag.splice(from.a.bag.indexOf(src), 1);
+      else if (from.src === 'vault') { const v = from.a.equip.case.vault; v.splice(v.indexOf(src), 1); }
+    }
+    sfx.pickup(); toast(`Juntadas ${mv} unidad(es).`, 'good'); save(); this.render();
+  }
+  // soltar sobre un agente de la lista: equipar si la ranura está libre, si no a la mochila
+  giveTo(a, d) {
+    const slot = this.autoSlot(a, d.it);
+    if (slot && !a.equip[slot] && canEquip(d.it, slot)) this.moveItem(d, { dst: 'equip', a, slot });
+    else if (ITEMS[d.it.b].cat === 'mod') { sfx.error(); toast('Los mods se montan desde la ficha del agente.', 'bad'); }
+    else this.moveItem(d, { dst: 'bag', a });
+    if (a !== this.selAgent) toast(`→ ${esc(a.nick)}`, 'good');
+  }
+
   moveItem(from, to) {
     const it = from.it;
     // quitar del origen (provisionalmente)

@@ -614,6 +614,19 @@ Resumen original: accesibilidad (modo daltónico con símbolos en las rarezas, r
 
 ---
 
+## Revisión tras la fase 24 (peticiones del jugador) ✔
+- [x] R.1 Minimapa: las salidas permanentes no se ven al empezar; el radar las triangula a los `24 − 3×Radar` turnos (mín. 6) o al verlas. *Hecho:* `exp/intel.js` (`exitKnown`, `exitRevealTurn`); también en el mapa principal; aviso «📡 El radar ha triangulado…».
+- [x] R.2 Grupos de chebylitas como **?** hasta identificarlos: verlos, un radar de chebylitas o abatir `NEST_ID_KILLS` (5) de su especie en la partida (`nestIdentified`, `speciesKnown`). Los errantes detectados salen en gris si no se conoce la especie.
+- [x] R.3 Alijos y puertas blindadas ocultos hasta verlos (`p.seen`), que los marque la radio o un encargo (`p.found`) o un radar de botín (`p.radar`; las puertas se marcan como exploradas y salen con ▣).
+- [x] R.4 **Radares** (gadgets): IMP-2 y «Oko» (botín 8/18), BS-1 y «Krot» (chebylitas 10/22), R-326 (facciones 16), ATS-4 (botín + chebylitas 10) y «Duga-M» (todo 14). `radarSweep()` en `computeVisibility`; `en.radarT` hace que `sensed()` los muestre ese turno.
+- [x] R.5 Extracciones temporales ×3 (84–126 turnos + 12 por nivel de Radar; baliza 45).
+- [x] R.6 Informe de expedición: un agente por columna en una sola fila y tooltip en cada objeto extraído (`row.items[].it` guarda una copia del objeto).
+- [x] R.7 Partículas de esencia: salen de la casilla donde se recoge (`uiFlyFrom`).
+- [x] R.8 Modales: `body.modal-open` difumina y oscurece `#app`, fondo del modal más opaco con desenfoque y sin tooltips por encima al abrirlo; los modales de debajo de otro también se oscurecen.
+- [x] R.9 EQUIPO: soltar un objeto sobre cualquier agente de la lista (lo equipa si la ranura está libre, si no a la mochila).
+- [x] R.10 Pilas: clic derecho en una pila (almacén o mochila) → DIVIDIR con un deslizador; soltar una pila sobre otra igual las junta (`splitStack`, `stackOnto` en `core/items.js`). Las zonas de soltar anidadas eligen la más interior que acepta lo arrastrado.
+- Pruebas: bloque `ctx18` de `tests/systems.cjs` (212/212).
+
 ## Banco de ideas (sin fase asignada)
 
 - **Vehículos en superficie:** un UAZ-469 o un BRDM para viajar rápido entre puntos de la superficie (combustible limitado y ruido).

@@ -1,6 +1,7 @@
 // Simulación de una expedición por turnos (núcleo: creación, guardado, visibilidad, movimiento, turno)
 // Los demás métodos están en combat.js, use.js, extraction.js, ai.js y environment.js
 import { RNG, rng, clamp, cheb, line, uid } from '../util/rng.js';
+import { exitRevealTurn } from './intel.js';
 import { mapSeed } from '../core/modes.js';
 import { T, TILES } from '../data/tiles.js';
 import { MAPS, floorDef } from '../data/world.js';
@@ -105,7 +106,7 @@ export class Expedition {
     }
     e.computeVisibility(true);
     e.say(`Inserción en <b>${def.name}</b>. Nivel medio ${def.lvl[0]}–${def.lvl[1]}${e.nFloors > 1 ? ` · ${e.nFloors} pisos (más abajo, más peligro y mejor botín)` : ''}. Recolectad esencia y salid por un punto de extracción.`, 'o1');
-    e.say('Los puntos de extracción (<span class="cyan">⌂</span>) están marcados en el radar. Pulsa <b>?</b> para ver los controles.', 'dimt');
+    e.say(`El radar tardará unos ${exitRevealTurn()} turnos en triangular los puntos de extracción (<span class="cyan">⌂</span>). Los grupos de chebylitas aparecen como <b>?</b> hasta identificarlos. Pulsa <b>?</b> para ver los controles.`, 'dimt');
     if (e.clock != null) e.say(`${e.isNight() ? '☾ Es de noche' : '☀ Es de día'} (${e.timeStr()}). Clima: <b>${WEATHER[e.weather].name}</b> — ${WEATHER[e.weather].desc}`, 'o1');
     if (def.social) e.say('☭ Campamento «Wismut»: aquí no se dispara. Comerciante, enfermería y tablón de rumores (F junto a ellos).', 'good');
     for (const m of mods) if (MODIFIERS[m]) e.say(`<span style="color:${MODIFIERS[m].color}">${MODIFIERS[m].glyph} ${MODIFIERS[m].name}</span>: ${MODIFIERS[m].risk} <span class="good">${MODIFIERS[m].reward}</span>`, 'dimt');
@@ -497,6 +498,31 @@ export class Expedition {
   sees(x, y, range) { return Math.hypot(x.x - y.x, x.y - y.y) <= range && this.los(x.x, x.y, y.x, y.y); }
 
   // ---------------------------------------------------------------- visibilidad
+  // radares (gadgets): botín (alijos y puertas blindadas), chebylitas (nidos identificados y bichos) y otras facciones
+  radarSweep() {
+    let found = 0, nests = 0;
+    for (const sq of this.team) {
+      const RL = this.flag(sq, 'radarLoot'), RC = this.flag(sq, 'radarCheb'), RF = this.flag(sq, 'radarFac');
+      if (!RL && !RC && !RF) continue;
+      const near = (x, y, R) => R && Math.hypot(x - sq.x, y - sq.y) <= R;
+      for (const p of this.pois) {
+        if (p.radar) continue;
+        if (p.type === 'cache' && near(p.x, p.y, RL)) { p.radar = 1; if (!p.seen && !p.found) found++; }
+        if (p.type === 'nest' && near(p.x, p.y, RC)) { p.radar = 1; if (!p.cleared) nests++; }
+      }
+      if (RL) for (let y = Math.max(0, sq.y - RL); y <= Math.min(this.h - 1, sq.y + RL); y++) for (let x = Math.max(0, sq.x - RL); x <= Math.min(this.w - 1, sq.x + RL); x++) {
+        const k = this.key(x, y);
+        if (this.t[k] === T.ARMORDOOR && !this.explored[k] && near(x, y, RL)) { this.explored[k] = 1; found++; }
+      }
+      for (const en of this.enemies) {
+        if (this.isComp && this.isComp(en)) continue;
+        const human = isHuman(en);
+        if ((human ? near(en.x, en.y, RF) : near(en.x, en.y, RC))) en.radarT = this.turn;
+      }
+    }
+    if (found) this.say(`📡 El detector marca ${found} punto(s) con botín en el radar (alijos o puertas blindadas).`, 'cyan');
+    if (nests) this.say(`📡 El bioradar identifica ${nests} grupo(s) de chebylitas.`, 'cyan');
+  }
   computeVisibility(silent = false) {
     const vis = this.visible;
     vis.fill(0);
@@ -523,6 +549,9 @@ export class Expedition {
         this.explored[k] = 1;
       });
     }
+    this.radarSweep(); // radares de gadget
+    // puntos de interés vistos: alijos que aparecen en el radar y nidos identificados
+    for (const p of this.pois) if (!p.seen && vis[this.key(p.x, p.y)]) p.seen = 1;
     // enemigos recién vistos
     const fresh = [];
     for (const e of this.enemies) {
