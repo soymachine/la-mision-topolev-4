@@ -1,5 +1,6 @@
 // Lógica de campaña: intendencia, reclutamiento, mejoras, lanzar y cerrar expediciones
 import { S, save, addMessage } from './state.js';
+import { ironOver, challengeDayTick } from './modes.js';
 import { fireEvents, dialogView, dialogChoose } from './events.js';
 import { ITEMS } from '../data/items.js';
 import { MAPS, MODULES, MODULE_MAX, moduleCost, rosterSize, stashSize, squadSize, zoneOpen, openCount, EVENT_ZONES, eventDef, mapIndex } from '../data/world.js';
@@ -124,7 +125,7 @@ export function convertCrystal(it, fromList) {
 // ---------------- Reclutamiento ----------------
 export function ensureRecruits() {
   if (S.recruits && S.recruits.day === S.day) return S.recruits;
-  const g = new RNG((S.created + S.day * 104729) >>> 0);
+  const g = new RNG(((S.challenge ? S.challenge.seed : S.created) + S.day * 104729) >>> 0); // desafío: mismos reclutas para todos
   const list = [];
   const maxL = Math.min(7, 1 + Math.floor(S.day / 4) + Math.floor(openCount(S) / 3));
   const avoid = new Set(S.agents.map((x) => x.nick));
@@ -151,6 +152,7 @@ export function hire(entry) {
 // voluntario gratuito si no queda nadie
 export function ensureVolunteer() {
   if (S.agents.length > 0) return null;
+  if (S.iron) return null; // fase 24.7: en Hierro no hay voluntarios del Comité
   const a = createAgent(rng, { day: S.day, avoid: new Set() });
   starterKit(a, rng);
   S.agents.push(a);
@@ -386,6 +388,7 @@ export function finalizeExpedition(exp) {
   checkActs();
   ensureVolunteer();
   rep.achievements = checkAchievements().map((a) => a.id); // fase 24.6
+  rep.ironOver = ironOver(); // fase 24.7: Hierro sin agentes ni dinero → fin
   save();
   return rep;
 }
@@ -413,6 +416,7 @@ export function nextDay() {
     a.hp = Math.min(a.hp, st2.hpMaxEff);
   }
   checkAchievements(); // fase 24.6: día 30, alerta crítica…
+  challengeDayTick(); // fase 24.7: fin del desafío semanal
 }
 
 // zonas de evento temporales (fase 17.3): caducan y aparecen nuevas

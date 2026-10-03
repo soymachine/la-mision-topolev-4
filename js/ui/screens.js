@@ -1,5 +1,6 @@
 // Pantallas: título, intro, informe de expedición, instrucciones
 import { el, panel, esc, confirmBox, modal, toast, UI_SCALES, cycleUiScale } from '../util/dom.js';
+import { ITEMS } from '../data/items.js';
 import { S, hasSave, settings, saveSettings, listSlots, slotInfo, lastSlot, exportSlot, importToSlot, wipe } from '../core/state.js';
 import { RARITIES } from '../data/rarity.js';
 import { ENEMIES, enemyColor } from '../data/enemies.js';
@@ -11,6 +12,7 @@ import { toggleFullscreen } from './expui.js';
 import { a11yButtons } from './a11y.js';
 import { t } from '../i18n/index.js';
 import { achievementsModal } from './achievements.js';
+import { MODES, NG_MODS, ngUnlocked, legacy, isoWeek, challengeTable } from '../core/modes.js';
 import { controlsModal, keyName, helpKeysHTML, keyify } from './keys.js';
 
 // ------------------------------------------------------------ logo ASCII
@@ -85,26 +87,54 @@ export class TitleScreen {
   slotsModal(mode) {
     const body = el('div', { style: { minWidth: 'min(70ch, 90vw)' } });
     let close;
+    // fase 24.7: modo de juego de la partida nueva
+    const opt = { mode: 'historia', ngMods: {}, carry: 'agent' };
+    const modePick = () => {
+      const box = el('div', { class: 'mode-pick' });
+      const row = el('div', { class: 'row', style: { flexWrap: 'wrap', gap: '4px' } });
+      for (const [id, M] of Object.entries(MODES)) {
+        const locked = id === 'ng' && !ngUnlocked();
+        row.append(el('button', { class: 'btn small' + (opt.mode === id ? ' primary' : '') + (locked ? ' dimt' : ''), 'data-mode': id, title: locked ? 'Se desbloquea al ver un final.' : M.desc, onclick: () => { if (locked) { toast('«1987» se desbloquea al ver un final de la campaña.', 'bad'); return; } sfx.click(); opt.mode = id; render(); } }, (locked ? '🔒 ' : '') + M.name));
+      }
+      box.append(el('div', { class: 'h', text: 'MODO' }), row, el('div', { class: 'eff', style: { margin: '4px 0' }, text: MODES[opt.mode].desc }));
+      if (opt.mode === 'desafio') {
+        const tb = challengeTable();
+        box.append(el('div', { class: 'eff', html: `Semana <b>${isoWeek()}</b> · mejores marcas en este navegador: ${tb.length ? tb.slice(0, 5).map((x, i) => `${i + 1}.º <b>${x.score}</b>`).join(' · ') : '<span class="dimt">ninguna todavía</span>'}` }));
+      }
+      if (opt.mode === 'ng') {
+        const L = legacy();
+        const mods = el('div', { class: 'row', style: { flexWrap: 'wrap', gap: '4px' } });
+        for (const [id, M] of Object.entries(NG_MODS)) mods.append(el('button', { class: 'btn small' + (opt.ngMods[id] ? ' primary' : ''), 'data-ngmod': id, title: M.desc, onclick: () => { opt.ngMods[id] = !opt.ngMods[id]; render(); } }, (opt.ngMods[id] ? '☑ ' : '☐ ') + M.name));
+        const carry = el('div', { class: 'row', style: { flexWrap: 'wrap', gap: '4px' } });
+        const ag = L && L.agent ? `${L.agent.first} ${L.agent.last} (Nv ${L.agent.lvl})` : null;
+        const tr = L && L.trophy ? (ITEMS[L.trophy.b] ? ITEMS[L.trophy.b].name : L.trophy.b) : null;
+        if (ag) carry.append(el('button', { class: 'btn small' + (opt.carry === 'agent' ? ' primary' : ''), onclick: () => { opt.carry = 'agent'; render(); } }, `VETERANO: ${ag}`));
+        if (tr) carry.append(el('button', { class: 'btn small' + (opt.carry === 'trophy' ? ' primary' : ''), onclick: () => { opt.carry = 'trophy'; render(); } }, `TROFEO: ${tr}`));
+        box.append(el('div', { class: 'eff', text: 'Modificadores:' }), mods, ag || tr ? el('div', { class: 'eff', text: 'Del año pasado:' }) : '', ag || tr ? carry : '');
+      }
+      return box;
+    };
     const render = () => {
       body.innerHTML = '';
+      if (mode === 'new') body.append(modePick());
       body.append(el('div', { class: 'dimt', style: { marginBottom: '1em' }, text: t(mode === 'new' ? 'slots.new' : 'slots.load') }));
       for (const { n, info } of listSlots()) {
         const row = el('div', { class: 'module', style: { gridTemplateColumns: '6ch 1fr auto' } });
         row.append(el('div', { class: 'mg', text: `[${n}]` }));
         row.append(el('div', { html: info
-          ? `<b>Día ${info.day}</b> · ${info.agents} agentes · <span class="cyan">${info.ess} ✦</span> · ${info.rub} ₽ · ${info.unlocked} zonas${info.exp ? ' · <span class="warn">en expedición</span>' : ''}<div class="eff">Guardada el ${new Date(info.saved || Date.now()).toLocaleString('es-ES')} · ${info.kb || '?'} KB</div>`
+          ? `${info.mode && MODES[info.mode] && MODES[info.mode].short ? `<span class="warn">${MODES[info.mode].short}</span> · ` : ''}<b>Día ${info.day}</b> · ${info.agents} agentes · <span class="cyan">${info.ess} ✦</span> · ${info.rub} ₽ · ${info.unlocked} zonas${info.exp ? ' · <span class="warn">en expedición</span>' : ''}<div class="eff">Guardada el ${new Date(info.saved || Date.now()).toLocaleString('es-ES')} · ${info.kb || '?'} KB</div>`
           : `<span class="dimt">${t('slots.empty')}</span>` }));
         const acts = el('div', { class: 'row', style: { flexWrap: 'wrap', justifyContent: 'flex-end' } });
         const b = (label, fn, cls = '') => el('button', { class: 'btn small ' + cls, onclick: () => { sfx.click(); fn(); } }, label);
         if (mode === 'new') {
           acts.append(b(t(info ? 'slots.overwrite' : 'slots.start'), async () => {
             if (info && !(await confirmBox('SOBRESCRIBIR', `Se borrará la partida de la ranura ${n} (día ${info.day}). ¿Continuar?`, 'BORRAR Y EMPEZAR', 'CANCELAR', true))) return;
-            close(); this.hooks.onNew(n);
+            close(); this.hooks.onNew(n, { ...opt, ngMods: { ...opt.ngMods } });
           }, info ? 'danger' : 'primary'));
         } else {
           if (info) {
             acts.append(b(t('slots.load1'), () => { close(); this.hooks.onContinue(n); }, 'primary'));
-            acts.append(b('EXPORTAR', () => {
+            if (!info.iron) acts.append(b('EXPORTAR', () => { // en Hierro no hay copias de seguridad
               const txt = exportSlot(n);
               if (!txt) return;
               const a = document.createElement('a');
@@ -511,6 +541,9 @@ ${helpKeysHTML()}
 <p><b>MÚSICA</b>: un drone generativo que cambia con la zona (superficie, subsuelo, laboratorios, corium) y se vuelve más tenso con el peligro (enemigos en alerta, el pulso del reactor, un jefe a la vista, un agente abatido); en la base suena un tema tranquilo. <b>VOL. MÚSICA</b> y <b>VOL. EFECTOS</b> se ajustan por separado.</p>
 <p><b>IDIOMA</b>: español o inglés (English). En inglés ya están traducidos los menús, las pestañas de la base, el HUD de la expedición, los controles y los nombres de zonas, chebylitas y objetos básicos; lo que aún no tiene traducción sale en español.</p>
 <p><b>CONTROLES TÁCTILES</b> (AUTO / SÍ / NO; en AUTO se activan solos en pantallas táctiles): durante la expedición aparece una cruceta de 8 direcciones (el punto del centro espera un turno; manteniéndola pulsada se repite) y botones para interactuar (F), apuntar (⌖; en el modo apuntar pasa al siguiente objetivo y F dispara), recargar, curarse, habilidad, granada, agacharse, cambiar de agente, inventario y ✕ (cancelar o menú). Tocar el mapa es como hacer clic (ir, atacar, abrir); <b>mantener pulsado</b> muestra la información de la casilla; <b>pellizcar</b> acerca o aleja; <b>arrastrar el radar</b> mueve la vista. En pantallas estrechas el panel del agente se abre con ☰.</p>
+
+<h2>MODOS DE JUEGO</h2>
+<p>Se eligen en NUEVA PARTIDA, encima de las ranuras. <b>HISTORIA</b>: la campaña de siempre. <b>LIBRE</b>: todas las zonas abiertas, 2000 ₽, sin cuota, ataques ni actos. <b>HIERRO</b>: guardado en cada turno, sin exportar copias; si os quedáis sin agentes y sin rublos para reclutar, la partida se borra. <b>DESAFÍO SEMANAL</b>: la misma semilla para todos durante la semana (agentes, botín inicial, reclutas y mapas de las 3 primeras zonas); al acabar el día 15 se apunta la puntuación (esencia + 2 por baja + 25 por extracción − 40 por caído) en la tabla de este navegador. <b>«1987»</b>: se desbloquea al ver un final; empezáis con el mejor agente o un trofeo de la partida anterior y podéis añadir modificadores (+1 nivel a los chebylitas, alerta +1, presupuesto recortado).</p>
 
 <h2>LOGROS Y ESTADÍSTICAS</h2>
 <p>En el menú principal y en el ARCHIVO: 36 logros (extracciones, jefes, trofeos, rachas sin bajas, rescates, finales secretos…) que se guardan aparte de las partidas, así que no se pierden al borrar una ranura; y las estadísticas de la partida: por zona, bajas por especie y por arma, abatidos levantados, granadas devueltas, ataques por la espalda, día récord de esencia.</p>

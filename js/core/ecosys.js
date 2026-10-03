@@ -14,7 +14,8 @@ export function worldDefaults(d) {
 }
 
 // nivel de alerta del reactor (0–5): sube cada ALERT_EVERY días
-export const reactorAlert = (day = S.day) => Math.max(0, Math.min(ALERT_LEVELS.length - 1, Math.floor(((day || 1) - 1) / ALERT_EVERY)));
+// (en «1987» con el modificador de alerta, empieza un nivel más arriba)
+export const reactorAlert = (day = S.day) => Math.max(0, Math.min(ALERT_LEVELS.length - 1, Math.floor(((day || 1) - 1) / ALERT_EVERY) + ((S && S.ng && S.ng.alert) || 0)));
 export const alertInfo = (lvl = reactorAlert()) => ({ lvl, ...ALERT_LEVELS[lvl] });
 
 export const homeBossOf = (zoneId) => Object.keys(ENEMIES).find((k) => ENEMIES[k].boss && ENEMIES[k].home === zoneId) || null;
@@ -28,6 +29,7 @@ export function zoneWorld(zoneId) {
     out.nestK = 0.4 + (0.6 * (S.day - z.calmDay)) / CALM_DAYS;
     out.calmLeft = CALM_DAYS - (S.day - z.calmDay);
   } else if (z.lastVisit != null) out.grow = Math.min(2, Math.floor((S.day - z.lastVisit) / GROW_DAYS));
+  if (S.ng && S.ng.lvl) out.grow += S.ng.lvl; // fase 24.7: «1987», chebylitas un nivel más
   const hb = homeBossOf(zoneId);
   if (hb && S.world.bossDown[hb] != null && S.day - S.world.bossDown[hb] < BOSS_RETURN) out.bossAway = true;
   return out;

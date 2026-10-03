@@ -1,6 +1,7 @@
 // Narrativa y moral de la campaña (fase 20): actos, confianza de Topolev, crónica, comedor, cartas,
 // epitafios, afinidad entre agentes, estrés y encargos.
 import { S, addMessage } from './state.js';
+import { saveLegacy } from './modes.js';
 import { checkAchievements } from './achievements.js';
 import { ITEMS } from '../data/items.js';
 import { MAPS, mapIndex, zoneOpen, openCount } from '../data/world.js';
@@ -59,6 +60,7 @@ export function sceneDef(id) {
 }
 const totalCleared = () => Object.values(S.cleared || {}).reduce((a, b) => a + (b > 0 ? 1 : 0), 0);
 export function checkActs() {
+  if (S.flags && S.flags.noStory) return; // fase 24.7: modo libre, sin actos ni finales
   if (!S.act) { S.act = 1; queueScene('act1'); chronicle('Comienza el Acto I: «El Bloque». Llegada al Puesto Pripyat-7.'); }
   const foreign = Object.keys(S.met || {}).some((f) => f !== 'rda');
   if (S.act === 1 && ((foreign && totalCleared() >= 2) || openCount(S) >= 8 || (S.cleared.metro2 || 0) > 0)) {
@@ -89,6 +91,7 @@ export function endGame(id) {
   S.endingLines = L;
   queueScene('end:' + id);
   chronicle(`FINAL: ${ENDINGS[id].name}.`);
+  saveLegacy(id); // fase 24.7: el legado para «1987»
   checkAchievements(); // fase 24.6: logros de los finales
 }
 

@@ -11,6 +11,7 @@ import { storyDefaults } from './story.js';
 import { baseDefaults } from './basecore.js';
 import { worldDefaults } from './ecosys.js';
 import { statsDefaults } from './achievements.js';
+import { applyMode, weekSeed, isoWeek } from './modes.js';
 import { compressToUTF16, decompressFromUTF16 } from '../util/lz.js';
 
 // Guardado v2: 3 ranuras comprimidas (LZ/UTF-16) + ficha resumen por ranura
@@ -30,9 +31,10 @@ export const settings = loadSettings();
 let expSerializer = null;
 export function setExpSerializer(fn) { expSerializer = fn; }
 
-export function newGame(n = slot) {
+export function newGame(n = slot, opts = {}) {
   setSlot(n);
-  const g = new RNG();
+  // fase 24.7: el desafío semanal usa la semilla de la semana (agentes y botín inicial iguales para todos)
+  const g = opts.mode === 'desafio' ? new RNG(weekSeed(opts.week || isoWeek())) : new RNG();
   const modules = {};
   for (const m of MODULES) modules[m.id] = 0;
   S = {
@@ -60,6 +62,7 @@ export function newGame(n = slot) {
   worldDefaults(S);
   S.act = 1; S.pendingScenes = ['act1']; S.chronicle.push({ day: 1, text: 'Comienza el Acto I: «El Bloque». Llegada al Puesto Pripyat-7.' });
   S.messages.push({ day: 1, text: 'Camarada director: el equipo está listo. El Bloque Administrativo es nuestro primer objetivo. Traed esencia. Volved vivos. — Dr. A. Topolev' });
+  applyMode(S, opts); // fase 24.7
   save();
   return S;
 }
@@ -180,7 +183,7 @@ function migrate(st) {
 function writeSlot(n, data) {
   const json = JSON.stringify(data);
   ls.set(SLOT_KEY(n), compressToUTF16(json));
-  const info = { day: data.day, agents: data.agents.length, ess: data.ess, rub: data.rub, unlocked: openCount(data), exp: !!data.exp, saved: Date.now(), kb: Math.round(json.length / 1024) };
+  const info = { day: data.day, agents: data.agents.length, ess: data.ess, rub: data.rub, unlocked: openCount(data), exp: !!data.exp, mode: data.mode || 'historia', iron: !!data.iron, saved: Date.now(), kb: Math.round(json.length / 1024) };
   ls.set(INFO_KEY(n), JSON.stringify(info));
 }
 

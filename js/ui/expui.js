@@ -257,7 +257,7 @@ export class ExpeditionUI {
       if (r > 0.4) sfx.geiger(Math.min(8, Math.round(r * 1.5)));
     }
     this.refresh();
-    if (e.turn % 3 === 0) save();
+    if (e.turn % 3 === 0 || S.iron) save(); // en Hierro, cada turno
   }
 
   // peligro para la música (0–1): enemigos en alerta a la vista, pulso del reactor, jefe a la vista, abatidos

@@ -1,6 +1,7 @@
 // Simulación de una expedición por turnos (núcleo: creación, guardado, visibilidad, movimiento, turno)
 // Los demás métodos están en combat.js, use.js, extraction.js, ai.js y environment.js
 import { RNG, rng, clamp, cheb, line, uid } from '../util/rng.js';
+import { mapSeed } from '../core/modes.js';
 import { T, TILES } from '../data/tiles.js';
 import { MAPS, floorDef } from '../data/world.js';
 import { ENEMIES, scaleEnemy, enemyColor } from '../data/enemies.js';
@@ -56,7 +57,8 @@ export class Expedition {
   // zoneDef: definición propia para las zonas de evento temporales (si no, la de MAPS[mapIdx])
   static create(mapIdx, agents, mods = [], zoneDef = null) {
     const def = zoneDef || MAPS[mapIdx];
-    const seed = (Math.random() * 2 ** 32) >>> 0;
+    const ms = zoneDef ? null : mapSeed(mapIdx); // fase 24.7: desafío semanal, mapas fijos en las 3 primeras zonas
+    const seed = ms != null ? ms : (Math.random() * 2 ** 32) >>> 0;
     const e = new Expedition();
     e.mapIdx = mapIdx; e.seed = seed;
     e.zoneDef = zoneDef;

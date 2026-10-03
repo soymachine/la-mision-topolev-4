@@ -1,5 +1,5 @@
 // Arranque y navegación entre pantallas
-import { initDom, $, $$, toast, hideTooltip, modalOpen, measureFont, refreshFrames, applyUiScale } from './util/dom.js';
+import { initDom, $, $$, toast, hideTooltip, modalOpen, modal, measureFont, refreshFrames, applyUiScale } from './util/dom.js';
 import { S, newGame, load, save, settings, setExpSerializer, wipe } from './core/state.js';
 import { launchExpedition, finalizeExpedition, ensureVolunteer } from './core/campaign.js';
 import { Expedition } from './exp/expedition.js';
@@ -45,13 +45,21 @@ async function boot() {
 
   const title = new TitleScreen($('#screen-title'), {
     onContinue: (n) => continueGame(n),
-    onNew: (n) => { wipe(n); newGame(n); title.close(); show('intro'); intro.open(); },
+    onNew: (n, opts) => { wipe(n); newGame(n, opts); title.close(); show('intro'); intro.open(); },
     onHelp: () => openHelp(),
   });
   const intro = new IntroScreen($('#screen-intro'), {
     onDone: () => { S.introSeen = true; save(); goBase(); },
   });
-  const report = new ReportScreen($('#screen-report'), { onDone: () => goBase('cuartel') });
+  const report = new ReportScreen($('#screen-report'), { onDone: () => {
+    // fase 24.7: Hierro sin agentes ni dinero para reclutar → la partida se borra
+    if (S && S.iron && S.lastReport && S.lastReport.ironOver) {
+      wipe(); show('title'); title.open();
+      modal({ title: 'FIN · MODO HIERRO', body: '<div>No queda nadie en el Puesto Pripyat-7 y no hay rublos para reclutar a nadie más.</div><div class="dimt" style="margin-top:.6em">La partida se ha borrado. Los logros siguen ahí.</div>', actions: [{ label: 'ACEPTAR' }] });
+      return;
+    }
+    goBase('cuartel');
+  } });
   const help = new HelpScreen($('#screen-help'), {
     onBack: () => { show(prevScreen); if (prevScreen === 'title') title.open(); },
   });

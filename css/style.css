@@ -516,3 +516,7 @@ body.touch .btn { min-height: 34px; }
 .ach .ach-g { color: var(--warn); text-align: center; }
 .ach-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1ch 3ch; }
 @media (max-width: 760px) { .ach-stats { grid-template-columns: 1fr; } }
+
+/* ---------- modos de juego (fase 24.7) ---------- */
+.mode-pick { border: 1px dashed var(--o5); padding: 6px 1ch; margin-bottom: 1em; }
+.mode-tag { letter-spacing: .08em; }

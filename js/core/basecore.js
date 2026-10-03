@@ -221,6 +221,7 @@ export function noteSale(b) { S.demand[b] = (S.demand[b] || 0) + 1; }
 function tickDemand() { for (const b of Object.keys(S.demand)) { S.demand[b] *= 0.8; if (S.demand[b] < 0.2) delete S.demand[b]; } }
 // cuota mensual del Comité (cada 30 días)
 function tickQuota() {
+  if (S.mode === 'libre') return null; // fase 24.7: sin cuota en el modo libre
   const q = S.quota;
   if (S.day < q.due) { if (q.due - S.day === 5) addMessage(`Comisario Zhdánov: «Faltan 5 días para la cuota del Comité: ${q.ess} ✦. No me haga quedar mal, doctor».`); return null; }
   let txt;
@@ -316,6 +317,7 @@ function tickBuildings() {
 // ataque pendiente: se resuelve en la base con un diálogo (defender o ceder)
 export function rollAttack(fuga) {
   if (S.attack) return S.attack;
+  if (S.mode === 'libre') return null; // fase 24.7: sin ataques en el modo libre
   let kind = null, extra = null;
   if (fuga) { kind = 'fuga'; extra = fuga.species; }
   else if (S.day >= 12 && S.day - (S.lastAttack || 0) >= 10 && Math.random() < 0.05) kind = ['usa', 'merodeadores', 'nido'][Math.floor(Math.random() * 3)];

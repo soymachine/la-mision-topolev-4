@@ -1688,6 +1688,61 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     await ctx11.close();
   }
   {
+    // 24.7 modos de juego: libre, hierro, desafío semanal y «1987»
+    const ctx16 = await b.newContext({ viewport: { width: 1440, height: 860 } });
+    const Mo = await ctx16.newPage();
+    Mo.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
+    Mo.on('console', (m) => { if ((m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) || m.type() === 'warning') errs.push(m.text()); });
+    await Mo.goto(URL); await Mo.waitForTimeout(800);
+    // libre desde la pantalla de nueva partida
+    await Mo.click('text=NUEVA PARTIDA'); await Mo.waitForTimeout(150);
+    const lockedNg = await Mo.evaluate(() => !!document.querySelector('.modal button[data-mode="ng"]') && document.querySelector('.modal button[data-mode="ng"]').textContent.includes('🔒'));
+    await Mo.click('.modal button[data-mode="libre"]'); await Mo.waitForTimeout(100);
+    await Mo.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await Mo.click('#screen-intro'); await Mo.click('text=COMENZAR'); await Mo.waitForTimeout(300);
+    const lib = await Mo.evaluate(async () => {
+      const S = window.__topolev.S; const W = await import('./js/data/world.js'); const C = await import('./js/core/campaign.js'); const B = await import('./js/core/basecore.js');
+      const allOpen = W.MAPS.every((m, i) => W.zoneOpen(S, i));
+      S.quota.due = S.day + 1; const rub0 = S.rub; C.nextDay();
+      const att = B.rollAttack(); for (let i = 0; i < 40; i++) B.rollAttack();
+      return { mode: S.mode, rub0, rubAfter: S.rub, allOpen, act: S.act, att: !!S.attack, tag: document.querySelector('#screen-base .mode-tag') ? document.querySelector('#screen-base .mode-tag').textContent : '' };
+    });
+    ok(lockedNg && lib.mode === 'libre' && lib.rub0 === 2000 && lib.allOpen && lib.act === 0 && !lib.att && lib.rubAfter >= lib.rub0, `modo LIBRE: zonas abiertas, 2000 ₽, sin cuota, ataques ni actos («1987» bloqueado) ${lib.tag}`);
+    // hierro
+    const ir = await Mo.evaluate(async () => {
+      const st = await import('./js/core/state.js'); const C = await import('./js/core/campaign.js'); const M = await import('./js/core/modes.js');
+      st.newGame(2, { mode: 'hierro' }); const S = st.S;
+      const info = st.slotInfo(2);
+      S.agents.length = 0; const vol = C.ensureVolunteer(); S.rub = 0;
+      return { iron: S.iron, info: info.iron && info.mode === 'hierro', vol, over: M.ironOver() };
+    });
+    ok(ir.iron && ir.info && ir.vol === null && ir.over, 'modo HIERRO: marcado en la ranura, sin voluntarios y fin al quedarse sin agentes ni rublos');
+    // desafío semanal: misma semilla, mismo comienzo y mismos mapas; puntuación en la tabla local al día 16
+    const ch = await Mo.evaluate(async () => {
+      const st = await import('./js/core/state.js'); const M = await import('./js/core/modes.js'); const C = await import('./js/core/campaign.js');
+      const sig = () => st.S.agents.map((a) => a.first + a.last + a.lvl).join('|') + '#' + st.S.stash.map((i) => i.b + i.r).join(',');
+      st.newGame(3, { mode: 'desafio', week: '2026-W40' }); const a = sig(); const s0 = M.mapSeed(0), s3 = M.mapSeed(5);
+      const r1 = C.ensureRecruits().list.map((r) => r.a.first).join(',');
+      st.newGame(4, { mode: 'desafio', week: '2026-W40' }); const b2 = sig(); const s0b = M.mapSeed(0);
+      st.S.recruits = null; const r2 = C.ensureRecruits().list.map((r) => r.a.first).join(',');
+      st.newGame(4, { mode: 'desafio', week: '2026-W41' }); const c = sig();
+      st.S.day = 16; st.S.stats.essTotal = 300; st.S.stats.kills = 10; const txt = M.challengeDayTick();
+      return { same: a === b2, diff: a !== c, seed: s0 != null && s0 === s0b && s3 == null, rec: r1 === r2, txt: !!txt, table: M.challengeTable('2026-W41')[0] };
+    });
+    ok(ch.same && ch.diff && ch.seed && ch.rec, 'DESAFÍO: la misma semana da los mismos agentes, botín, reclutas y mapas (y otra semana, otros)');
+    ok(ch.txt && ch.table && ch.table.score === 320, `DESAFÍO: al pasar el día 15 se apunta la puntuación en la tabla local (${ch.table && ch.table.score})`);
+    // «1987»: legado de un final, modificadores
+    const ng = await Mo.evaluate(async () => {
+      const st = await import('./js/core/state.js'); const M = await import('./js/core/modes.js'); const E = await import('./js/core/ecosys.js');
+      st.newGame(5); st.S.agents[0].lvl = 9; M.saveLegacy('sellar');
+      const unlocked = M.ngUnlocked(); const vet = st.S.agents[0].first;
+      st.newGame(5, { mode: 'ng', ngMods: { lvl: 1, alert: 1, poor: 1 }, carry: 'agent' });
+      const S = st.S;
+      return { unlocked, n: S.agents.length, vet: S.agents.some((a) => a.first === vet && a.lvl === 9), rub: S.rub, alert: E.reactorAlert(), grow: E.zoneWorld('admin').grow };
+    });
+    ok(ng.unlocked && ng.n === 4 && ng.vet && ng.rub === 200 && ng.alert === 1 && ng.grow === 1, `«1987»: se desbloquea con un final; veterano del año pasado y modificadores (${JSON.stringify(ng)})`);
+    await ctx16.close();
+  }
+  {
     // 24.6 logros y estadísticas: suben las estadísticas, se desbloquea un logro y sobrevive a borrar la ranura
     const ctx15 = await b.newContext({ viewport: { width: 1440, height: 860 } });
     const Ac = await ctx15.newPage();

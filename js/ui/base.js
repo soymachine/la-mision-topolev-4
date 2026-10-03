@@ -34,6 +34,7 @@ import * as ECO from '../core/ecosys.js';
 import { a11yButtons } from './a11y.js';
 import { t } from '../i18n/index.js';
 import { achievementsModal } from './achievements.js';
+import { modeTag, challengeScore } from '../core/modes.js';
 import { controlsModal, keyName } from './keys.js';
 
 const TABS = [
@@ -157,6 +158,7 @@ export class BaseUI {
     // cabecera
     const top = el('div', { class: 'base-top' },
       el('span', { class: 'logo', html: t('base.logo') }),
+      modeTag() ? el('span', { class: 'warn mode-tag', title: 'Modo de juego', text: modeTag() + (S.challenge ? (S.challenge.done ? ` · ${S.challenge.done.score} pts` : ` · día ${S.day}/${S.challenge.days} · ${challengeScore()} pts`) : '') }) : '',
       el('span', { class: 'dimt', html: `PUESTO PRIPYAT-7 · DÍA <b>${S.day}</b> · ${B21.dateStr()} · <span title="${esc(B21.seasonInfo().desc)}">${B21.seasonInfo().glyph} ${B21.seasonInfo().name}</span> · cuota: <span class="${S.ess >= S.quota.ess ? 'good' : 'warn'}" title="Cuota del Comité: esencia a entregar">${S.quota.ess} ✦ en ${Math.max(0, S.quota.due - S.day)} d</span> · <span title="Alerta del reactor: ${esc(ECO.alertInfo().desc)}" style="color:${ECO.alertInfo().color}">☢ ${ECO.alertInfo().name}</span>` }),
       el('div', { class: 'res' },
         this.resEl('ess', '✦', t('base.ess'), S.ess, 'cyan'),
@@ -1168,7 +1170,7 @@ export class BaseUI {
       btn(t('menu.sound', { v: t(settings.sound ? 'yes' : 'no') }), () => { settings.sound = !settings.sound; saveSettings(); music.sync(); close(); this.openMenu(); }),
       btn(t('menu.crt', { v: t(settings.crt ? 'yes' : 'no') }), () => { settings.crt = !settings.crt; document.body.classList.toggle('no-crt', !settings.crt); saveSettings(); close(); this.openMenu(); }),
       btn(t('menu.save'), () => { if (save()) toast(t('menu.saved', { n: slot }), 'good'); else toast(t('menu.saveFail'), 'bad', 6000); close(); }),
-      btn(t('menu.export'), () => {
+      S.iron ? '' : btn(t('menu.export'), () => { // en Hierro no hay copias
         save();
         const txt = exportSlot(slot);
         if (!txt) return;
