@@ -1526,7 +1526,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
       out.fx = ap > n && hp < n && es > n;
       // incendiaria: prende fuego
       ak.ammoKind = 'a_545_inc'; g.burn = 0; g.hp = g.hpMax = 9999; const est = e.est(g); est.ev = -200;
-      e.resolveHit(sq, g, { ...e.weaponStats(sq), acc: 300 }, e.ast(sq), false);
+      for (let i = 0; i < 10 && !(g.burn >= 3); i++) e.resolveHit(sq, g, { ...e.weaponStats(sq), acc: 300 }, e.ast(sq), false); // (el impacto tiene un tope del 97%)
       out.inc = g.burn >= 3;
       ak.ammoKind = null; e.dismissActor(g);
       // fuego de supresión: los que están a 1 casilla del objetivo quedan suprimidos
@@ -1546,7 +1546,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
       return out;
     });
     ok(am.loadAp && am.back, 'munición especial: N elige el tipo, R lo carga y lo cargado vuelve a la mochila al cambiar');
-    ok(am.fx && am.inc, 'perforante, expansiva y de esencia cambian el daño; la incendiaria prende fuego');
+    ok(am.fx && am.inc, `perforante, expansiva y de esencia cambian el daño; la incendiaria prende fuego${am.fx && am.inc ? '' : ' ' + JSON.stringify(am)}`);
     ok(am.supp && am.penalty && am.noPistol, 'fuego de supresión (Z) con armas automáticas: suprime 2 turnos y −30% de impacto');
     // 23.5 durabilidad, encasquillamientos y reparación
     const du = await K.evaluate(async () => {
