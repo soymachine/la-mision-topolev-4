@@ -24,6 +24,7 @@ import { WEATHER } from '../data/modifiers.js';
 import { DOG_ORDERS } from '../data/companions.js';
 import { a11yButtons } from './a11y.js';
 import { actionForKey, dirOf, controlsModal, keyName, keyify } from './keys.js';
+import { buildTouchBar, mapGestures, minimapDrag } from './touch.js';
 const SOCIAL_TIP = { trader: 'Compra y venta.', medic: 'Curas y tratamiento de la radiación.', board: 'Rumores y trabajos.', archive: 'Expedientes del KGB.' };
 export function toggleFullscreen() {
   try {
@@ -74,7 +75,15 @@ export class ExpeditionUI {
     this.agentPanel = panel({ title: 'AGENTE', bodyCls: 'scroll' });
     this.agentPanel.classList.add('grow');
     this.side.append(this.mmPanel, this.squadPanel, this.agentPanel);
+    // fase 24.3: barra táctil sobre el mapa (solo se ve con body.touch)
+    this.touchBar = buildTouchBar(this);
+    this.mapHost.append(this.touchBar);
 
+    // arrastrar el minimapa desplaza la vista (antes que el clic, para poder anularlo)
+    minimapDrag(this.mmCanvas, (ev) => {
+      const rc = this.mmCanvas.getBoundingClientRect(), k = this.mmCanvas.width / rc.width;
+      return this.mm.cellAt((ev.clientX - rc.left) * k, (ev.clientY - rc.top) * k);
+    }, (x, y) => { if (this.exp) this.r.centerOn(x, y); });
     this.mmCanvas.addEventListener('click', (ev) => {
       hideTooltip();
       // con un Strizh en el aire, el clic lo manda a ese punto
@@ -98,6 +107,9 @@ export class ExpeditionUI {
 
     // ratón sobre el mapa
     const c = this.r.canvas;
+    // gestos (24.3.3): pulsación larga = tooltip; pellizco = zoom (antes que el clic, para anularlo)
+    mapGestures(c, { onLong: (ev) => this.onHover(ev), onZoom: (d) => { if (this.active) this.zoom(d); } });
+    c.addEventListener('pointerdown', (ev) => { if (ev.pointerType === 'touch') hideTooltip(); });
     c.addEventListener('pointermove', (ev) => this.onHover(ev));
     c.addEventListener('pointerleave', () => { this.r.hover = null; this.clearOverlay(); hideTooltip(); });
     c.addEventListener('click', (ev) => this.onClick(ev));
@@ -487,7 +499,13 @@ export class ExpeditionUI {
       if (e.squad[i] && e.inMap(e.squad[i])) { e.switchActive(i); sfx.click(); }
       return;
     }
-    if (act) ev.preventDefault();
+    if (act) { ev.preventDefault(); this.doAction(act); }
+    if (ev.code === 'Numpad5') { ev.preventDefault(); if (this.canAct()) e.wait(); }
+  }
+
+  // acción de la tabla de teclas (o de la barra táctil, 24.3)
+  doAction(act) {
+    const e = this.exp;
     switch (act) {
       case 'wait': if (this.canAct()) { this.travel = null; e.wait(); } break;
       case 'interact': if (this.canAct()) e.interact(); break;
@@ -511,7 +529,24 @@ export class ExpeditionUI {
       case 'zoomIn': this.zoom(1); break;
       case 'zoomOut': this.zoom(-1); break;
     }
-    if (ev.code === 'Numpad5') { ev.preventDefault(); if (this.canAct()) e.wait(); }
+  }
+  // barra táctil (fase 24.3.2): las mismas acciones que el teclado; en el modo apuntar, F confirma y ⌖ pasa de objetivo
+  touchAct(act) {
+    const e = this.exp;
+    if (!this.active || !e || modalOpen()) return;
+    if (act === 'cancel') { if (this.big) this.toggleBigMap(); else if (this.mode) this.cancelMode(); else if (this.travel) this.travel = null; else this.openMenu(); return; }
+    if (e.ended) return;
+    if (this.mode && act === 'interact') { this.confirmTarget(); return; }
+    if (this.mode && act === 'aim') { this.cycleTarget(1); return; }
+    this.doAction(act);
+  }
+  touchMove(dir) {
+    const e = this.exp;
+    if (!this.active || !e || e.ended || modalOpen()) return;
+    if (this.mode) { this.moveCursor(dir); return; }
+    if (!this.canAct()) return;
+    this.travel = null;
+    e.moveDir(dir[0], dir[1]);
   }
 
   zoom(d) {

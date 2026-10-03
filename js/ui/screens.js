@@ -505,6 +505,7 @@ ${helpKeysHTML()}
 
 <h2>ACCESIBILIDAD</h2>
 <p>En el menú principal (y en el menú de la base y de la expedición): <b>MODO DALTÓNICO</b> cambia los colores de las rarezas a una paleta distinguible (Okabe-Ito) y les pone un símbolo (· común, + no común, ◆ raro, ★ épico, ✦ legendario, ✪ mítico); en el mapa, las personas llevan además ! (hostil), ? (neutral) o + (aliado). <b>ALTO CONTRASTE</b> aclara los textos, marca los bordes, quita el efecto CRT y aviva los colores del mapa. Se recuerdan entre sesiones.</p>
+<p><b>CONTROLES TÁCTILES</b> (AUTO / SÍ / NO; en AUTO se activan solos en pantallas táctiles): durante la expedición aparece una cruceta de 8 direcciones (el punto del centro espera un turno; manteniéndola pulsada se repite) y botones para interactuar (F), apuntar (⌖; en el modo apuntar pasa al siguiente objetivo y F dispara), recargar, curarse, habilidad, granada, agacharse, cambiar de agente, inventario y ✕ (cancelar o menú). Tocar el mapa es como hacer clic (ir, atacar, abrir); <b>mantener pulsado</b> muestra la información de la casilla; <b>pellizcar</b> acerca o aleja; <b>arrastrar el radar</b> mueve la vista. En pantallas estrechas el panel del agente se abre con ☰.</p>
 
 <h2>CONSEJOS</h2>
 <ul>

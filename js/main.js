@@ -108,7 +108,7 @@ async function boot() {
   show('title');
   title.open();
   const debug = installDebug({ exp: () => exp, base, expUI, current: () => current });
-  window.__topolev = { get S() { return S; }, get exp() { return exp; }, show, debug };
+  window.__topolev = { get S() { return S; }, get exp() { return exp; }, get expUI() { return expUI; }, show, debug };
 }
 
 boot();

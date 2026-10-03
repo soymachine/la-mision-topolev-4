@@ -848,7 +848,12 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
       // ruido blanco
       const wn = window.__mk('whitenoise', 0, undefined, 1); sq.a.bag.push(wn);
       e.act((q) => e.useItem(q, wn));
-      const far = window.__adj(e, sq, 6) || window.__adj(e, sq, 5) || window.__adj(e, sq, 4) || window.__adj(e, sq, 3) || window.__adj(e, sq, 2);
+      // a más de 3 casillas (el ruido blanco deja el ruido en radio 3): busca cualquier hueco a 4–8
+      let far = null;
+      for (let r = 4; r <= 8 && !far; r++) for (let dy = -r; dy <= r && !far; dy++) for (let dx = -r; dx <= r && !far; dx++) {
+        const x = sq.x + dx, y = sq.y + dy;
+        if (Math.hypot(dx, dy) > 3.5 && e.inb(x, y) && e.passable(x, y) && !e.entityAt(x, y)) far = [x, y];
+      }
       const sl = e.spawnEnemy('rata', 1, far[0], far[1], 'dormido');
       e.noise(sq.x, sq.y, 14);
       out.quiet = sl.state === 'dormido';
@@ -888,14 +893,17 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     ok(gd.tur && gd.ammo < 60 && gd.back, `torreta «Gnomo»: dispara sola (${gd.ammo} balas) y se recoge con su munición`);
     ok(gd.cage && gd.photo, 'jaula de captura (rata viva) y cámara Zenit-E (+10% contra lobos)');
     ok(!!gd.rec && gd.lure, `la grabadora graba a un chebylita (${gd.rec}) y atrae a los suyos`);
-    ok(gd.mine && gd.cloak && gd.quiet, 'sonda sísmica (mina), camuflaje con recarga y ruido blanco');
+    ok(gd.mine && gd.cloak && gd.quiet, `sonda sísmica (mina), camuflaje con recarga y ruido blanco${gd.mine && gd.cloak && gd.quiet ? '' : ' ' + JSON.stringify({ mine: gd.mine, cloak: gd.cloak, quiet: gd.quiet })}`);
     ok(gd.weld && gd.grapple && gd.relay && gd.umbrella, `soldadura, gancho sobre una sima, relé contra la tormenta y paraguas (${['weld', 'grapple', 'relay', 'umbrella'].filter((k) => !gd[k]).join(', ') || 'todo bien'})`);
-    const df = await G.evaluate(() => {
+    const df = await G.evaluate(async () => {
+      const { ITEMS } = await import('./js/data/items.js');
       const e = window.__topolev.exp; window.__clr(e);
       e.god = false;
       const [a, b2] = e.team;
       a.a.equip.g1 = window.__mk('defib', 0);
       { const c = window.__adj(e, a, 2) || window.__adj(e, a, 1); e.moveEntity(b2, c[0], c[1]); }
+      // sin botiquines: si no hay hueco a 2 casillas y queda al lado, también tira del desfibrilador
+      a.a.bag = a.a.bag.filter((it) => ITEMS[it.b].use !== 'heal');
       e.damageAgent(b2, b2.a.hp + 5, 'prueba');
       // fase 23.3: cae abatido y el desfibrilador lo levanta a 2 casillas
       const down = !!b2.downed; e.rescue(a, b2);
@@ -1678,6 +1686,80 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     const scr2 = await A.evaluate(async () => { const { settings } = await import('./js/core/state.js'); return Object.keys(settings.keys || {}).length; });
     ok(scr === 'u' && scr2 === 0, 'pantalla CONTROLES: reasignar con clic + tecla y restaurar');
     await ctx11.close();
+  }
+  {
+    // 24.3 controles táctiles: móvil en vertical (pantalla táctil, 390 px de ancho)
+    const ctx12 = await b.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    const M = await ctx12.newPage();
+    M.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
+    M.on('console', (m) => { if ((m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) || m.type() === 'warning') errs.push(m.text()); });
+    await M.goto(URL); await M.waitForTimeout(800);
+    const det = await M.evaluate(() => ({ touch: document.body.classList.contains('touch'), btn: !!Array.from(document.querySelectorAll('button')).find((b) => /CONTROLES TÁCTILES: AUTO/.test(b.textContent)), over: document.documentElement.scrollWidth - innerWidth }));
+    ok(det.touch && det.btn && det.over <= 1, 'pantalla táctil detectada (AUTO) y menú principal sin desbordarse a lo ancho');
+    await M.click('text=NUEVA PARTIDA'); await M.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await M.click('#screen-intro'); await M.click('text=COMENZAR');
+    await M.waitForTimeout(300);
+    await M.click('.tab:has-text("EXPEDICIÓN")'); await M.waitForTimeout(200);
+    const baseOver = await M.evaluate(() => { const g = document.querySelector('#screen-base .grid3'); return { cols: g ? getComputedStyle(g).gridTemplateColumns.split(' ').length : 0, over: document.documentElement.scrollWidth - innerWidth }; });
+    ok(baseOver.cols === 1 && baseOver.over <= 1, 'base en pantalla estrecha: rejilla de una columna, sin scroll horizontal');
+    for (let i = 0; i < 2; i++) { const rows = await M.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+    await M.click('text=LANZAR EXPEDICIÓN'); await M.waitForTimeout(300);
+    if (await M.$('.modal-back >> text=LANZAR')) await M.click('.modal-back >> text=LANZAR');
+    await M.waitForTimeout(800);
+    await M.evaluate(() => { const e = window.__topolev.exp; for (const x of [...e.enemies]) if (!e.isComp(x)) e.dismissActor(x); if (e.dlg) e.closeDialog(); e.dlgQueue = []; window.__topolev.debug.run('god'); });
+    for (let i = 0; i < 6 && (await M.$('.modal')); i++) { await M.evaluate(async () => { const D = await import('./js/util/dom.js'); D.closeTopModal(); }); await M.waitForTimeout(150); }
+    const bar = await M.evaluate(() => {
+      const t = document.querySelector('.touch-bar'); const bs = [...document.querySelectorAll('.touch-bar .tbtn')].filter((b) => getComputedStyle(b).display !== 'none');
+      const small = bs.filter((b) => { const r = b.getBoundingClientRect(); return r.width < 44 || r.height < 44; }).length;
+      const out = bs.filter((b) => { const r = b.getBoundingClientRect(); return r.left < 0 || r.right > innerWidth + 1 || r.bottom > innerHeight + 1; }).length;
+      return { vis: t && getComputedStyle(t).display !== 'none', n: bs.length, small, out, side: getComputedStyle(document.querySelector('.exp-side')).display };
+    });
+    ok(bar.vis && bar.n >= 19 && !bar.small && !bar.out && bar.side === 'none', `barra táctil visible con botones de ≥ 44 px dentro de la pantalla (${bar.n} botones); panel del agente plegado`);
+    // mover con la cruceta y esperar
+    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]];
+    const st = await M.evaluate((dirs) => { const e = window.__topolev.exp; const c = e.cur; const d = dirs.find(([dx, dy]) => e.passable(c.x + dx, c.y + dy) && !e.entityAt(c.x + dx, c.y + dy) && !e.objAt(c.x + dx, c.y + dy)); return { x: c.x, y: c.y, d, t: e.turn }; }, dirs);
+    if (st.d) { await M.tap(`.touch-pad [data-dir="${st.d.join(',')}"]`); await M.waitForTimeout(250); }
+    const mv = await M.evaluate(() => { const c = window.__topolev.exp.cur; return [c.x, c.y]; });
+    await M.waitForTimeout(100);
+    const t0 = await M.evaluate(() => window.__topolev.exp.turn);
+    await M.tap('.touch-pad [data-touch="wait"]'); await M.waitForTimeout(250);
+    const t1 = await M.evaluate(() => window.__topolev.exp.turn);
+    ok(st.d && mv[0] === st.x + st.d[0] && mv[1] === st.y + st.d[1] && t1 > t0, 'la cruceta mueve al agente y el punto central espera un turno');
+    // agacharse desde la barra, y ☰ abre el panel del agente
+    await M.tap('.touch-acts [data-touch="crouch"]'); await M.waitForTimeout(120);
+    const cr = await M.evaluate(() => !!window.__topolev.exp.cur.crouch);
+    await M.tap('.touch-acts [data-touch="crouch"]'); await M.waitForTimeout(120);
+    await M.tap('.side-tog'); await M.waitForTimeout(150);
+    const side = await M.evaluate(() => getComputedStyle(document.querySelector('.exp-side')).display);
+    await M.tap('.side-tog'); await M.waitForTimeout(150);
+    ok(cr && side === 'flex', 'botones de acción (agacharse) y panel del agente con ☰');
+    // pulsación larga = tooltip sin gastar turno; pellizco = zoom
+    const lp = await M.evaluate(async () => {
+      const ui = window.__topolev.ui || null; const e = window.__topolev.exp; const cv = document.querySelector('.exp-map > canvas');
+      const rc = cv.getBoundingClientRect(); const t0 = e.turn;
+      const P = (type, id, x, y) => cv.dispatchEvent(new PointerEvent(type, { pointerType: 'touch', pointerId: id, clientX: x, clientY: y, bubbles: true, isPrimary: id === 1 }));
+      // la casilla del agente activo (siempre tiene información)
+      const R = window.__topolev.expUI ? window.__topolev.expUI.r : null;
+      const [sx, sy] = R ? R.toScreen(e.cur.x, e.cur.y) : [rc.width / 2, rc.height / 2];
+      const cx = rc.left + sx + 4, cy = rc.top + sy + 4;
+      P('pointerdown', 1, cx, cy); await new Promise((r) => setTimeout(r, 650));
+      const tip = !document.querySelector('#tooltip').classList.contains('hidden');
+      P('pointerup', 1, cx, cy); cv.dispatchEvent(new MouseEvent('click', { clientX: cx, clientY: cy, bubbles: true }));
+      await new Promise((r) => setTimeout(r, 200));
+      const { settings } = await import('./js/core/state.js'); const z0 = settings.zoom;
+      P('pointerdown', 1, cx - 20, cy); P('pointerdown', 2, cx + 20, cy);
+      for (let i = 1; i <= 6; i++) { P('pointermove', 1, cx - 20 - i * 12, cy); P('pointermove', 2, cx + 20 + i * 12, cy); }
+      P('pointerup', 1, cx - 92, cy); P('pointerup', 2, cx + 92, cy);
+      return { tip, still: e.turn === t0 && !window.__topolev.exp.ended, zoom: settings.zoom > z0, dbg: [!!R, e.turn - t0] };
+    });
+    ok(lp.tip && lp.still, `pulsación larga${lp.tip && lp.still ? '' : ' ' + JSON.stringify(lp)}: muestra la información de la casilla y no mueve ni gasta turno`);
+    ok(lp.zoom, 'pellizcar con dos dedos acerca el mapa');
+    // apagar los controles táctiles desde el menú de pausa
+    await M.tap('.touch-acts [data-touch="cancel"]'); await M.waitForTimeout(200);
+    await M.click('.modal >> text=/CONTROLES TÁCTILES/'); await M.waitForTimeout(150);
+    await M.click('.modal >> text=/CONTROLES TÁCTILES/'); await M.waitForTimeout(150);
+    const off = await M.evaluate(async () => { const { settings } = await import('./js/core/state.js'); return { m: settings.touch, cls: document.body.classList.contains('touch'), bar: getComputedStyle(document.querySelector('.touch-bar')).display }; });
+    ok(off.m === 'off' && !off.cls && off.bar === 'none', 'CONTROLES TÁCTILES: NO oculta la barra (AUTO → SÍ → NO)');
+    await ctx12.close();
   }
 
   console.log(errs.length ? 'ERRORES:\n' + errs.join('\n') : '  ✓ sin errores en consola');
