@@ -477,10 +477,12 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     const row = e.railRows[0]; let x = -1;
     for (let xx = 0; xx < e.w; xx++) if (e.tile(xx, row) === 32 && !e.entityAt(xx, row)) { x = xx; break; }
     if (x < 0) return { rows: e.railRows.length };
-    e.moveEntity(e.cur, x, row - 1 >= 0 && e.passable(x, row - 1) ? row - 1 : row);
-    const en = e.spawnEnemy('rata', 1, x === 0 ? 1 : x - 1 >= 0 && e.tile(x + 1, row) === 32 && !e.entityAt(x + 1, row) ? x + 1 : x, row, 'dormido');
+    const en = e.spawnEnemy('rata', 1, x, row, 'dormido');
+    // el tren pasa por la vía más cercana al agente activo: se deja solo esta para la prueba
+    const rows0 = e.railRows; e.railRows = [row];
     e.trainAt = e.turn; e.zoneTick();
-    return { rows: e.railRows.length, dead: !e.enemies.includes(en) || en.hp < en.hpMax, next: e.trainAt > e.turn };
+    e.railRows = rows0;
+    return { rows: rows0.length, dead: !e.enemies.includes(en) || en.hp < en.hpMax, next: e.trainAt > e.turn, onRail: en.y === row };
   });
   ok(tn.rows > 0 && tn.dead && tn.next, 'el tren fantasma de Yanov arrolla lo que hay en la vía');
   await endExp();
