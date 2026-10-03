@@ -12,6 +12,7 @@ const mapIdx = +(process.argv[2] || 0);
   const errs = [];
   p.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
   p.on('console', (m) => { if (m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) errs.push(m.text()); });
+  await p.addInitScript(() => { window.__noScenes = true; });
   await p.goto(URL);
   await p.waitForTimeout(800);
   await p.click('text=NUEVA PARTIDA');

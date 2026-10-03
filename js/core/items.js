@@ -215,7 +215,7 @@ export function caseRefusal(c, it) {
   if (d.cat === 'case') return 'un contenedor no cabe en otro';
   if (d.cat === 'weapon' && CASE_HEAVY.includes(d.wtype)) return 'las armas pesadas no caben';
   if ((d.stack || 1) > 1 && !cd.stacks) return 'este contenedor no admite munición ni consumibles';
-  if (caseUsed(c) + caseSize(it) > cd.caseSlots) return 'no queda sitio en el contenedor';
+  if (caseUsed(c) + caseSize(it) > cd.caseSlots + (c.caseBonus || 0)) return 'no queda sitio en el contenedor';
   return '';
 }
 
@@ -321,7 +321,7 @@ export function itemTooltip(it, compare = null, extra = '') {
   }
   if (d.cat === 'case') {
     const v = it.vault || [];
-    h += row('Huecos', `${caseUsed(it)}/${d.caseSlots} <span class="dimt">(armas: 2)</span>`);
+    h += row('Huecos', `${caseUsed(it)}/${d.caseSlots + (it.caseBonus || 0)} <span class="dimt">(armas: 2)</span>`);
     h += row('Pilas', d.stacks ? 'munición y consumibles' : '<span class="dimt">no admite</span>');
     if (d.keepEss) h += row('Esencia', `conserva el ${d.keepEss}% si el agente muere`);
     h += `<div class="tt-sep">${'─'.repeat(60)}</div>`;

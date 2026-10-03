@@ -16,6 +16,7 @@ import { RADIO } from '../data/lore.js';
 import { D8, FISTS, BLOCKING_OBJ, ESSENCE_COLOR } from './shared.js';
 
 import { BACKGROUNDS } from '../data/backgrounds.js';
+import { addAff } from '../core/story.js';
 export class ExtractionPart {
   // ---------------------------------------------------------------- extracción
   exitAt(x, y) { return this.exits.find((ex) => cheb(ex.x, ex.y, x, y) <= 1 && (ex.perm || ex.expires > this.turn)); }
@@ -55,6 +56,9 @@ export class ExtractionPart {
 
   extract(sq) {
     sq.out = true;
+    this.contractOnExtract(sq);
+    // dejar atrás a un compañero que sigue en el mapa
+    for (const o of this.team) if (o !== sq && Math.max(Math.abs(o.x - sq.x), Math.abs(o.y - sq.y)) > 4) addAff(sq.a, o.a, -3);
     this.occ.delete(this.key(sq.x, sq.y));
     this.fx.push({ type: 'extract', x: sq.x, y: sq.y, color: sq.a.color });
     this.say(`⇑ ${this.nm(sq)} ha sido extraído con ${sq.ess} ✦.`, 'cyan');

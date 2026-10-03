@@ -286,6 +286,7 @@ export class ExpeditionUI {
       for (const b of sq.buffs || []) chips.push(`<span class="status-chip warn" title="${esc(b.name)}">${esc(b.name.toUpperCase().slice(0, 12))} ${b.turns}</span>`);
       if (sq.autoUsed === false && e.flag && e.inMap(sq) && e.flag(sq, 'autoInject')) chips.push('<span class="status-chip cyan">💉</span>');
       if (a.rad >= 100) chips.push('<span class="status-chip bad pulse-red">RAD!</span>');
+      if ((a.stress || 0) >= 45) chips.push(`<span class="status-chip ${a.stress >= 70 ? 'bad' : 'warn'}" title="Estrés">EST ${Math.round(a.stress)}</span>`);
       const card = el('div', { class: `agent-card ${sq === e.cur ? 'active' : ''} ${!sq.alive ? 'dead' : sq.out ? 'gone' : ''}` });
       card.innerHTML = `
         <div class="ln2"><span><span style="color:${a.color}">@</span> <span class="nm">${esc(a.nick)}</span> <span class="dimt">${esc(a.last)} · Nv ${a.lvl}</span></span><span class="dimt">${sq !== e.cur && e.inMap(sq) ? ORDERS[sq.order] + ' ' : ''}[${i + 1}]</span></div>
@@ -1017,7 +1018,7 @@ export class ExpeditionUI {
     const wrap = el('div');
     const val = el('div', { class: 'sv' });
     if (c) {
-      const r = el('div', { class: 'item', html: `<span class="o4">[▣]</span> ` + itemHTML(c) + `<span class="iq">${caseUsed(c)}/${ITEMS[c.b].caseSlots}</span>` });
+      const r = el('div', { class: 'item', html: `<span class="o4">[▣]</span> ` + itemHTML(c) + `<span class="iq">${caseUsed(c)}/${ITEMS[c.b].caseSlots + (c.caseBonus || 0)}</span>` });
       tip(r, () => itemTooltip(c, null, '<div class="dimt">Arrastra aquí un objeto para guardarlo (1 turno).</div>'));
       val.append(r);
     } else val.append(el('div', { class: 'empty', text: '— sin contenedor —' }));

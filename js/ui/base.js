@@ -19,6 +19,12 @@ import { uiBurst, uiSparkEl, uiFly, uiText } from './fx.js';
 import { fmt } from '../util/rng.js';
 import { toggleFullscreen } from './expui.js';
 import { showDialog } from './dialog.js';
+import { playScene } from './scene.js';
+import * as ST from '../core/story.js';
+import * as B21 from '../core/basecore.js';
+import { installBase21 } from './base21.js';
+import { ACTS, STAFF } from '../data/story.js';
+import { NOTES, COLLECTIONS } from '../data/lore.js';
 import { regionMap } from './region.js';
 import { MODIFIERS } from '../data/modifiers.js';
 import { FACTIONS, REP_LEVELS, repLevel, repOf, squadAttitude, ATTITUDE_TEXT, ATTITUDE_CLASS, COMBAT_FACTIONS } from '../data/factions.js';
@@ -34,6 +40,7 @@ const TABS = [
   { id: 'expedicion', label: 'EXPEDICIÓN' },
   { id: 'radio', label: 'RADIO' },
   { id: 'garaje', label: 'GARAJE' },
+  { id: 'investigacion', label: 'INVESTIGACIÓN' },
   { id: 'archivo', label: 'ARCHIVO' },
 ];
 
@@ -84,7 +91,8 @@ export class BaseUI {
     window.addEventListener('keydown', (ev) => {
       if (!this.active || !this.root.classList.contains('active') || modalOpen() || ev.ctrlKey || ev.metaKey || ev.altKey) return;
       const n = parseInt(ev.key, 10);
-      if (n >= 1 && n <= TABS.length) { this.show(TABS[n - 1].id); sfx.click(); }
+      const ti = n === 0 ? 10 : n;
+      if (ti >= 1 && ti <= TABS.length) { this.show(TABS[ti - 1].id); sfx.click(); }
       if (ev.key === '?') this.hooks.onHelp();
       if (ev.key === 'Escape') this.openMenu();
     });
@@ -104,6 +112,21 @@ export class BaseUI {
   // diálogos pendientes del motor de eventos (visitas, cartas…)
   runDialogs() {
     if (!this.active || this.dlgOpen) return;
+    // escenas ASCII pendientes (actos, finales)
+    // __noScenes: pruebas automáticas (se descartan sin volver a dibujar la base)
+    while (S.pendingScenes && S.pendingScenes.length && (window.__noScenes || !ST.sceneDef(S.pendingScenes[0]))) S.pendingScenes.shift();
+    const scId = S.pendingScenes && S.pendingScenes[0];
+    if (scId) {
+      this.dlgOpen = true;
+      playScene(ST.sceneDef(scId), () => { S.pendingScenes.shift(); save(); this.dlgOpen = false; this.render(); setTimeout(() => this.runDialogs(), 250); });
+      return;
+    }
+    // fase 21.6: se ha decidido defender el puesto
+    if (S.attack && S.attack.go) {
+      S.attack.go = 0;
+      const agents = B21.defenders(C.squadCap());
+      if (agents.length) { toast('¡A las armas! Defended el Puesto.', 'bad'); this.hooks.onLaunch(0, agents, 'defensa'); return; }
+    }
     const d = C.baseDialog();
     if (!d) return;
     const step = () => {
@@ -129,7 +152,7 @@ export class BaseUI {
     // cabecera
     const top = el('div', { class: 'base-top' },
       el('span', { class: 'logo', html: '☢ LA MISIÓN TOPOLEV' }),
-      el('span', { class: 'dimt', html: `PUESTO PRIPYAT-7 · DÍA <b>${S.day}</b> · ${new Date(1986, 4, 1 + S.day).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })} de 1986` }),
+      el('span', { class: 'dimt', html: `PUESTO PRIPYAT-7 · DÍA <b>${S.day}</b> · ${B21.dateStr()} · <span title="${esc(B21.seasonInfo().desc)}">${B21.seasonInfo().glyph} ${B21.seasonInfo().name}</span> · cuota: <span class="${S.ess >= S.quota.ess ? 'good' : 'warn'}" title="Cuota del Comité: esencia a entregar">${S.quota.ess} ✦ en ${Math.max(0, S.quota.due - S.day)} d</span>` }),
       el('div', { class: 'res' },
         this.resEl('ess', '✦', 'Esencia', S.ess, 'cyan'),
         this.resEl('rub', '₽', 'Rublos', S.rub, 'o0'),
@@ -166,7 +189,7 @@ export class BaseUI {
     const a = panel({ title: 'PUESTO PRIPYAT-7', bodyCls: 'scroll' });
     const stash = S.stash.length;
     a.body.append(
-      el('pre', { class: 'ascii-art', text: BASE_ART }),
+      this.planView(),
       el('div', { class: 'sep', text: '─'.repeat(80) }),
       el('div', { class: 'kv', html: `
         <span>Día</span><span>${S.day}</span>
@@ -178,14 +201,24 @@ export class BaseUI {
         <span>Expediciones</span><span>${S.stats.expeditions} (${S.stats.extractions} con éxito)</span>
         <span>Caídos</span><span class="bad">${S.fallen.length}</span>` }),
       el('div', { class: 'sep', text: '─'.repeat(80) }),
+      el('div', { class: 'kv', html: `<span>Capítulo</span><span class="o1">${esc(ACTS[S.act] ? ACTS[S.act].name : '—')}${S.ending ? ' · <span class="cyan">epílogo</span>' : ''}</span><span>Confianza de Topolev</span><span>${bar(S.trust ?? 50, 100, 14)} ${S.trust ?? 50} · ${ST.trustLevel()}</span>` }),
+      this.staffBox('zhdanov'),
+      el('div', { class: 'sep', text: '─'.repeat(80) }),
       el('div', { class: 'row', style: { flexWrap: 'wrap' } },
         el('button', { class: 'btn primary', onclick: () => this.show('expedicion') }, 'PREPARAR EXPEDICIÓN'),
         el('button', { class: 'btn', onclick: () => this.show('equipo') }, 'EQUIPAR AGENTES'),
       ),
     );
     const m = panel({ title: 'MENSAJES · DR. A. TOPOLEV', bodyCls: 'scroll' });
+    if ((S.comedor || []).length) {
+      m.body.append(el('div', { class: 'h', text: 'EN EL COMEDOR' }));
+      for (const c of S.comedor.slice(0, 2)) m.body.append(el('div', { class: 'comedor', html: `<span class="dimt">[día ${c.day}]</span> ${esc(c.text)}` }));
+      m.body.append(el('div', { class: 'sep', text: '═'.repeat(80) }));
+    }
     for (const msg of S.messages) m.body.append(el('div', { class: 'msg-topolev', html: `<span class="dimt">[día ${msg.day}]</span> ${esc(msg.text)}` }), el('div', { class: 'sep', text: '·'.repeat(80) }));
-    const r = panel({ title: 'ÚLTIMO INFORME', bodyCls: 'scroll' });
+    const r = panel({ title: 'ENCARGOS · ÚLTIMO INFORME', bodyCls: 'scroll' });
+    this.contractsBox(r.body);
+    r.body.append(el('div', { class: 'sep', text: '═'.repeat(80) }), el('div', { class: 'h', text: 'ÚLTIMO INFORME' }));
     const rep = S.lastReport;
     if (!rep) r.body.append(el('div', { class: 'dimt', text: 'Todavía no se ha realizado ninguna expedición.' }), el('div', { class: 'sep', text: ' ' }), el('div', { class: 'msg-topolev', text: 'Consejo: equipa a tus agentes en EQUIPO (arrastra objetos del almacén a sus ranuras) y luego elige destino y escuadrón en EXPEDICIÓN.' }));
     else {
@@ -241,7 +274,39 @@ export class BaseUI {
       ${(a.medals || []).length ? `<div>${a.medals.map((m) => `<span style="color:${MEDALS[m].color}" title="${esc(MEDALS[m].name)}">${MEDALS[m].glyph}</span>`).join(' ')} <span class="dimt">${a.medals.length} condecoración(es)</span></div>` : ''}
       ${(a.acquired || []).length ? `<div class="dimt">Rasgos: ${a.acquired.map((x) => esc(ACQUIRED[x].name)).join(', ')}</div>` : ''}
       ${(a.wounds || []).length ? `<div class="bad">✖ ${a.wounds.map((w) => esc(w.name)).join(', ')}</div>` : ''}
+      <div class="tt-row"><span class="dimt">Estrés</span><span class="${(a.stress || 0) >= 70 ? 'bad' : (a.stress || 0) >= 45 ? 'warn' : ''}">${Math.round(a.stress || 0)} · ${ST.stressLevel(a.stress || 0)}</span></div>
+      ${ST.relationsOf(a).slice(0, 3).map((r) => `<div class="${r.st === 'rivales' ? 'bad' : 'good'}">${r.st === 'rivales' ? '⚔' : '♥'} ${ST.AFF_TEXT[r.st]} con ${esc(r.b.nick)} (${r.v})</div>`).join('')}
+      ${a.vengeance ? `<div class="warn">🔥 Venganza contra ${esc(a.vengeance.name)}</div>` : ''}
       ${pendingAscent(a) ? '<div class="warn">▲ Ascenso pendiente: abre su ficha.</div>' : ''}`;
+  }
+
+  // ---- fase 20: personal de la base y encargos
+  staffBox(id) {
+    const l = ST.staffLine(id);
+    if (!l) return '';
+    return el('div', { class: 'staff-box', html: `<span style="color:${l.color};font-weight:700">${esc(l.name)}</span> <span class="dimt">· ${esc(l.role)}</span><div>${esc(l.text)}</div>` });
+  }
+  contractsBox(body) {
+    const C2 = S.contracts;
+    body.append(el('div', { class: 'h', text: `ENCARGOS EN MARCHA (${C2.active.length}/3)` }));
+    if (!C2.active.length) body.append(el('div', { class: 'dimt', text: 'Ninguno. Acepta alguno de los que se ofrecen abajo.' }));
+    for (const c of C2.active) {
+      const d = ST.CONTRACTS[c.id];
+      const z = ST.contractZone(c);
+      const row = el('div', { class: 'contract' }, el('div', { html: `<b>${esc(d.name)}</b> <span class="dimt">· ${esc(ST.GIVER_NAME(d.giver))}${z ? ` · ${esc(MAPS[mapIndex(z)].name)}` : ''}</span>${c.done || ST.contractMet(c) ? ' <span class="good">✓ listo para cobrar al volver</span>' : ''}` }), el('div', { class: 'dimt', text: d.desc + (c.who ? ` (${c.who})` : '') }),
+        el('button', { class: 'btn small', onclick: async () => { if (await confirmBox('ABANDONAR ENCARGO', `¿Abandonar «${esc(d.name)}»? Quien os lo encargó no lo olvidará.`, 'ABANDONAR', 'SEGUIR')) { ST.dropContract(c.id); save(); this.render(); } } }, 'ABANDONAR'));
+      body.append(row);
+    }
+    const offers = ST.contractOffers();
+    if (offers.length) body.append(el('div', { class: 'h', style: { marginTop: '.6em' }, text: 'SE OFRECEN HOY' }));
+    for (const id of offers) {
+      const d = ST.CONTRACTS[id];
+      const g = STAFF[d.giver] || null;
+      const R = d.reward;
+      const rw = [R.rub ? `${R.rub} ₽` : '', R.ess ? `${R.ess} ✦` : '', R.rep ? `rep. ${R.rep[1] > 0 ? '+' : ''}${R.rep[1]}` : '', R.trust ? `confianza +${R.trust}` : '', R.item ? `«${R.item[1]}»` : ''].filter(Boolean).join(' · ');
+      body.append(el('div', { class: 'contract offer' }, el('div', { html: `<b style="color:${g ? g.color : ''}">${esc(d.name)}</b> <span class="dimt">· ${esc(ST.GIVER_NAME(d.giver))}</span>` }), el('div', { class: 'dimt', text: d.desc }), el('div', { class: 'good', text: 'Recompensa: ' + rw }),
+        el('button', { class: 'btn small primary', onclick: () => { const r2 = ST.acceptContract(id); if (r2.ok) { sfx.click(); toast(`Encargo aceptado: ${d.name}`, 'good'); save(); this.render(); } else { sfx.error(); toast(r2.msg, 'bad'); } } }, 'ACEPTAR')));
+    }
   }
 
   agentSheet(B, a) {
@@ -258,6 +323,8 @@ export class BaseUI {
       el('div', { html: `XP ${a.lvl >= MAX_LEVEL ? bar(1, 1, 16) : bar(a.xp - xpPrev, xpForLevel(a.lvl) - xpPrev, 16)} <span class="dimt">${xpTxt}</span>` }),
       el('div', { html: `SAL ${hpBar(a.hp, st.hpMaxEff, 16)} ${a.hp}/${st.hpMaxEff}${st.hpMaxEff < st.hpMax ? ` <span class="bad">(rad: máx ${st.hpMax})</span>` : ''}` }),
       el('div', { html: `RAD ${bar(Math.min(100, a.rad), 100, 16, 'rad')} ${Math.round(a.rad)}` }),
+      el('div', { html: `EST ${bar(Math.round(a.stress || 0), 100, 16)} ${Math.round(a.stress || 0)} <span class="${(a.stress || 0) >= 70 ? 'bad' : 'dimt'}">${ST.stressLevel(a.stress || 0)}</span>${(a.stress || 0) >= 70 ? ' <span class="bad">(riesgo de pánico, paranoia o temblor)</span>' : ''}` }),
+      ...ST.relationsOf(a).map((r) => el('div', { class: r.st === 'rivales' ? 'bad' : 'good', html: `${r.st === 'rivales' ? '⚔' : '♥'} ${ST.AFF_TEXT[r.st]} con <b>${esc(r.b.nick)}</b> <span class="dimt">(${r.v}) · ${r.st === 'inseparables' ? 'juntos: +3 puntería, +2 agilidad' : r.st === 'camaradas' ? 'juntos: +1 puntería' : 'juntos: −2 puntería, +10% daño'}</span>` })),
     );
     // atributos (efectivos: base + talentos − heridas)
     const at = el('div', { class: 'attr-sheet' });
@@ -502,7 +569,7 @@ export class BaseUI {
   vaultBox(a, c) {
     const d = ITEMS[c.b];
     const box = el('div', { class: 'vault' });
-    box.append(el('div', { class: 'spread' }, el('span', { class: 'dimt', html: `[▣] contenido ${caseUsed(c)}/${d.caseSlots}` }), c.vault.length ? el('button', { class: 'btn small', onclick: () => { for (const x of [...c.vault]) this.moveItem({ src: 'vault', a, it: x }, { dst: 'stash' }); } }, 'VACIAR AL ALMACÉN') : el('span')));
+    box.append(el('div', { class: 'spread' }, el('span', { class: 'dimt', html: `[▣] contenido ${caseUsed(c)}/${d.caseSlots + (c.caseBonus || 0)}` }), c.vault.length ? el('button', { class: 'btn small', onclick: () => { for (const x of [...c.vault]) this.moveItem({ src: 'vault', a, it: x }, { dst: 'stash' }); } }, 'VACIAR AL ALMACÉN') : el('span')));
     for (const x of c.vault) {
       const r = el('div', { class: 'item', html: '<span class="dimt">▣ </span>' + itemHTML(x) });
       tip(r, () => itemTooltip(x, null, '<div class="dimt">Arrastra fuera para sacarlo. Doble clic: al almacén.</div>'));
@@ -600,6 +667,7 @@ export class BaseUI {
   tab_barracones() {
     const g = el('div', { class: 'grid2' });
     const L = panel({ title: `PLANTILLA ${S.agents.length}/${C.rosterCap()}`, bodyCls: 'scroll' });
+    L.body.append(this.staffBox('orlova'));
     for (const a of S.agents) {
       const st = agentStats(a);
       const t = traitOf(a);
@@ -750,6 +818,7 @@ export class BaseUI {
   tab_intendencia() {
     const g = el('div', { class: 'grid2' });
     const L = panel({ title: `EXISTENCIAS · DÍA ${S.day}`, bodyCls: 'scroll' });
+    L.body.append(this.staffBox('kravets'));
     const shop = C.ensureShop();
     L.body.append(el('div', { class: 'dimt', text: 'El catálogo cambia cada día. Mejora los módulos para acceder a mejor material. Clic o arrastra al almacén para comprar.' }), el('div', { class: 'sep', text: '─'.repeat(80) }));
     const addRow = (it, supply) => {
@@ -779,6 +848,7 @@ export class BaseUI {
     if (val.length) R.body.append(el('button', { class: 'btn primary', onclick: (ev) => { for (const it of val) C.sell(it, S.stash); sfx.buy(); uiFly(ev.target, $('#res-rub'), 12, '₽', '#ffd23f'); toast(`Botín vendido: +${total} ₽`, 'good'); setTimeout(() => { this.render(); this.pulseRes('rub'); }, 400); } }, `VENDER TODO EL BOTÍN (${total} ₽)`));
     this.stashView(R.body, 'sell');
     dropzone(R.body, { accepts: (d) => d && d.src === 'shop', onDrop: (d, ev) => this.doBuy(d.it, d.supply, ev) });
+    R.body.append(el('div', { class: 'sep', text: '═'.repeat(60) }), this.blackMarketBox());
     g.append(L, R);
     return g;
   }
@@ -853,6 +923,7 @@ export class BaseUI {
     for (const a of S.agents) {
       const on = this.squad.has(a.id);
       const warn = this.agentWarnings(a);
+      if (B21.isAway(a)) { this.squad.delete(a.id); R.body.append(el('div', { class: 'dimt', html: `<span style="color:${a.color}">${esc(a.nick)}</span> — fuera, en una operación simultánea` })); continue; }
       const row = this.agentRow(a, ` <span class="chk">${on ? '[■]' : '[ ]'}</span>`, () => {
         if (on) this.squad.delete(a.id);
         else if (this.squad.size < C.squadCap()) this.squad.add(a.id);
@@ -867,7 +938,8 @@ export class BaseUI {
     R.body.append(el('div', { class: 'sep', text: '─'.repeat(60) }),
       el('button', { class: 'btn primary ' + (can ? '' : 'disabled'), style: { fontSize: '15px' }, onclick: () => this.launch() }, '☢ LANZAR EXPEDICIÓN'),
       el('div', { class: 'dimt', style: { marginTop: '6px' }, text: S.modules.polvorin ? `El polvorín entrega ${S.modules.polvorin} cargador(es) extra por arma.` : 'Consejo: lleva munición, vendas y antirrad en la mochila.' }),
-    );
+    );    R.body.append(el('div', { class: 'sep', text: '═'.repeat(60) }), this.sideOpBox());
+
     g.append(L, M, R);
     return g;
   }
@@ -964,6 +1036,7 @@ export class BaseUI {
     if (this.selComp && !list.some((x) => x.it === this.selComp)) this.selComp = null;
     if (!this.selComp && list.length) this.selComp = list[0].it;
     const L = panel({ title: 'COMPAÑEROS', bodyCls: 'scroll' });
+    L.body.append(this.staffBox('babai'));
     if (!list.length) L.body.append(el('div', { class: 'dimt', text: lvl ? 'No tenéis ningún compañero. Compradlo en la tienda del garaje.' : 'Construid el Garaje (pestaña LABORATORIO) para comprar el perro robot y los drones.' }));
     for (const { it, a } of list) {
       const d = ITEMS[it.b];
@@ -1023,15 +1096,40 @@ export class BaseUI {
     }
     const M = panel({ title: 'MEMORIAL DE LOS CAÍDOS', bodyCls: 'scroll' });
     if (!S.fallen.length) M.body.append(el('div', { class: 'dimt', text: 'Nadie ha caído... todavía.' }));
-    for (const f of S.fallen) M.body.append(el('div', { html: `✝ <b>${esc(f.name)}</b> <span class="dimt">Nv ${f.lvl}</span><div class="dimt" style="padding-left:2ch">Día ${f.day} · ${esc(f.map)} · ${esc(f.cause)} · ${f.kills} bajas</div>` }));
-    const R = panel({ title: 'ESTADÍSTICAS', bodyCls: 'scroll' });
+    for (const f of S.fallen) {
+      const row = el('div', { html: `✝ <b>${esc(f.name)}</b> <span class="dimt">Nv ${f.lvl}</span><div class="dimt" style="padding-left:2ch">Día ${f.day} · ${esc(f.map)} · ${esc(f.cause)} · ${f.kills} bajas</div>${f.epitaph ? `<div class="epitaph">«${esc(f.epitaph)}»</div>` : ''}` });
+      if (f.letter) tip(row, () => `<div class="tt-title">Última carta de ${esc(f.name)}</div><div class="tt-lore">${esc(f.letter)}</div><div class="dimt">Encontrada en su taquilla.</div>`);
+      M.body.append(row);
+    }
+    const R = panel({ title: 'COLECCIONES · ESTADÍSTICAS', bodyCls: 'scroll' });
+    for (const [cid, col] of Object.entries(COLLECTIONS)) {
+      const p = ST.collectionProgress(cid);
+      const done = S.colsDone && S.colsDone[cid];
+      const row = el('div', { class: 'module', style: { gridTemplateColumns: '3ch 1fr auto', cursor: 'pointer' }, html: `<div class="mg ${done ? 'good' : 'o4'}">${done ? '✓' : '?'}</div><div><b>${esc(col.name)}</b><div class="eff">${esc(col.desc)}</div></div><div class="${done ? 'good' : 'dimt'}">${p.read}/${p.total}</div>` });
+      row.addEventListener('click', () => {
+        const read = p.idx.filter((i) => S.notesRead[i]);
+        modal({ title: col.name.toUpperCase(), width: 'min(80ch, 92vw)', body: read.length ? read.map((i) => `<div class="note-entry"><div>${esc(NOTES[i].t)}</div><div class="dimt" style="text-align:right">— ${esc(NOTES[i].a)}</div></div>`).join('') + (p.read < p.total ? `<div class="dimt">Faltan ${p.total - p.read} nota(s). Se encuentran en el suelo de las zonas (glifo ?).</div>` : '') : '<div class="dimt">Todavía no habéis encontrado ninguna nota de esta colección.</div>', actions: [{ label: 'CERRAR' }] });
+      });
+      R.body.append(row);
+    }
+    R.body.append(el('div', { class: 'sep', text: '─'.repeat(60) }));
     const st = S.stats;
     R.body.append(el('div', { class: 'kv', html: `<span>Días</span><span>${S.day}</span><span>Expediciones</span><span>${st.expeditions}</span><span>Extracciones</span><span>${st.extractions}</span><span>Chebylitas abatidos</span><span>${st.kills}</span><span>Agentes caídos</span><span>${st.deaths}</span><span>Esencia total</span><span>${fmt(st.essTotal)} ✦</span><span>Rublos ganados</span><span>${fmt(st.rubTotal)} ₽</span><span>Turnos bajo tierra</span><span>${fmt(st.turns)}</span><span>Mejor objeto</span><span>${st.bestItem ? `<span style="color:${rarityColor(st.bestItem.r)}">${esc(st.bestItem.name)}</span>` : '—'}</span>` }),
       el('div', { class: 'sep', text: '─'.repeat(60) }),
       el('button', { class: 'btn primary', onclick: () => this.hooks.onHelp() }, 'INSTRUCCIONES'),
+      el('button', { class: 'btn', onclick: () => this.openChronicle() }, 'CRÓNICA DEL DIRECTOR'),
     );
     g.append(L, M, R);
     return g;
+  }
+
+  openChronicle() {
+    const txt = ST.chronicleText();
+    const body = el('div', {}, el('pre', { class: 'chronicle', text: txt }));
+    modal({ title: 'CRÓNICA DEL DIRECTOR', width: 'min(96ch, 94vw)', body, actions: [
+      { label: 'EXPORTAR .TXT', cls: 'primary', fn: () => { const b = new Blob([txt], { type: 'text/plain;charset=utf-8' }); const u = URL.createObjectURL(b); const aEl = document.createElement('a'); aEl.href = u; aEl.download = `cronica-pripyat7-dia${S.day}.txt`; document.body.append(aEl); aEl.click(); aEl.remove(); setTimeout(() => URL.revokeObjectURL(u), 1000); return false; } },
+      { label: 'CERRAR' },
+    ] });
   }
 
   // =========================================================== MENÚ
@@ -1162,3 +1260,5 @@ function mapSchematic(i) {
   ];
   return arts[i] || '';
 }
+
+installBase21(BaseUI);

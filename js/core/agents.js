@@ -32,7 +32,7 @@ export const MAX_LEVEL = 20;
 export const ALL_TALENTS = { ...TALENTS, ...SPEC_TALENTS };
 export const talentDef = (id) => ALL_TALENTS[id];
 // ganchos que rellena la campaña (evita dependencias circulares con el estado)
-export const agentHooks = { xpMult: () => 1 };
+export const agentHooks = { xpMult: () => 1, statMods: () => null }; // statMods: investigación de la base (fase 21)
 
 export function createAgent(g = grng, opts = {}) {
   const female = g.chance(0.4);
@@ -137,6 +137,8 @@ export function agentStats(a) {
   let mv = 0;
   for (const k of ['w1', 'w2']) if (a.equip[k]) mv = Math.max(mv, itemStats(a.equip[k]).vision || 0);
   s.vision += mv;
+  const hm = agentHooks.statMods();
+  if (hm) for (const [k, v] of Object.entries(hm)) { if (k === 'hpMax') s.hpMax += v; else s[k] = (s[k] || 0) + v; }
   s.rad = Math.min(90, s.rad);
   s.vision = Math.min(14, s.vision);
   s.hpMax = Math.max(10, s.hpMax);

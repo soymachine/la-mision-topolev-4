@@ -459,6 +459,35 @@ export class HelpScreen {
 <li>Gadgets: torreta <b>Gnomo</b> (F para recogerla), <b>jaula</b> (chebylitas pequeños y heridos, vivos), <b>cámara Zenit-E</b> (+10% de daño contra lo fotografiado), <b>desfibrilador</b>, <b>gancho</b> (salta simas), <b>soldadura</b> (puertas blindadas y contenedores sellados), <b>ruido blanco</b>, <b>contador de centelleo</b>, <b>grabadora</b>, <b>sonda sísmica</b> (minas ocultas ¤), <b>camuflaje</b> y <b>paraguas antirradiación</b>.</li>
 </ul>
 
+<h2>LA CAMPAÑA: ACTOS, TOPOLEV Y EL PERSONAL</h2>
+<ul>
+<li>La historia avanza en <b>tres actos</b>; cada uno empieza con una escena a pantalla completa (clic, espacio o intro para avanzar, Esc para saltarla). En el Útero de Corium se decide el <b>final</b> (hay cuatro, uno de ellos oculto).</li>
+<li>La <b>confianza del Dr. Topolev</b> (CUARTEL) sube con sus encargos y las extracciones y baja con las muertes y las cuotas incumplidas. El Comisario Zhdánov, la Dra. Orlova, el sargento Kravets y el mecánico «Babai» hablan en sus pestañas.</li>
+<li>Tras cada expedición hay una escena del <b>comedor</b>; de vez en cuando llegan <b>cartas</b> de las familias. En ARCHIVO, el memorial guarda el epitafio y la última carta de cada caído, y la <b>crónica</b> de la campaña se puede exportar a .txt.</li>
+</ul>
+
+<h2>ESTRÉS Y AFINIDAD</h2>
+<ul>
+<li>La oscuridad, la radiación, las emboscadas, los jefes y ver morir a un compañero suben el <b>estrés</b>. Por encima de 70 resta puntería; al límite puede aparecer una aflicción (<b>pánico</b>: huye; <b>paranoia</b>: dispara a cualquiera que se mueva; <b>temblor</b>: −8 de puntería) o, a veces, una virtud (<b>heroísmo</b>).</li>
+<li>Baja descansando en la base (la <b>banya</b> ayuda), con la música de la radio VEF, con vodka (cuidado: crea adicción) y con las cartas de casa.</li>
+<li>Los agentes que pelean juntos se hacen <b>camaradas</b> (+1) o <b>inseparables</b> (+3 puntería, +2 esquiva, menos estrés si están cerca); el fuego amigo y abandonar a alguien los hacen <b>rivales</b> (−2 puntería). Si muere un amigo, a veces queda el rasgo <b>Venganza</b>.</li>
+</ul>
+
+<h2>ENCARGOS, COLECCIONES Y RADIO</h2>
+<ul>
+<li>En CUARTEL hay <b>encargos</b> del personal y de las facciones (hasta 3 a la vez): entregar objetos, fotografiar, capturar, escoltar, sabotear o rescatar. Se cobran al volver.</li>
+<li>Las notas forman <b>8 colecciones</b>; completar una da una recompensa (ARCHIVO). La radio intercepta a veces transmisiones extranjeras que marcan un <b>alijo</b> en el mapa.</li>
+</ul>
+
+<h2>LA BASE VIVA</h2>
+<ul>
+<li>El Puesto tiene <b>16 parcelas</b> (CUARTEL): no caben todos los edificios, así que elige; se puede derribar uno para hacer sitio.</li>
+<li><b>INVESTIGACIÓN</b> (tecla <b>0</b>): proyectos que tardan días y piden esencia, muestras o especímenes vivos (de la <b>celda de contención</b>, que además produce esencia… y a veces sufre fugas). Allí también está el <b>taller de fabricación</b>: munición, botiquines, mods y mejoras con chatarra, electrónica, plomo y tejido; y desmontar objetos.</li>
+<li>Los precios <b>bajan</b> si vendes mucho de lo mismo (se recuperan con los días). Cada 30 días, la <b>cuota del Comité</b>: entrega la esencia pedida o recorta el presupuesto. En la intendencia, la <b>trastienda de Kravets</b> vende equipo occidental… y el KGB a veces se entera.</li>
+<li>El calendario avanza desde mayo de 1986: en <b>invierno</b> el agua se hiela y hace falta abrigo; en otoño llueve más. La televisión cuenta lo que pasa fuera.</li>
+<li>A veces <b>atacan la base</b>: defiéndela con quien esté allí o cede parte del almacén. Los agentes que no van en el escuadrón principal pueden salir en una <b>operación simultánea</b> (EXPEDICIÓN) a una zona ya conocida: el resultado se sabe al pasar el día.</li>
+</ul>
+
 <h2>RADIACIÓN Y PELIGROS</h2>
 <ul>
 <li>La radiación se acumula en el agente (barra <span style="color:#b8f53d">RAD</span>) y <b>reduce su salud máxima</b>. A partir de 100 causa daño cada turno. Los trajes y el antirrad la reducen; la enfermería la trata en la base.</li>

@@ -416,3 +416,35 @@ body.no-crt #crt { display: none; }
 .repbar.big { font-size: 14px; margin: .5em 0; }
 .fac-card .dif { text-align: right; }
 .comp-row { font-size: 12px; padding: 2px 0 2px 1ch; display: flex; gap: .5ch; align-items: center; flex-wrap: wrap; border-left: 2px solid #5fd0ff44; margin: 2px 0; }
+/* ---- escenas ASCII (fase 20) ---- */
+.scene-root { position: fixed; inset: 0; z-index: 900; background: #050302; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.2em; padding: 2em; opacity: 0; transition: opacity .35s; cursor: pointer; }
+.scene-root.on { opacity: 1; }
+.scene-title { font-size: 20px; letter-spacing: .35em; font-weight: 800; text-shadow: 0 0 8px currentColor; }
+.scene-art { font-size: 14px; line-height: 1.15; margin: 0; text-shadow: 0 0 6px currentColor; opacity: .9; }
+.scene-text { max-width: 78ch; min-height: 10em; font-size: 16px; line-height: 1.6; color: #f0d8b0; }
+.scene-line { margin: .4em 0; }
+.scene-caret { animation: blink 1s steps(2) infinite; color: var(--o2); }
+.scene-hint { font-size: 12px; }
+@keyframes blink { 50% { opacity: 0; } }
+.staff-box { border-left: 3px solid var(--o3); padding: .3em 1ch; margin: .4em 0; background: var(--bg2, #120a04); font-size: 13px; }
+.comedor { margin: .3em 0; font-style: italic; }
+.contract { border: 1px solid var(--o5); padding: .4em 1ch; margin: .4em 0; }
+.contract.offer { border-style: dashed; }
+.epitaph { padding-left: 2ch; font-style: italic; color: var(--o2); font-size: 12px; }
+.chronicle { white-space: pre-wrap; font-size: 13px; line-height: 1.5; margin: 0; }
+.note-entry { border-bottom: 1px dotted var(--o5); padding: .5em 0; }
+/* ---- base viva (fase 21) ---- */
+.base-plan { margin: .3em 0; }
+.plan-grid { display: grid; gap: 2px; justify-content: center; }
+.plot { border: 1px solid var(--o5); padding: 2px; cursor: pointer; text-align: center; }
+.plot pre { margin: 0; font-size: 11px; line-height: 1.05; color: var(--o2); }
+.plot.empty pre { color: var(--o5); }
+.plot.sel, .plot:hover { border-color: var(--o2); background: var(--o6); }
+.plot-name { font-size: 10px; color: var(--o1); white-space: nowrap; overflow: hidden; }
+.research { border-left: 2px solid var(--o5); padding: .3em 1ch; margin: .35em 0; }
+.research.done { border-color: #3ddc6b; opacity: .75; }
+.research.running { border-color: #5fd0ff; }
+.research.locked { opacity: .5; }
+.bm-box, .side-box { border: 1px dashed var(--o4); padding: .5em 1ch; margin-top: .5em; }
+.side-zone { background: var(--bg2, #120a04); color: var(--o1); border: 1px solid var(--o4); font: inherit; margin: .3em 0; }
+.agent-mini.sel { background: var(--o6); }

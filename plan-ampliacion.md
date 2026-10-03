@@ -326,7 +326,7 @@ Homenaje a Laika: chasis de cuatro patas de la Academia de Ciencias.
 
 ---
 
-## FASE 20 — Narrativa profunda
+## FASE 20 — Narrativa profunda ✔
 
 ### 20.1 Arco principal en actos (L)
 - **Acto I — «El Bloque»:** llegada, primeras zonas, el Dr. Topolev entusiasta. Gancho: las notas mencionan experimentos **anteriores** a la explosión.
@@ -337,66 +337,79 @@ Homenaje a Laika: chasis de cuatro patas de la Academia de Ciencias.
   - Destruir el Útero (sellar la central para siempre).
   - Huir a Occidente con las muestras.
   - Fusionarse con la esencia (final oculto del Dr. Topolev).
-- [ ] Hitos con **escenas ASCII animadas** cortas (pantalla completa, texto mecanografiado, dibujo ASCII).
+- [x] Hitos con **escenas ASCII animadas** cortas (pantalla completa, texto mecanografiado, dibujo ASCII).
+  - *Hecho:* `data/story.js` (actos, escenas y finales con su dibujo) y `ui/scene.js` (texto mecanografiado a pantalla completa; clic, espacio o intro avanza, Esc salta). `core/story.js · checkActs()`: Acto II al conocer a una facción extranjera con 2 zonas superadas (o 8 zonas abiertas, o Metro-2); Acto III al leer el expediente del Objeto 7 o superar el Objeto 7 o las Raíces (escena «El expediente Topolev», −10 de confianza). Al volver del Útero de Corium, diálogo `finale` con los 4 finales (Partido: 500 ✦; sellar; Occidente: Suecia/Finlandia 40 o contrabandistas 30; fusión oculta: expediente leído y confianza ≥ 70) o «todavía no»; el epílogo queda en la crónica.
 
 ### 20.2 El Dr. Topolev y la base (L)
-- [ ] El Dr. Topolev con personalidad y medidor de **confianza** (sube al cumplir sus encargos y bajar muestras; baja si mueren agentes por sus órdenes o si se le desobedece).
-- [ ] **Personal de la base** con nombre y voz propia:
+- [x] El Dr. Topolev con personalidad y medidor de **confianza** (sube al cumplir sus encargos y bajar muestras; baja si mueren agentes por sus órdenes o si se le desobedece).
+- [x] **Personal de la base** con nombre y voz propia:
   - **Comisario Zhdánov:** cuotas, propaganda y amenazas; vigila la lealtad.
   - **Dra. Lyudmila Orlova:** la Enfermería; se preocupa por los agentes y cuestiona a Topolev.
   - **Sargento Kravets:** intendente con mercado negro propio.
   - **Mecánico «Babai»:** el Garaje, los drones y el perro.
-- [ ] **Escenas en el comedor** entre expediciones: conversaciones cortas generadas con plantillas según quién ha sobrevivido, quién ha muerto y las relaciones.
-- [ ] **Cartas** de las familias de los agentes (y que ellos escriben) y **epitafios** en el memorial.
+- [x] **Escenas en el comedor** entre expediciones: conversaciones cortas generadas con plantillas según quién ha sobrevivido, quién ha muerto y las relaciones.
+- [x] **Cartas** de las familias de los agentes (y que ellos escriben) y **epitafios** en el memorial.
+  - *Hecho:* confianza 0–100 (empieza en 50, barra en CUARTEL): +3/+1 por extracción, +encargos suyos, −4 por muerte, −3 por cuota incumplida, −4 por abandonar su encargo; con 75 o más el laboratorio rinde +5%. Zhdánov (CUARTEL), Orlova (BARRACONES), Kravets (INTENDENCIA, con su trastienda) y Babai (GARAJE) hablan en su pestaña. Escena del comedor tras cada expedición según muertes, amistades, rivalidades, estrés o éxito. Cartas de casa cada pocos días (−12 de estrés; el texto se adapta al agente). Memorial con epitafio y última carta de cada caído.
 
 ### 20.3 Relaciones entre agentes (L)
-- [ ] **Afinidad** por pareja de agentes (−100…+100): sube al extraer juntos, curarse entre ellos, salvar a otro abatido o compartir trinchera; baja por fuego amigo, dejar atrás a un compañero o competir por el botín.
-- [ ] Estados: *camaradas*, *inseparables* (bonus al estar juntos: sinergia natural con los gadgets «juntos»), *rivales* (penalización si están juntos, bonus si compiten por bajas).
-- [ ] La **muerte de un amigo** genera duelo (estrés y posible rasgo «Venganza»: +daño contra esa especie).
+- [x] **Afinidad** por pareja de agentes (−100…+100): sube al extraer juntos, curarse entre ellos, salvar a otro abatido o compartir trinchera; baja por fuego amigo, dejar atrás a un compañero o competir por el botín.
+- [x] Estados: *camaradas*, *inseparables* (bonus al estar juntos: sinergia natural con los gadgets «juntos»), *rivales* (penalización si están juntos, bonus si compiten por bajas).
+- [x] La **muerte de un amigo** genera duelo (estrés y posible rasgo «Venganza»: +daño contra esa especie).
+  - *Hecho:* `S.affinity` por pareja: +5 al extraer juntos (+nivel del Comedor), +15 al curar o reanimar a otro, +1 al abatir juntos (trinchera compartida); −8 por fuego amigo, −3 por dejar atrás a alguien. Camaradas ≥ 30 (+1 puntería), inseparables ≥ 70 (+3 puntería, +2 esquiva y menos estrés si están cerca), rivales ≤ −30 (−2 puntería y +10% de daño). Relaciones en la ficha y el tooltip. Duelo: estrés para sus amigos y posible rasgo «Venganza» (×1,15 de daño contra la especie que lo mató).
 
 ### 20.4 Estrés y moral (M)
-- [ ] Barra de **estrés** 0–100: sube con la oscuridad, la radiación, ver morir a un compañero, los jefes o los ataques por sorpresa. Baja con descanso, la banya, el vodka (con riesgo de adicción), la música y los éxitos.
-- [ ] Con estrés alto aparecen **aflicciones temporales** (pánico: huye un turno; paranoia: dispara a neutrales; temblor: −puntería) y, a veces, **virtudes** (heroísmo).
+- [x] Barra de **estrés** 0–100: sube con la oscuridad, la radiación, ver morir a un compañero, los jefes o los ataques por sorpresa. Baja con descanso, la banya, el vodka (con riesgo de adicción), la música y los éxitos.
+- [x] Con estrés alto aparecen **aflicciones temporales** (pánico: huye un turno; paranoia: dispara a neutrales; temblor: −puntería) y, a veces, **virtudes** (heroísmo).
+  - *Hecho:* `exp/morale.js` (MoralePart). Suben: oscuridad, radiación, emboscadas, jefes, muertes. Bajan: descanso (+banya), la música de la radio VEF, los inseparables cerca, el vodka (consumible: −15; a la sexta, rasgo «Adicto»), las cartas y los éxitos. Investigación «Psicología de campo»: −25%. Por encima de 70: −puntería; al límite, pánico, paranoia, temblor o heroísmo.
 
 ### 20.5 Misiones y contratos (M)
-- [ ] Encargos de los personajes de la base y de las facciones: recuperar la caja negra de un helicóptero, escoltar a un científico sueco hasta una extracción, fotografiar al Pastor de Ceniza, capturar vivo un Lobo de grafito, sabotear la estación Fénix, encontrar a un agente desaparecido (¡vivo!).
-- [ ] Recompensas: rublos, reputación, objetos únicos con nombre propio, piezas del arco principal.
+- [x] Encargos de los personajes de la base y de las facciones: recuperar la caja negra de un helicóptero, escoltar a un científico sueco hasta una extracción, fotografiar al Pastor de Ceniza, capturar vivo un Lobo de grafito, sabotear la estación Fénix, encontrar a un agente desaparecido (¡vivo!).
+- [x] Recompensas: rublos, reputación, objetos únicos con nombre propio, piezas del arco principal.
+  - *Hecho:* 9 encargos en `core/story.js · CONTRACTS` (caja negra, escolta sueca, foto del Pastor, lobo vivo, sabotaje en Fénix, agente desaparecido, muestras para Wismut, medicinas cubanas, papeles para Kravets). CUARTEL ofrece 3 al día, hasta 3 activos; el científico, la carga y el desaparecido aparecen en su zona (`spawnContractStuff`). Recompensas: rublos, esencia, reputación, confianza y objetos con nombre propio. (Los contratos ligados a modificadores de zona de la fase 16 siguen pendientes.)
 
 ### 20.6 Más contenido de texto (M)
-- [ ] 80+ notas organizadas en **colecciones** (Diario del operario de turno, Expedientes del Objeto 7, Cartas de Prípiat, Informes de la CIA traducidos…): completar una colección da una recompensa.
-- [ ] 60+ mensajes de radio, incluidos **mensajes interceptados** de otras facciones (pistas de dónde están sus alijos).
-- [ ] La **crónica del director**: diario automático de la partida, exportable como texto.
+- [x] 80+ notas organizadas en **colecciones** (Diario del operario de turno, Expedientes del Objeto 7, Cartas de Prípiat, Informes de la CIA traducidos…): completar una colección da una recompensa.
+- [x] 60+ mensajes de radio, incluidos **mensajes interceptados** de otras facciones (pistas de dónde están sus alijos).
+- [x] La **crónica del director**: diario automático de la partida, exportable como texto.
+  - *Hecho:* 80 notas en 8 colecciones de 10 (`data/lore.js · COLLECTIONS`), con recompensa al completarlas y panel en ARCHIVO; las ya leídas salen menos. 40 mensajes de radio + 20 interceptados que marcan un alijo en el mapa. Crónica automática (actos, encargos, muertes, cuotas, ataques…) en ARCHIVO, exportable a .txt.
 
 ---
 
-## FASE 21 — La base viva y la metaprogresión
+## FASE 21 — La base viva y la metaprogresión ✔
 
 ### 21.1 Base construible (L)
-- [ ] La base pasa a ser un **plano ASCII** donde se colocan edificios en parcelas: Laboratorio, Enfermería, Armería, Garaje, Sala de radio, Banya, Comedor, Invernadero, Celda de contención, Refugio antirradiación, Taller de fabricación.
-- [ ] Cada edificio con niveles (sustituye o amplía el sistema de módulos actual).
+- [x] La base pasa a ser un **plano ASCII** donde se colocan edificios en parcelas: Laboratorio, Enfermería, Armería, Garaje, Sala de radio, Banya, Comedor, Invernadero, Celda de contención, Refugio antirradiación, Taller de fabricación.
+- [x] Cada edificio con niveles (sustituye o amplía el sistema de módulos actual).
+  - *Hecho:* `data/basedata.js` y `core/basecore.js`. Plano de 16 parcelas (4×4) en CUARTEL con el dibujo de cada edificio; 17 edificios (los módulos de siempre + banya, comedor, invernadero, celda de contención, refugio, taller de fabricación y sala de radio), así que no caben todos: hay que elegir, y derribar libera la parcela. Construir es el nivel 1 del módulo; los niveles siguen siendo los de los módulos.
 
 ### 21.2 Investigación (L)
-- [ ] **Árbol de investigación** que consume esencia, **muestras** (grafito, tejido chebylita, cristales) y **especímenes vivos** (jaula de captura): desbloquea objetos, mods, talentos y mejoras de compañeros.
-- [ ] **Celda de contención:** los chebylitas capturados producen esencia pasiva cada día… con riesgo de **fuga** (evento de defensa de la base).
+- [x] **Árbol de investigación** que consume esencia, **muestras** (grafito, tejido chebylita, cristales) y **especímenes vivos** (jaula de captura): desbloquea objetos, mods, talentos y mejoras de compañeros.
+- [x] **Celda de contención:** los chebylitas capturados producen esencia pasiva cada día… con riesgo de **fuga** (evento de defensa de la base).
+  - *Hecho:* pestaña INVESTIGACIÓN (tecla 0): 16 proyectos con requisitos, coste en esencia, rublos, muestras y especímenes vivos, y duración en días (`researchMods` modifica a todos los agentes). Celda de contención: guarda las jaulas con chebylita vivo, produce esencia cada día y a veces se escapan (ataque «fuga»).
 
 ### 21.3 Fabricación (M)
-- [ ] Materiales: chatarra, componentes electrónicos, tela de plomo, tejido chebylita, piezas de vehículo.
-- [ ] Recetas (munición especial, medicinas, mods, mejoras de contenedor, piezas de drones). **Desmontar** objetos para obtener materiales.
+- [x] Materiales: chatarra, componentes electrónicos, tela de plomo, tejido chebylita, piezas de vehículo.
+- [x] Recetas (munición especial, medicinas, mods, mejoras de contenedor, piezas de drones). **Desmontar** objetos para obtener materiales.
+  - *Hecho:* chatarra, electrónica, tela de plomo y tejido chebylita (contenedores, máquinas destruidas y chebylitas) + las piezas de recambio. 16 recetas en el Taller de fabricación (munición, botiquines, granadas, minas, mods, ampollas de esencia, traje de plomo, kit y batería de drones, placa de contenedor), algunas con investigación. Desmontar en el almacén devuelve materiales según el nivel del objeto.
 
 ### 21.4 Economía y política (M)
-- [ ] **Cuotas mensuales** del Comité (esencia a entregar): cumplir da presupuesto; fallar trae inspecciones y recortes.
-- [ ] **Mercado negro** del sargento Kravets: mejores precios, riesgo de que el KGB lo descubra.
-- [ ] Precios que fluctúan según la demanda (vender mucho de lo mismo baja el precio).
+- [x] **Cuotas mensuales** del Comité (esencia a entregar): cumplir da presupuesto; fallar trae inspecciones y recortes.
+- [x] **Mercado negro** del sargento Kravets: mejores precios, riesgo de que el KGB lo descubra.
+- [x] Precios que fluctúan según la demanda (vender mucho de lo mismo baja el precio).
+  - *Hecho:* cuota cada 30 días (crece un 35% cada vez; aviso 5 días antes): cumplir da 300 + 150 × n ₽ y reputación KGB; fallar, −20% del presupuesto, −12 KGB y −3 de confianza. Trastienda de Kravets en INTENDENCIA: 5 objetos occidentales al día (×1,6) y compra al 75%, con un 8% de que el KGB multe. Cada venta del mismo objeto baja su precio un 8% (mínimo 50%), y se recupera un 20% al día.
 
 ### 21.5 Calendario y tiempo (M)
-- [ ] Estaciones desde mayo de 1986: verano, **otoño de lluvia radiactiva**, **invierno** (frío, hielo, hipotermia; la superficie cambia).
-- [ ] Eventos históricos como contexto (la construcción del sarcófago termina en noviembre de 1986 → cambia la zona del Sarcófago; mensajes de televisión en la base).
+- [x] Estaciones desde mayo de 1986: verano, **otoño de lluvia radiactiva**, **invierno** (frío, hielo, hipotermia; la superficie cambia).
+- [x] Eventos históricos como contexto (la construcción del sarcófago termina en noviembre de 1986 → cambia la zona del Sarcófago; mensajes de televisión en la base).
+  - *Hecho:* fecha y estación en la cabecera de la base. Otoño: más lluvia; invierno: modificador «helada» (agua de superficie congelada) e hipotermia sin abrigo (el abrigo M-62 protege). 10 noticias de televisión; el día 213 (finales de noviembre) el sarcófago queda terminado y la radiación de ambiente del Sarcófago baja un 40%.
 
 ### 21.6 Defensa de la base (M)
-- [ ] De vez en cuando, ataque a la base (chebylitas fugados, comandos estadounidenses, merodeadores): misión táctica corta en el plano de la base con los agentes que estén descansando.
+- [x] De vez en cuando, ataque a la base (chebylitas fugados, comandos estadounidenses, merodeadores): misión táctica corta en el plano de la base con los agentes que estén descansando.
+  - *Hecho:* 4 ataques (fuga de la celda, comando «Nightingale», merodeadores, nido bajo la base): 5% al día desde el día 12, con 10 días de tregua tras cada uno (las fugas no esperan). Diálogo `base_attack`: defender (zona especial «defensa» con los agentes en la base; acabar con todos los atacantes da +200 ₽ y +5 de confianza) o ceder (−25% ₽, −20% ✦, hasta 3 objetos y estrés).
 
 ### 21.7 Operaciones simultáneas (M)
-- [ ] Enviar un **segundo escuadrón** de forma automática a zonas ya conocidas; el resultado se simula (botín, heridas, muertes) según su equipo y nivel.
+- [x] Enviar un **segundo escuadrón** de forma automática a zonas ya conocidas; el resultado se simula (botín, heridas, muertes) según su equipo y nivel.
+  - *Hecho:* en EXPEDICIÓN, «Operación simultánea» con agentes fuera del escuadrón principal a una zona ya superada; están fuera hasta el día siguiente y el resultado (esencia, botín, heridas, muertes) se simula según nivel, salud y equipo frente a la zona.
 
 ---
 

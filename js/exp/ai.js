@@ -33,7 +33,7 @@ export class AIPart {
     if (sq.order !== 'pasivo') {
       let best = null, bd = 1e9;
       for (const e of this.enemies) {
-        if (!this.isVisible(e.x, e.y) || !this.hostile(sq, e)) continue;
+        if (!this.isVisible(e.x, e.y) || !(this.hostile(sq, e) || (this.flag(sq, 'paranoia') && HUMANS[e.type] && !e.surrendered && this.attitudeToSquad(e) === 'neutral'))) continue;
         const d = Math.hypot(e.x - sq.x, e.y - sq.y);
         if (d < bd && this.canShoot(sq, e) === 'ok' && (ws.wtype !== 'melee' ? d <= ws.range * 1.5 : true)) { best = e; bd = d; }
       }
@@ -307,7 +307,7 @@ export class AIPart {
     // sacerdotes de la Ceniza: azuzan a los chebylitas cercanos contra su objetivo
     if (def.charm && tgt) {
       e.cd = (e.cd || 0) - 1;
-      if (e.cd <= 0 && !(this.isSquad(tgt) && this.flag(tgt, 'charmResist'))) {
+      if (e.cd <= 0 && !(this.isSquad(tgt) && (this.flag(tgt, 'charmResist') || (S.research && S.research.r_ceniza)))) {
         let n = 0;
         for (const o of this.enemies) {
           if (n >= 3 || o.charmed || actorFaction(o) !== 'chebylitas' || ACTORS[o.type].boss || Math.hypot(o.x - e.x, o.y - e.y) > 8 || !this.los(e.x, e.y, o.x, o.y)) continue;

@@ -3,6 +3,9 @@
 
 // Rasgos adquiridos: se ganan por lo que les pasa (ver core/campaign.js y exp/combat.js)
 export const ACQUIRED = {
+  // fase 20: moral
+  venganza: { name: 'Venganza', glyph: '🔥', how: 'Ver morir a un amigo (afinidad ≥ 30) a manos de un chebylita o una persona.', desc: '+15% de daño contra la especie que lo mató.' },
+  adicto: { name: 'Adicto al vodka', glyph: '¡', how: 'Beber vodka 6 veces para quitarse el miedo.', desc: '−1 precisión; sin vodka a mano, +2 de estrés al día.', mods: { acc: -1 } },
   superviviente: { name: 'Superviviente', glyph: '♥', how: 'Volver de una expedición tras haber bajado del 5% de salud.', desc: '+6 salud máxima.', mods: { hp: 6 } },
   lobos: { name: 'Traumatizado por lobos', glyph: 'w', how: 'Caer por debajo del 25% de salud por mordiscos de lobo.', desc: '−10% de impacto contra lobos de grafito; +1 agilidad (siempre alerta).', flags: { vsLobo: -10 }, mods: { ev: 1 } },
   rda: { name: 'Amigo de la RDA', glyph: '☭', how: 'Volver de una expedición con reputación ≥ 30 con la RDA tras haberlos visto.', desc: 'Con aliados humanos cerca: +2 precisión y +2 agilidad.', cond: { when: 'alliesNear', mods: { acc: 2, ev: 2 } } },

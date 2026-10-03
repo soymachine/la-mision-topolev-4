@@ -8,6 +8,7 @@ import { DOG_ORDERS } from '../data/companions.js';
 import { createItem, itemName, itemValue, mergeInto } from '../core/items.js';
 import { bagCapacity } from '../core/agents.js';
 import { esc } from '../util/dom.js';
+import { S } from '../core/state.js';
 import { astar } from './path.js';
 import { D8 } from './shared.js';
 
@@ -28,7 +29,7 @@ export class CompanionPart {
   compStats(e) {
     const def = ACTORS[e.type];
     const mods = e.type === 'laika' ? this.dogMods(e) : new Set();
-    const k = (mods.has('dm_jaw') ? 2 : 1) * (this.compMech(e) ? 1.3 : 1);
+    const k = (mods.has('dm_jaw') ? 2 : 1) * (this.compMech(e) ? 1.3 : 1) * (e.type === 'laika' && S.research && S.research.r_laika ? 1.2 : 1);
     return { l: e.lvl, hp: e.hpMax, dmg: [Math.round(def.dmg[0] * k), Math.round(def.dmg[1] * k)], acc: 4, armor: def.armor + (mods.has('dm_lead') ? 3 : 0), ev: def.ev, ess: [0, 0], xp: 0 };
   }
 
@@ -53,6 +54,7 @@ export class CompanionPart {
     let hp = ITEMS[it.b].hp || 0;
     for (const m of it.dmods || []) hp += ITEMS[m.b].hp || 0;
     if (sq && this.flag(sq, 'mechanic')) hp = Math.round(hp * 1.3);
+    if (S.research && S.research.r_laika && ITEMS[it.b].kind === 'dog') hp = Math.round(hp * 1.2);
     return hp;
   }
   freeNear(x, y, r = 3, flying = false) {
@@ -106,8 +108,8 @@ export class CompanionPart {
       const spot = this.freeNear(sq.x, sq.y, 2, true);
       if (!spot) return false;
       const e = this.spawnEnemy('strizh', 1, spot[0], spot[1], 'errante', null, 'squad');
-      const k = (this.flag(sq, 'remote') ? 1.5 : 1) * (this.flag(sq, 'mechanic') ? 1.5 : 1);
-      e.ownerId = sq.id; e.battery = Math.round(d.battery * k); e.seen = 1;
+      const k = (this.flag(sq, 'remote') ? 1.5 : 1) * (this.flag(sq, 'mechanic') ? 1.5 : 1) * (S.research && S.research.r_drones ? 1.25 : 1);
+      e.ownerId = sq.id; e.battery = Math.round(d.battery * k) + (it.batBonus || 0); e.seen = 1;
       it.out = 1;
       this.say(`ˇ ${this.nm(sq)} lanza el Strizh (${e.battery} turnos de batería). Clic en el radar para mandarlo a un punto; D para que vuelva.`, 'cyan');
       this.computeVisibility(true);
@@ -124,8 +126,8 @@ export class CompanionPart {
     const spot = this.freeNear(sq.x, sq.y, 2, true);
     if (!spot) return false;
     const e = this.spawnEnemy('eco', 1, spot[0], spot[1], 'errante', null, 'squad');
-    const k = (this.flag(sq, 'remote') ? 1.5 : 1) * (this.flag(sq, 'mechanic') ? 1.5 : 1);
-    e.ownerId = sq.id; e.dest = [x, y]; e.battery = Math.round(ITEMS[it.b].battery * k); e.seen = 1;
+    const k = (this.flag(sq, 'remote') ? 1.5 : 1) * (this.flag(sq, 'mechanic') ? 1.5 : 1) * (S.research && S.research.r_drones ? 1.25 : 1);
+    e.ownerId = sq.id; e.dest = [x, y]; e.battery = Math.round(ITEMS[it.b].battery * k) + (it.batBonus || 0); e.seen = 1;
     it.out = 1;
     this.say(`ˇ El Eco vuela hacia el punto marcado. Allí sonará y brillará durante ${e.battery} turnos.`, 'cyan');
     return true;

@@ -7,6 +7,8 @@ import { createItem } from './items.js';
 import { ITEMS } from '../data/items.js';
 import { RNG } from '../util/rng.js';
 import { FACTIONS } from '../data/factions.js';
+import { storyDefaults } from './story.js';
+import { baseDefaults } from './basecore.js';
 import { compressToUTF16, decompressFromUTF16 } from '../util/lz.js';
 
 // Guardado v2: 3 ranuras comprimidas (LZ/UTF-16) + ficha resumen por ranura
@@ -51,6 +53,9 @@ export function newGame(n = slot) {
   S.stash.push(createItem('antirad', 0, g, 2));
   S.stash.push(createItem('molotov', 0, g, 2));
   S.stash.push(createItem('torch', 1, g));
+  storyDefaults(S);
+  baseDefaults(S);
+  S.act = 1; S.pendingScenes = ['act1']; S.chronicle.push({ day: 1, text: 'Comienza el Acto I: «El Bloque». Llegada al Puesto Pripyat-7.' });
   S.messages.push({ day: 1, text: 'Camarada director: el equipo está listo. El Bloque Administrativo es nuestro primer objetivo. Traed esencia. Volved vivos. — Dr. A. Topolev' });
   save();
   return S;
@@ -115,6 +120,8 @@ function upgrade(d) {
   if (d.v < 2) { d.flags = d.flags || {}; d.rep = d.rep || {}; d.eventsDone = d.eventsDone || {}; d.v = 2; }
   d.flags = d.flags || {}; d.rep = d.rep || {}; d.eventsDone = d.eventsDone || {}; d.pendingDialogs = d.pendingDialogs || []; d.instructors = d.instructors || []; d.eventZones = d.eventZones || [];
   if (d.modules) for (const m of MODULES) if (d.modules[m.id] == null) d.modules[m.id] = 0;
+  storyDefaults(d);
+  baseDefaults(d);
   // fase 18: la reputación pasa a ser absoluta (−100…+100) partiendo de la postura inicial de cada facción
   if (!d.repV) { for (const [f, F] of Object.entries(FACTIONS)) if (F.rep0 != null) d.rep[f] = Math.max(-100, Math.min(100, F.rep0 + (d.rep[f] || 0))); d.repV = 1; }
   for (const a of d.agents || []) upgradeAgent(a);

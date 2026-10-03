@@ -28,6 +28,9 @@ import { AbilityPart } from './abilities.js';
 import { TerrainPart } from './terrain.js';
 import { FactionPart } from './factions.js';
 import { CompanionPart } from './companions.js';
+import { MoralePart } from './morale.js';
+import { unreadNote } from '../core/story.js';
+import { seasonOf } from '../data/basedata.js';
 import { MODIFIERS, modEss, modRad, WEATHER } from '../data/modifiers.js';
 export { ORDERS, ESSENCE_COLOR };
 
@@ -53,6 +56,9 @@ export class Expedition {
     const e = new Expedition();
     e.mapIdx = mapIdx; e.seed = seed;
     e.zoneDef = zoneDef;
+    // estación (fase 21.5): en invierno, el agua de la superficie se congela
+    e.season = seasonOf(S.day || 1);
+    if (e.season === 'invierno' && def.stratum === 'sup' && !mods.includes('helada')) mods = [...mods, 'helada'];
     e.mods = mods;
     e.nFloors = def.floors || 1;
     e.floor = 0;
@@ -72,7 +78,7 @@ export class Expedition {
     if (def.stratum === 'sup') {
       const day = (S.day || 1) % 2 === 1;
       e.clock = (day ? g.int(6, 14) : g.int(17, 22)) * 60 + g.int(0, 59);
-      e.weather = g.weighted(Object.keys(WEATHER), (k) => WEATHER[k].w);
+      e.weather = g.weighted(Object.keys(WEATHER), (k) => WEATHER[k].w * (e.season === 'otono' && k === 'lluvia' ? 3 : e.season === 'invierno' && k === 'lluvia' ? 0.3 : 1));
     }
     if (def.social) e.raidAt = g.chance(0.5) ? g.int(60, 110) : 0;
     e.buildFloor(0);
@@ -85,6 +91,7 @@ export class Expedition {
     e.active = 0;
     e.init();
     e.spawnCompanions();
+    e.spawnContractStuff();
     // planos parciales gracias al radar
     if (S.modules.radar >= 4) {
       for (let k = 0; k < e.w * e.h; k++) if (TILES[e.t[k]].walk && rng.chance(0.35)) e.explored[k] = 1;
@@ -116,6 +123,8 @@ export class Expedition {
     this.floor = f;
     this.w = m.w; this.h = m.h; this.t = m.t; this.sec = m.sec; this.sectors = m.sectors;
     this.exits = m.exits; this.pois = m.pois; this.objects = m.objects; this.vents = m.vents;
+    // notas: preferir las que aún no se han leído (colecciones, fase 20.6)
+    for (const o of this.objects) if (o.kind === 'note' && o.fnote == null && S.notesRead && S.notesRead[o.note]) { const u = unreadNote(rng); if (u != null) o.note = u; }
     this.rad = m.radField; this.anomaly = m.anomaly;
     this.start = m.start; this.lift = m.lift; this.chasms = m.chasms;
     this.mines = m.mines || []; this.surface = !!def.surface; this.indoor = m.indoor || null; this.antennaAt = m.antennaAt || null; this.railRows = m.railRows || [];
@@ -129,7 +138,7 @@ export class Expedition {
     this.explored = new Uint8Array(this.w * this.h);
     this.enemies = [];
     this.occ = new Map();
-    for (const sp of m.spawns) this.spawnEnemy(sp.type, sp.lvl, sp.x, sp.y, sp.state, sp.poi, sp.faction);
+    for (const sp of m.spawns) { const en = this.spawnEnemy(sp.type, sp.lvl, sp.x, sp.y, sp.state, sp.poi, sp.faction); if (sp.attacker) en.attacker = 1; if (sp.caged) en.caged = 1; }
     this.fans = null; this.roots = null; this.lightDirty = true;
   }
 
@@ -183,7 +192,7 @@ export class Expedition {
       mapIdx: this.mapIdx, seed: this.seed, zoneDef: this.zoneDef || null, mods: this.mods || [], nFloors: this.nFloors || 1, floor: this.floor || 0, floorStore: this.floorStore || [],
       sense: this.sense, senseR: this.senseR, relations: this.relations || {},
       eventsDone: this.eventsDone || {}, facSeen: this.facSeen || {}, dlg: this.dlg || null, dlgQueue: this.dlgQueue || [],
-      patria: this.patria || 0, truceUsed: this.truceUsed || 0, defibUsed: this.defibUsed || 0, quietT: this.quietT || 0, fac: this.fac || null, sentHome: this.sentHome || [],
+      patria: this.patria || 0, truceUsed: this.truceUsed || 0, defibUsed: this.defibUsed || 0, quietT: this.quietT || 0, fac: this.fac || null, sentHome: this.sentHome || [], season: this.season || null, defenseWon: this.defenseWon || 0,
       clock: this.clock ?? null, weather: this.weather || null, trainAt: this.trainAt || 0, raidAt: this.raidAt || 0, revealT: this.revealT || 0, antennaUsed: this.antennaUsed || 0,
       turn: this.turn, log: this.log.slice(-60), evac: this.evac, tally: this.tally,
       surgeAt: this.surgeAt, nextTemp: this.nextTemp, nextRadio: this.nextRadio, active: this.active,
@@ -273,7 +282,7 @@ export class Expedition {
 
   init() {
     this.def = this.zone();
-    this.ambient = this.def.ambientRad * 0.25 + modRad(this.mods);
+    this.ambient = this.def.ambientRad * 0.25 * (this.def.id === 'sarcofago' && S.flags.sarcophagusDone ? 0.6 : 1) + modRad(this.mods);
     this.visible = new Uint8Array(this.w * this.h);
     this.fx = [];
     this.occ = new Map();
@@ -340,6 +349,7 @@ export class Expedition {
     if (!sq.alive || sq.out || !this.squad) return st;
     const add = (mods) => { for (const [k, v] of Object.entries(mods || {})) st[k] = (st[k] || 0) + v; };
     for (const b of sq.buffs || []) add(b.mods);
+    this.moraleMods(sq, st);
     const team = this.team;
     for (const g of this.gadgets(sq)) {
       const x = gadgetExtras(g);
@@ -394,6 +404,7 @@ export class Expedition {
   }
   addPoison(sq, n) {
     if (this.flag(sq, 'poisonImmune')) return;
+    if (S.research && S.research.r_vacuna) n = Math.ceil(n / 2);
     n = Math.max(1, n - Math.floor((agentStats(sq.a).attrs.agu - 1) / 4)); // el Aguante acorta el veneno
     sq.poison = Math.min(12, (sq.poison || 0) + n);
   }
@@ -500,7 +511,7 @@ export class Expedition {
     const fresh = [];
     for (const e of this.enemies) {
       if (vis[this.key(e.x, e.y)]) {
-        if (!e.seen) { e.seen = 1; fresh.push(e); if (ENEMIES[e.type]) seeEnemy(e.type); }
+        if (!e.seen) { e.seen = 1; fresh.push(e); if (ENEMIES[e.type]) seeEnemy(e.type); if (ENEMIES[e.type] && ENEMIES[e.type].boss) this.moraleOnBoss(e); }
       }
     }
     // primer avistamiento de cada facción humana en la expedición
@@ -535,6 +546,8 @@ export class Expedition {
     const sq = this.cur;
     if (!sq || !this.inMap(sq)) return false;
     this.extraTurn = 0;
+    // pánico: el agente huye en lugar de obedecer
+    if (this.hasAffliction(sq, 'panico') && this.panicStep(sq)) { this.endTurn(); return true; }
     const used = fn(sq);
     if (used) {
       this.endTurn();
@@ -757,7 +770,7 @@ export class Expedition {
 }
 
 // Mezcla de los módulos parciales en la clase principal
-for (const Part of [CombatPart, UsePart, ExtractionPart, AIPart, EnvironmentPart, StoryPart, AbilityPart, TerrainPart, FactionPart, CompanionPart]) {
+for (const Part of [CombatPart, UsePart, ExtractionPart, AIPart, EnvironmentPart, StoryPart, AbilityPart, TerrainPart, FactionPart, CompanionPart, MoralePart]) {
   for (const k of Object.getOwnPropertyNames(Part.prototype)) {
     if (k === 'constructor') continue;
     if (Object.prototype.hasOwnProperty.call(Expedition.prototype, k)) throw new Error('Método duplicado en Expedition: ' + k);

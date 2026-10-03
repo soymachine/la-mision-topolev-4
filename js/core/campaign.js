@@ -9,6 +9,8 @@ import { ACQUIRED, MEDALS, woundCost, RETIRE_LEVEL, MAX_INSTRUCTORS, INSTRUCTOR_
 import { SPECS } from '../data/specs.js';
 import { rollZoneMods } from '../data/modifiers.js';
 import { FACTIONS, repOf, addRep, foreignTrade as foreignTradeS } from '../data/factions.js';
+import { addStress, addAff, trust, chronicle, comedorScene, completeContracts, checkActs, familyLetter } from './story.js';
+import { baseDayTick, placeBuilding, demandK, noteSale, attackResult, defenseDef } from './basecore.js';
 
 // modificadores de cada zona para hoy (fase 16.4)
 export const zoneMods = (mapIdx) => (S.forceMods ? [...S.forceMods] : rollZoneMods(S.created >>> 0, S.day, mapIdx));
@@ -48,7 +50,7 @@ export function buyPrice(it) {
 export function sellPrice(it) {
   const d = ITEMS[it.b];
   const f = d.cat === 'valuable' ? 1 : d.cat === 'ammo' ? 0.5 : 0.4;
-  return Math.max(1, Math.floor(itemValue(it) * f));
+  return Math.max(1, Math.floor(itemValue(it) * f * demandK(it.b))); // vender mucho de lo mismo baja el precio
 }
 
 export function ensureShop() {
@@ -100,6 +102,7 @@ export function sell(it, fromList) {
   const i = fromList.indexOf(it);
   if (i < 0) return 0;
   fromList.splice(i, 1);
+  noteSale(it.b);
   S.rub += p;
   S.stats.rubTotal += p;
   save();
@@ -213,6 +216,8 @@ export function upgradeModule(id) {
   const c = moduleCost(id, lvl);
   if (S.ess < c.ess) return { ok: false, msg: 'Esencia insuficiente.' };
   if (S.rub < c.rub) return { ok: false, msg: 'Rublos insuficientes.' };
+  // fase 21: construir por primera vez ocupa una parcela del plano
+  if (lvl === 0) { const pl = placeBuilding(id); if (!pl.ok) return pl; }
   S.ess -= c.ess; S.rub -= c.rub;
   S.modules[id]++;
   if (S.shop) S.shop.day = -1; // refrescar la intendencia con las nuevas existencias
@@ -256,6 +261,8 @@ export function launchExpedition(mapIdx, agents, evId = null) {
   }
   S.stats.expeditions++;
   // zona de evento: se genera sobre su zona base y se consume al entrar
+  // fase 21.6: defensa de la base
+  if (evId === 'defensa' && S.attack) return Expedition.create(0, agents, [], defenseDef());
   const ev = evId && (S.eventZones || []).find((z) => z.id === evId);
   if (ev) {
     S.eventZones = S.eventZones.filter((z) => z !== ev);
@@ -269,7 +276,7 @@ export function finalizeExpedition(exp) {
   const def = exp.def;
   // fase 19: lo que traen el perro y la Mula
   const compBack = exp.finishCompanions ? exp.finishCompanions() : [];
-  const labBonus = 1 + S.modules.laboratorio * 0.1;
+  const labBonus = 1 + S.modules.laboratorio * 0.1 + ((S.trust ?? 50) >= 75 ? 0.05 : 0); // confianza plena de Topolev: +5%
   const rep = { map: def.name, mapIdx: exp.mapIdx, turns: exp.turn, day: S.day, agents: [], ess: 0, essRaw: 0, kills: exp.tally.kills, unlocked: null, lostItems: 0 };
   let anyOut = false;
   for (const sq of exp.squad) {
@@ -302,7 +309,8 @@ export function finalizeExpedition(exp) {
   rep.ess = Math.round(rep.essRaw * labBonus);
   S.ess += rep.ess;
   S.stats.essTotal += rep.ess;
-  if (anyOut) {
+  if (def.id === 'defensa') { attackResult(!!exp.defenseWon); anyOut = anyOut && !!exp.defenseWon; }
+  if (anyOut && def.id !== 'defensa') {
     S.stats.extractions++;
     var wasOpen = MAPS.map((m, i) => zoneOpen(S, i));
     S.cleared[def.id] = (S.cleared[def.id] || 0) + 1;
@@ -344,9 +352,31 @@ export function finalizeExpedition(exp) {
     fail: `Expedición a ${def.name}: ningún agente ha regresado. El reactor se ha cobrado su precio.`,
   };
   addMessage(msgs[rep.result]);
+  // ---- fase 20: moral, afinidad, encargos, Topolev, crónica y comedor
+  const outs = exp.squad.filter((q) => q.out && q.a && S.agents.includes(q.a));
+  for (const q of outs) { addStress(q.a, rep.result === 'success' ? -10 : -4); for (const o of outs) if (o !== q && q.id < o.id) addAff(q.a, o.a, 5 + (S.modules.comedor || 0)); }
+  const deaths = rep.agents.filter((r) => r.status !== 'extraído').length;
+  if (anyOut) trust(rep.result === 'success' ? 3 : 1);
+  if (deaths) trust(-4 * deaths, `${deaths} agente(s) muertos en ${def.name}`);
+  const fc = (exp.fac && exp.fac.contracts) || {};
+  for (const c of S.contracts.active) if (fc[c.id] && anyOut) c.done = true;
+  if (exp.fac && exp.fac.rescued && anyOut && S.agents.length < rosterCap()) {
+    const [first, last] = exp.fac.rescued.name.split(' ');
+    const a = createAgent(rng, { lvl: exp.fac.rescued.lvl });
+    a.first = first; a.last = last || a.last; a.female = /a$/.test(first);
+    starterKit(a); a.stress = 60;
+    S.agents.push(a);
+    addMessage(`${exp.fac.rescued.name} vuelve al Puesto tras días perdido en la Zona. Necesitará descanso.`);
+    chronicle(`${exp.fac.rescued.name}, rescatado con vida.`);
+  }
+  rep.contracts = completeContracts();
+  chronicle(`Expedición a ${def.name}: ${{ success: 'éxito', partial: 'éxito parcial', fail: 'fracaso' }[rep.result]}. ${rep.ess} ✦, ${rep.kills} bajas.${deaths ? ` Caídos: ${rep.agents.filter((r) => r.status !== 'extraído').map((r) => r.name).join(', ')}.` : ''}`);
+  if (rep.unlocked) chronicle(`Nueva zona accesible: ${rep.unlocked}.`);
+  comedorScene(rep);
   S.lastReport = rep;
   S.exp = null;
   nextDay();
+  checkActs();
   ensureVolunteer();
   save();
   return rep;
@@ -357,6 +387,14 @@ export function nextDay() {
   baseDayEvents();
   tickEventZones();
   const enf = S.modules.enfermeria;
+  baseDayTick(); // fase 21: investigación, celdas, edificios, cuotas, estaciones, historia, operaciones, ataques
+  // fase 20: descanso (y banya), cartas de casa, adicciones
+  if (Math.random() < 0.15) familyLetter();
+  for (const a of S.agents) {
+    addStress(a, -(6 + ((S.modules.banya || 0) * 5)));
+    if ((a.acquired || []).includes('adicto')) addStress(a, 2);
+  }
+  checkActs();
   for (const a of S.agents) {
     const st = agentStats(a);
     a.hp = Math.min(st.hpMaxEff, a.hp + Math.round(st.hpMax * (0.3 + enf * 0.14)));
@@ -392,7 +430,7 @@ export function eventZoneView(ev) {
 // ---- KGB, Directorio 9 (fase 18): informes a cambio de rublos; vigila el trato con extranjeros
 export const KGB_WANTS = { intel: 1.3, docs: 1.1, blackbox: 1.2, foreigndiary: 1.6, relic: 0.8 };
 export function kgbStash() { return S.stash.filter((it) => KGB_WANTS[it.b]); }
-export function kgbPrice(it) { return Math.round(ITEMS[it.b].value * KGB_WANTS[it.b] * (it.q || 1) * (repOf(S, 'kgb') >= 50 ? 1.2 : 1)); }
+export function kgbPrice(it) { return Math.round(ITEMS[it.b].value * KGB_WANTS[it.b] * (it.q || 1) * (repOf(S, 'kgb') >= 50 ? 1.2 : 1) * (1 + (S.modules.sala_radio || 0) * 0.05 + (S.research && S.research.r_comunicaciones ? 0.2 : 0))); }
 export function kgbDeliver(it) {
   const i = S.stash.indexOf(it);
   if (i < 0) return 0;

@@ -15,6 +15,7 @@ import { esc } from '../util/dom.js';
 import { RADIO } from '../data/lore.js';
 import { D8, FISTS, BLOCKING_OBJ, ESSENCE_COLOR } from './shared.js';
 import { FACTIONS } from '../data/factions.js';
+import { addAff } from '../core/story.js';
 import { ACTORS, actorColor, actorFaction, isHuman } from '../data/actors.js';
 import { HUMANS } from '../data/humans.js';
 
@@ -120,6 +121,8 @@ export class CombatPart {
     if (crit) dmg *= 1.8 * (1 + (sq.a ? this.flag(sq, 'critDmg') : 0) / 100);
     const es = this.est(e);
     if (sq.a && S.photos && S.photos[e.type]) dmg *= 1.1; // ficha fotográfica (Zenit-E)
+    if (sq.a && sq.a.vengeance && sq.a.vengeance.type === e.type) dmg *= 1.15; // Venganza
+    if (sq.a && S.research && S.research.r_balistica && actorFaction(e) === 'chebylitas') dmg *= 1.06;
     if (sq.a) {
       // talentos y rasgos: Tiro de gracia, Emboscada, Cazador de jefes
       if (e.hp < e.hpMax * 0.3) dmg *= 1 + this.flag(sq, 'execute') / 100;
@@ -243,6 +246,9 @@ export class CombatPart {
     }
     // máquinas y similares: material
     for (const b of (!human && def.drops) || []) if (rng.chance(0.75)) this.addFloor(e.x, e.y, createItem(b, 0, rng, ITEMS[b].stack > 1 ? rng.int(1, 3) : undefined));
+    // fase 21.3: materiales de fabricación
+    if (!human && !def.mech && rng.chance(0.22 + (def.boss ? 0.6 : 0))) this.addFloor(e.x, e.y, createItem('tejido', 0, rng, rng.int(1, def.boss ? 4 : 2)));
+    if (def.mech && rng.chance(0.7)) { this.addFloor(e.x, e.y, createItem('electronica', 0, rng, rng.int(1, 2))); this.addFloor(e.x, e.y, createItem('chatarra', 0, rng, rng.int(1, 3))); }
     // esencia
     let ess = human ? 0 : rng.int(es.ess[0], es.ess[1]);
     if (e.spawned) ess = Math.ceil(ess * 0.3);
@@ -258,7 +264,7 @@ export class CombatPart {
     if (def.boss) this.addFloor(e.x, e.y, createItem('crystal', rng.int(2, 4), rng));
     const bySquad = !src || this.isSquad(src);
     if (bySquad) { this.tally.kills++; S.stats.kills++; }
-    if (src && src.id) this.trigger('kill', { type: e.type, faction: actorFaction(e), lvl: e.lvl }, src);
+    if (src && src.id) { this.trigger('kill', { type: e.type, faction: actorFaction(e), lvl: e.lvl }, src); this.moraleOnKill(src, e); }
     if (src && src.id && def.boss) { src.bossKills = (src.bossKills || 0) + 1; this.acquire(src, 'jefes'); }
     if (!human && bySquad) bestiaryKill(e.type);
     if (src && src.id && this.inMap(src)) {
@@ -304,6 +310,7 @@ export class CombatPart {
   damageAgent(sq, dmg, cause, srcE = null, delay = 0) {
     if (!this.inMap(sq)) return;
     if (this.god) return; // consola de depuración
+    this.moraleOnAmbush(sq, srcE);
     sq.a.hp -= dmg;
     this.tally.dmgTaken += dmg;
     this.fx.push({ type: 'dmg', x: sq.x, y: sq.y, n: dmg, delay, color: '#ff3b30', agent: true });
@@ -325,6 +332,7 @@ export class CombatPart {
       if (medic) {
         medic.rescueUsed = true;
         sq.a.hp = 1;
+        if (medic !== sq) addAff(medic.a, sq.a, 15);
         if (medic !== sq) medic.a.saves = (medic.a.saves || 0) + 1;
         this.fx.push({ type: 'heal', x: sq.x, y: sq.y });
         this.say(`✚ ¡${this.nm(medic)} ${medic === sq ? 'se aferra a la vida' : 'salva in extremis a ' + this.nm(sq)}! (1 de salud)`, 'good');
@@ -335,16 +343,17 @@ export class CombatPart {
       const doc = this.team.find((o) => this.flag(o, 'defib') && cheb(o.x, o.y, sq.x, sq.y) <= 2);
       if (doc) {
         this.defibUsed = 1;
+        if (doc !== sq) addAff(doc.a, sq.a, 15);
         sq.a.hp = Math.max(1, Math.round(this.ast(sq).hpMaxEff * 0.25));
         this.fx.push({ type: 'zap', x: sq.x, y: sq.y });
         this.say(`ϟ ¡${this.nm(doc)} aplica el desfibrilador! ${this.nm(sq)} vuelve a respirar (${sq.a.hp} de salud).`, 'good');
       }
     }
-    if (sq.a.hp <= 0) this.agentDies(sq, cause);
+    if (sq.a.hp <= 0) this.agentDies(sq, cause, srcE);
     else { this.markHurt(sq, srcE); this.trigger('agentHurt', { dmg }, sq); }
   }
 
-  agentDies(sq, cause) {
+  agentDies(sq, cause, killer = null) {
     const a = sq.a;
     a.hp = 0;
     sq.alive = false;
@@ -367,6 +376,7 @@ export class CombatPart {
     const i = S.agents.indexOf(a);
     if (i >= 0) S.agents.splice(i, 1);
     S.fallen.unshift({ name: agentName(a), lvl: a.lvl, day: S.day, map: this.def.name, cause, kills: a.kills || 0, missions: a.missions || 0 });
+    this.moraleOnDeath(sq, a, killer);
     S.stats.deaths++;
     this.emit('death', sq);
     this.checkActive();
@@ -391,7 +401,7 @@ export class CombatPart {
       if (!ent) continue;
       const dmg = rng.int(dmgR[0], dmgR[1]);
       if (ent.type) { this.damageEnemy(ent, Math.max(1, dmg - Math.max(0, this.est(ent).armor - (opts.pierce || 0))), src, false, delay + 60); if (fire && ent.hp > 0) ent.burn = 3; }
-      else if (ent.id) this.damageAgent(ent, Math.max(1, dmg - this.ast(ent).prot), 'explosión', null, delay + 60);
+      else if (ent.id) { if (src && this.isSquad(src)) this.moraleOnFriendlyFire(src, ent); this.damageAgent(ent, Math.max(1, dmg - this.ast(ent).prot), 'explosión', null, delay + 60); }
     }
     this._essBoost = 0;
     this.blastTerrain(x, y, r, src);

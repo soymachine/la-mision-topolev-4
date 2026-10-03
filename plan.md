@@ -162,7 +162,9 @@ O órdenes del escuadrón · I inventario · M mapa · Espacio esperar · ? ayud
 - Fase 17 completada: 12 zonas nuevas (6 de superficie con día/noche y clima, 6 de subsuelo), mapa ASCII de la región con progresión por requisitos, campamento social Wismut, equipo occidental y zonas de evento temporales.
 - Fase 18 completada: 12 facciones con reputación (pestaña RADIO), IA humana (cobertura, granadas, radio, rendición), encuentros y prisioneros, bengala roja, campamentos abandonados con diarios extranjeros, 31 objetos extranjeros y el KGB vigilando.
 - Fase 19 completada: ranura COMPAÑERO y Garaje, perro robot Laika-M con órdenes y módulos, 5 drones (tecla D) y 12 gadgets creativos (torreta, jaula, cámara, desfibrilador, gancho, soldadura, ruido blanco, centelleo, grabadora, sonda sísmica, camuflaje, paraguas).
-- **Siguiente sesión:** seguir [`plan-ampliacion.md`](plan-ampliacion.md) por la fase 20 según el orden recomendado al final de ese archivo. Marcar allí las tareas al completarlas.
+- Fase 20 completada: arco en tres actos con escenas ASCII y 4 finales, confianza del Dr. Topolev y personal de la base con voz propia, comedor, cartas y epitafios, afinidad entre agentes, estrés con aflicciones y virtudes, 9 encargos, 80 notas en 8 colecciones, radio interceptada y crónica exportable.
+- Fase 21 completada: plano de 16 parcelas con 17 edificios, investigación (16 proyectos) y celda de contención, materiales y taller de fabricación (16 recetas, desmontar), cuota del Comité, mercado negro y precios por demanda, calendario con estaciones e historia, defensa de la base y operaciones simultáneas.
+- **Siguiente sesión:** seguir [`plan-ampliacion.md`](plan-ampliacion.md) por la fase 22 según el orden recomendado al final de ese archivo. Marcar allí las tareas al completarlas.
 
 ## FASE 12 — Ampliación del arsenal (petición del usuario)
 - [x] 12.1 69 armas (×4) en `js/data/weapons.js`, cada una con dibujo ASCII visible en su tooltip; nuevos tipos lanzador (explosión) y 5 municiones nuevas

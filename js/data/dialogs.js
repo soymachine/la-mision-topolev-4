@@ -328,6 +328,38 @@ export const DIALOGS = {
     },
   },
 
+  // ------------------------------------------------------------ Fase 21.6: ataque a la base
+  base_attack: {
+    title: '¡ATAQUE AL PUESTO!', speaker: 'Sargento Kravets', color: '#ff3b30',
+    nodes: {
+      start: {
+        text: () => { const A = ATTACK_INFO(); return `Suenan las sirenas. Kravets entra corriendo con el fusil en la mano: «¡${A ? A.name : 'Nos atacan'}!» ${A ? A.desc : ''} «Los que estén en la base, a las armas. O nos encerramos en el refugio y que se lleven lo que quieran.»`; },
+        opts: [
+          { label: 'DEFENDER EL PUESTO (MISIÓN TÁCTICA CON LOS AGENTES DE LA BASE)', cls: 'good', cond: { test: () => S.agents.some((a) => a.hp > 10 && !(a.awayUntil > S.day)) }, hint: 'no hay agentes en condiciones', effects: [{ run: () => { if (S.attack) S.attack.go = 1; } }] },
+          { label: 'ENCERRARSE EN EL REFUGIO (PERDER RUBLOS, ESENCIA Y OBJETOS)', cls: 'bad', effects: [{ run: () => { if (basecoreMod) basecoreMod.yieldAttack(); } }] },
+        ],
+      },
+    },
+  },
+
+  // ------------------------------------------------------------ Fase 20: el final
+  finale: {
+    title: 'EL ÚTERO DE CORIUM', speaker: 'Dr. A. Topolev', color: '#5ff7ff',
+    nodes: {
+      start: {
+        text: () => `Habéis vuelto del Útero. Topolev escucha el informe con los ojos cerrados. Cuando abre la boca, le tiembla la voz. «Lo que hay ahí abajo puede alimentar a un país… o borrarlo. Moscú llama cada hora. Los americanos pagarían cualquier precio. Y yo…» No termina. «Decidid vosotros. Yo ya decidí una vez, en 1982, y mirad lo que pasó.»<br><br><span class="dimt">(Confianza de Topolev: ${S.trust}/100 · esencia en la base: ${S.ess} ✦)</span>`,
+        opts: [
+          { label: 'ENTREGAR LA ESENCIA AL PARTIDO (500 ✦)', cond: { ess: ['>=', 500] }, hint: 'hace falta tener 500 ✦ que entregar', effects: [{ ess: -500 }, { run: () => endGameLazy('partido') }], goto: 'end' },
+          { label: 'DESTRUIR EL ÚTERO: SELLAR LA CENTRAL PARA SIEMPRE', cls: 'good', effects: [{ run: () => endGameLazy('sellar') }], goto: 'end' },
+          { label: 'HUIR A OCCIDENTE CON LAS MUESTRAS', cond: { any: [{ rep: ['suecia', '>=', 40] }, { rep: ['finlandia', '>=', 40] }, { rep: ['contrabandistas', '>=', 30] }] }, hint: 'necesitáis a alguien que os saque: suecos, finlandeses o contrabandistas (reputación 40/40/30)', effects: [{ run: () => endGameLazy('occidente') }], goto: 'end' },
+          { label: '[TOPOLEV] BAJAR CON ÉL HASTA EL FINAL', show: { test: () => !!S.flags.topolevPast && (S.trust || 0) >= 70 }, cls: 'cyan', effects: [{ run: () => endGameLazy('fusion') }], goto: 'end' },
+          { label: 'TODAVÍA NO: SEGUIR TRABAJANDO (SE VOLVERÁ A PLANTEAR TRAS OTRA BAJADA AL ÚTERO)' },
+        ],
+      },
+      end: { text: '«Que así sea.» El doctor se pone el abrigo. Fuera empieza a nevar ceniza.', opts: [{ label: 'CONTINUAR' }] },
+    },
+  },
+
   base_letter: {
     title: 'CORRESPONDENCIA', speaker: 'Carta sin remite', color: '#c8b48c',
     nodes: {
@@ -511,3 +543,14 @@ const PRISONER_LINES = {
 };
 
 const KGB_DOCS = ['intel', 'docs', 'blackbox', 'foreigndiary'];
+
+// el final se resuelve en core/story.js (import diferido para no crear un ciclo al cargar)
+let storyMod = null;
+import('../core/story.js').then((m) => { storyMod = m; });
+function endGameLazy(id) { if (storyMod) storyMod.endGame(id); }
+
+let basecoreMod = null;
+import('../core/basecore.js').then((m) => { basecoreMod = m; });
+import('../data/basedata.js').then((m) => { ATTACKS_REF = m.ATTACKS; });
+let ATTACKS_REF = null;
+const ATTACK_INFO = () => (S.attack && ATTACKS_REF ? ATTACKS_REF[S.attack.kind] : null);

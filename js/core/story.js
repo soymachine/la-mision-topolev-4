@@ -1,0 +1,291 @@
+// Narrativa y moral de la campaña (fase 20): actos, confianza de Topolev, crónica, comedor, cartas,
+// epitafios, afinidad entre agentes, estrés y encargos.
+import { S, addMessage } from './state.js';
+import { ITEMS } from '../data/items.js';
+import { MAPS, mapIndex, zoneOpen, openCount } from '../data/world.js';
+import { SCENES, ENDINGS, STAFF, COMEDOR, LETTERS_FROM, EPITAPHS, LAST_LETTERS, ACTS } from '../data/story.js';
+import { FACTIONS, addRep, repOf } from '../data/factions.js';
+import { createItem } from './items.js';
+import { NOTES, COLLECTIONS } from '../data/lore.js';
+import { rng } from '../util/rng.js';
+
+const pick = (l) => l[Math.floor(Math.random() * l.length)];
+
+// ---------------------------------------------------------------- estado
+export function storyDefaults(d) {
+  if (d.act == null) d.act = 0;
+  if (d.trust == null) d.trust = 50;
+  d.chronicle = d.chronicle || [];
+  d.affinity = d.affinity || {};
+  d.pendingScenes = d.pendingScenes || [];
+  d.contracts = d.contracts || { active: [], done: [], offers: null, offersDay: 0 };
+  d.notesRead = d.notesRead || {};
+  d.colsDone = d.colsDone || {};
+  d.comedor = d.comedor || [];
+  for (const a of d.agents || []) if (a.stress == null) a.stress = 0;
+}
+
+// ---------------------------------------------------------------- crónica del director (exportable)
+export function chronicle(text) {
+  S.chronicle = S.chronicle || [];
+  S.chronicle.push({ day: S.day, text });
+  if (S.chronicle.length > 400) S.chronicle.splice(0, S.chronicle.length - 400);
+}
+export function chronicleText() {
+  const date = (d) => new Date(1986, 4, 1 + d).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+  const head = `CRÓNICA DEL DIRECTOR · PUESTO PRIPYAT-7\n${'═'.repeat(48)}\n${ACTS[S.act] ? ACTS[S.act].name : ''}\nDía ${S.day}. Agentes: ${S.agents.length}. Caídos: ${S.fallen.length}. Esencia total: ${S.stats.essTotal}.\n\n`;
+  return head + S.chronicle.map((c) => `[Día ${c.day} · ${date(c.day)}] ${c.text}`).join('\n') + (S.ending ? `\n\nFINAL: ${ENDINGS[S.ending].name}.\n` : '\n');
+}
+
+// ---------------------------------------------------------------- confianza del Dr. Topolev (0–100)
+export function trust(n, why) {
+  const before = S.trust ?? 50;
+  S.trust = Math.max(0, Math.min(100, Math.round(before + n)));
+  if (why && Math.abs(n) >= 4) addMessage(`${n > 0 ? 'Topolev confía más en vosotros' : 'Topolev confía menos en vosotros'}: ${why} (${S.trust}/100).`);
+  return S.trust;
+}
+export const trustLevel = (v = S.trust) => (v >= 75 ? 'Plena confianza' : v >= 55 ? 'Confía' : v >= 35 ? 'Recelo' : 'Desconfianza');
+
+// ---------------------------------------------------------------- actos y escenas
+export function queueScene(id) { (S.pendingScenes = S.pendingScenes || []).push(id); }
+export function sceneDef(id) {
+  if (id.startsWith('end:')) {
+    const E = ENDINGS[id.slice(4)];
+    return { title: `FINAL · ${E.name.toUpperCase()}`, art: E.art, color: E.color, lines: [...E.lines, ...(S.endingLines || [])] };
+  }
+  return SCENES[id] || null;
+}
+const totalCleared = () => Object.values(S.cleared || {}).reduce((a, b) => a + (b > 0 ? 1 : 0), 0);
+export function checkActs() {
+  if (!S.act) { S.act = 1; queueScene('act1'); chronicle('Comienza el Acto I: «El Bloque». Llegada al Puesto Pripyat-7.'); }
+  const foreign = Object.keys(S.met || {}).some((f) => f !== 'rda');
+  if (S.act === 1 && ((foreign && totalCleared() >= 2) || openCount(S) >= 8 || (S.cleared.metro2 || 0) > 0)) {
+    S.act = 2; queueScene('act2'); chronicle('Comienza el Acto II: «Los otros». La Zona se llena de expediciones extranjeras.');
+  }
+  if (S.act === 2 && (S.flags.topolevPast || (S.cleared.objeto7 || 0) > 0 || (S.cleared.raices || 0) > 0)) {
+    S.act = 3; queueScene('act3'); chronicle('Comienza el Acto III: «El corazón». El pasado del doctor sale a la luz.');
+  }
+  if (S.flags.topolevPast && !S.flags.pastScene) { S.flags.pastScene = 1; queueScene('past'); trust(-10, 'sabéis lo del Objeto 7'); }
+  // final: al volver con vida del Útero de Corium
+  // (si se aplaza, se vuelve a preguntar tras la siguiente extracción del Útero)
+  if (!S.ending && (S.cleared.corium || 0) > (S.flags.finaleAsked || 0)) {
+    S.flags.finaleAsked = S.cleared.corium;
+    (S.pendingDialogs = S.pendingDialogs || []).push('finale');
+  }
+}
+// epílogo según lo vivido
+export function endGame(id) {
+  S.ending = id;
+  const L = [];
+  if (S.flags.komitetSold) L.push('El Comité recordará que le vendisteis esencia en efectivo. Siempre lo recuerda todo.');
+  if ((S.flags.survivorsSaved || 0) > 0) L.push(`${S.flags.survivorsSaved} superviviente(s) rescatados cuentan vuestra historia en voz baja.`);
+  if ((S.flags.executions || 0) > 0) L.push('Algunos prisioneros nunca volvieron a casa. Eso tampoco se olvida.');
+  if (S.fallen.length) L.push(`En el memorial de Pripyat-7 hay ${S.fallen.length} nombre(s). ${S.fallen.slice(0, 3).map((f) => f.name).join(', ')}${S.fallen.length > 3 ? '…' : ''}`);
+  if (repOf(S, 'rda') >= 50) L.push('En Leipzig, un antiguo soldado de la NVA brinda cada 26 de abril por los soviéticos que le salvaron.');
+  if (repOf(S, 'kgb') <= -25) L.push('Vuestro expediente en la Lubianka ocupa tres cajas. Nadie lo ha cerrado.');
+  L.push(`Confianza final del Dr. Topolev: ${S.trust}/100.`);
+  S.endingLines = L;
+  queueScene('end:' + id);
+  chronicle(`FINAL: ${ENDINGS[id].name}.`);
+}
+
+// ---------------------------------------------------------------- personal de la base
+export function staffLine(id) {
+  const st = STAFF[id];
+  if (!st || !st.lines) return null;
+  const i = (S.day * 7 + id.length * 3) % st.lines.length;
+  return { name: st.name, role: st.role, color: st.color, text: st.lines[i] };
+}
+
+// ---------------------------------------------------------------- afinidad entre agentes (−100…+100)
+const pairKey = (a, b) => (a.id < b.id ? a.id + '|' + b.id : b.id + '|' + a.id);
+export const affOf = (a, b) => (S.affinity && S.affinity[pairKey(a, b)]) || 0;
+export function addAff(a, b, n) {
+  if (!a || !b || a === b) return 0;
+  S.affinity = S.affinity || {};
+  const k = pairKey(a, b);
+  S.affinity[k] = Math.max(-100, Math.min(100, (S.affinity[k] || 0) + n));
+  return S.affinity[k];
+}
+export const affState = (v) => (v >= 70 ? 'inseparables' : v >= 30 ? 'camaradas' : v <= -30 ? 'rivales' : null);
+export const AFF_TEXT = { inseparables: 'Inseparables', camaradas: 'Camaradas', rivales: 'Rivales' };
+export function relationsOf(a) {
+  const out = [];
+  for (const b of S.agents) { if (b === a) continue; const v = affOf(a, b); const st = affState(v); if (st) out.push({ b, v, st }); }
+  return out.sort((x, y) => Math.abs(y.v) - Math.abs(x.v));
+}
+
+// ---------------------------------------------------------------- estrés (0–100)
+export function addStress(a, n) { if (!a) return 0; if (n > 0 && S.research && S.research.r_psico) n *= 0.75; a.stress = Math.max(0, Math.min(100, Math.round(((a.stress || 0) + n) * 10) / 10)); return a.stress; }
+export const stressLevel = (v) => (v >= 85 ? 'Al límite' : v >= 70 ? 'Muy alto' : v >= 45 ? 'Tenso' : v >= 20 ? 'Inquieto' : 'Sereno');
+
+// ---------------------------------------------------------------- comedor, cartas y epitafios
+const nameOf = (a) => (a ? a.nick : '');
+function fill(t, v) { return t.replace(/\{(\w+)\}/g, (m, k) => (v[k] != null ? v[k] : m)); }
+// escena del comedor tras una expedición
+export function comedorScene(rep) {
+  const alive = S.agents.slice();
+  if (!alive.length) return;
+  const A = pick(alive), B = alive.length > 1 ? pick(alive.filter((x) => x !== A)) : null;
+  const dead = (rep.agents || []).filter((r) => r.status !== 'extraído');
+  let pool, vars = { a: nameOf(A), b: B ? nameOf(B) : 'Babai', z: rep.map };
+  if (dead.length) { pool = COMEDOR.dead; vars.d = dead[0].name; }
+  else {
+    const rel = B ? affState(affOf(A, B)) : null;
+    const stressed = alive.find((x) => (x.stress || 0) >= 60);
+    if (stressed) { pool = COMEDOR.stressed; vars.a = nameOf(stressed); }
+    else if (rel === 'rivales') pool = COMEDOR.rivals;
+    else if (rel) pool = COMEDOR.friends;
+    else pool = rep.result === 'success' ? COMEDOR.success : COMEDOR.quiet;
+  }
+  const text = fill(pick(pool), vars);
+  S.comedor = [{ day: S.day, text }, ...(S.comedor || [])].slice(0, 6);
+  // el comedor alivia un poco el estrés (más con el edificio)
+  const k = 4 + ((S.modules && S.modules.comedor) || 0) * 3;
+  for (const a of alive) addStress(a, -k);
+}
+export function familyLetter() {
+  if (!S.agents.length) return null;
+  const a = pick(S.agents);
+  const L = pick(LETTERS_FROM);
+  const text = fill(L.text, { Hijo: a.female ? 'Hija mía' : 'Hijo mío', PAPA: a.female ? 'MAMÁ' : 'PAPÁ' });
+  addStress(a, -12);
+  addMessage(`Correo para ${a.nick}, de ${L.from}: ${text}`);
+  chronicle(`${a.nick} recibe una carta de ${L.from}.`);
+  return a;
+}
+export function memorialEntry(f, a, zone) {
+  const friends = S.agents.filter((b) => b !== a && affOf(a, b) >= 30);
+  f.epitaph = fill(pick(EPITAPHS), { nick: a.nick, z: zone });
+  f.letter = fill(pick(LAST_LETTERS), { friend: friends[0] ? friends[0].nick : 'quien la necesite' });
+  return f;
+}
+
+// ---------------------------------------------------------------- colecciones de notas (fase 20.6)
+export function collectionProgress(col) {
+  const idx = NOTES.map((n, i) => (n.col === col ? i : -1)).filter((i) => i >= 0);
+  return { read: idx.filter((i) => S.notesRead[i]).length, total: idx.length, idx };
+}
+// marca una nota como leída; si completa su colección, entrega la recompensa y devuelve el texto
+export function markNoteRead(i) {
+  S.notesRead = S.notesRead || {};
+  if (S.notesRead[i]) return null;
+  S.notesRead[i] = S.day;
+  const col = NOTES[i] && NOTES[i].col;
+  if (!col || S.colsDone[col]) return null;
+  const p = collectionProgress(col);
+  if (p.read < p.total) return null;
+  S.colsDone[col] = S.day;
+  const C = COLLECTIONS[col], r = C.reward, got = [];
+  if (r.rub) { S.rub += r.rub; got.push(`${r.rub} ₽`); }
+  if (r.ess) { S.ess += r.ess; got.push(`${r.ess} ✦`); }
+  if (r.rep) { addRep(S, r.rep[0], r.rep[1]); got.push(`reputación ${FACTIONS[r.rep[0]].short} +${r.rep[1]}`); }
+  if (r.trust) { trust(r.trust); got.push(`confianza de Topolev ${r.trust > 0 ? '+' : ''}${r.trust}`); }
+  if (r.stress) { for (const a of S.agents) addStress(a, r.stress); got.push('el equipo respira más tranquilo'); }
+  if (r.item) { const it = createItem(r.item, 4, rng); it.nm = r.nm; S.stash.push(it); got.push(`«${r.nm}» (al almacén)`); }
+  const txt = `Colección completa: «${C.name}». ${got.join(', ')}.`;
+  addMessage(txt);
+  chronicle(txt);
+  return txt;
+}
+// elige una nota no leída (para que las colecciones se puedan completar)
+export function unreadNote(g = rng) {
+  const un = NOTES.map((n, i) => i).filter((i) => !S.notesRead || !S.notesRead[i]);
+  return un.length ? un[Math.floor(g.float(0, 1) * un.length)] : null;
+}
+
+// ---------------------------------------------------------------- encargos (fase 20.5)
+// tipo: deliver (entregar un objeto del almacén), photo, capture, escort / sabotage / missing (en una zona)
+export const CONTRACTS = {
+  blackbox: { giver: 'zhdanov', name: 'La caja negra', desc: 'El Comité quiere la caja negra de un helicóptero estrellado. Traedla al almacén.', kind: 'deliver', item: 'blackbox', reward: { rub: 700, rep: ['kgb', 10], trust: 2 } },
+  escort: { giver: 'suecia', name: 'Escolta a Forsmark', desc: 'Un dosimetrista sueco se ha perdido en Prípiat. Encontradlo y llevadlo vivo hasta una extracción.', kind: 'escort', zone: 'pripyat', reward: { rub: 450, rep: ['suecia', 18], item: ['rados', 'Dosímetro «Forsmark»'] } },
+  photo_pastor: { giver: 'topolev', name: 'Retrato de un pastor', desc: 'Topolev necesita una fotografía del Pastor de Ceniza para su catálogo. Usad la cámara Zenit-E.', kind: 'photo', target: 'pastor', reward: { rub: 500, trust: 8, item: ['zenit', 'Zenit-E «del doctor»'] } },
+  capture_wolf: { giver: 'topolev', name: 'Un lobo vivo', desc: 'Capturad vivo un Lobo de grafito (jaula de captura) y traedlo a la base.', kind: 'capture', target: 'lobo', reward: { rub: 400, trust: 6, ess: 40 } },
+  sabotage: { giver: 'zhdanov', name: 'Sabotaje en «Fénix»', desc: 'Colocad una carga en el centro de mando de la estación «Fénix» (F junto a la consola marcada) y salid con vida.', kind: 'sabotage', zone: 'fenix', reward: { rub: 1500, rep: ['kgb', 15], item: ['svd', 'SVD «Zhdánov»'] } },
+  missing: { giver: 'orlova', name: 'El agente desaparecido', desc: 'Un cabo del Puesto lleva días desaparecido, pero su radiobaliza sigue emitiendo. Encontradlo y traedlo de vuelta.', kind: 'missing', reward: { rub: 200, trust: 5 } },
+  wismut_samples: { giver: 'rda', name: 'Muestras para Wismut', desc: 'La RDA paga bien por 3 muestras de grafito.', kind: 'deliver', item: 'graphsample', n: 3, reward: { rub: 450, rep: ['rda', 12] } },
+  cuba_meds: { giver: 'cuba', name: 'Medicinas para Kiev', desc: 'La Brigada «Playa Girón» necesita 2 botiquines AI-2 para el hospital de Kiev.', kind: 'deliver', item: 'ai2', n: 2, reward: { rub: 200, rep: ['cuba', 15], item: ['gironkit', 'Botiquín de la doctora Pérez'] } },
+  kravets_intel: { giver: 'kravets', name: 'Papeles para la trastienda', desc: 'El sargento Kravets tiene un comprador para 2 informes de inteligencia occidental. Sin preguntas.', kind: 'deliver', item: 'intel', n: 2, reward: { rub: 1100, rep: ['kgb', -8] } },
+};
+export const GIVER_NAME = (g) => (STAFF[g] ? STAFF[g].name : FACTIONS[g] ? FACTIONS[g].name : g);
+// ofertas del día (3 al azar entre las disponibles)
+export function contractOffers() {
+  const C = S.contracts;
+  if (C.offers && C.offersDay === S.day) return C.offers;
+  const busy = new Set([...C.active.map((c) => c.id), ...C.done]);
+  const pool = Object.keys(CONTRACTS).filter((id) => !busy.has(id) && contractAvailable(id));
+  const offers = [];
+  while (offers.length < 3 && pool.length) offers.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+  C.offers = offers; C.offersDay = S.day;
+  return offers;
+}
+function contractAvailable(id) {
+  const c = CONTRACTS[id];
+  if (c.zone && !zoneOpen(S, mapIndex(c.zone))) return false;
+  if (FACTIONS[c.giver] && repOf(S, c.giver) < 0) return false;
+  return true;
+}
+export function acceptContract(id) {
+  const C = S.contracts;
+  if (C.active.length >= 3) return { ok: false, msg: 'Ya tenéis 3 encargos en marcha.' };
+  const c = { id, day: S.day };
+  if (CONTRACTS[id].kind === 'missing') {
+    const open = MAPS.filter((m, i) => zoneOpen(S, i) && m.id !== 'wismut');
+    c.zone = (open[Math.floor(Math.random() * open.length)] || MAPS[0]).id;
+    c.who = pick(['Pável Sidorenko', 'Yelena Morózova', 'Bogdán Karpenko', 'Zoya Lébedeva']);
+  }
+  C.active.push(c);
+  C.offers = (C.offers || []).filter((x) => x !== id);
+  chronicle(`Encargo aceptado: «${CONTRACTS[id].name}» (${GIVER_NAME(CONTRACTS[id].giver)}).`);
+  return { ok: true };
+}
+export function contractZone(c) { return c.zone || CONTRACTS[c.id].zone || null; }
+// ¿se ha cumplido? (en la base, tras cada expedición)
+export function contractMet(c) {
+  const d = CONTRACTS[c.id];
+  const has = (b, n = 1, sp = null) => S.stash.filter((it) => it.b === b && (!sp || it.species === sp)).reduce((k, it) => k + (it.q || 1), 0) >= n;
+  if (d.kind === 'deliver') return has(d.item, d.n || 1);
+  if (d.kind === 'photo') return !!(S.photos && S.photos[d.target]);
+  if (d.kind === 'capture') return has('cagefull', 1, d.target);
+  return !!c.done;
+}
+export function completeContracts() {
+  const C = S.contracts;
+  const done = [];
+  for (const c of [...C.active]) {
+    if (!contractMet(c)) continue;
+    const d = CONTRACTS[c.id];
+    // retirar lo entregado
+    if (d.kind === 'deliver' || d.kind === 'capture') {
+      let need = d.kind === 'capture' ? 1 : d.n || 1;
+      for (const it of [...S.stash]) {
+        if (need <= 0) break;
+        if (it.b !== (d.kind === 'capture' ? 'cagefull' : d.item) || (d.kind === 'capture' && it.species !== d.target)) continue;
+        const mv = Math.min(it.q || 1, need); need -= mv;
+        if (it.q > mv) it.q -= mv; else S.stash.splice(S.stash.indexOf(it), 1);
+      }
+    }
+    const r = d.reward;
+    const got = [];
+    if (r.rub) { S.rub += r.rub; got.push(`${r.rub} ₽`); }
+    if (r.ess) { S.ess += r.ess; got.push(`${r.ess} ✦`); }
+    if (r.rep) { addRep(S, r.rep[0], r.rep[1]); got.push(`reputación ${FACTIONS[r.rep[0]].short} ${r.rep[1] > 0 ? '+' : ''}${r.rep[1]}`); }
+    if (r.trust) { trust(r.trust); got.push(`confianza de Topolev +${r.trust}`); }
+    if (r.item) { const it = createItem(r.item[0], 4, rng); it.nm = r.item[1]; S.stash.push(it); got.push(`«${r.item[1]}»`); }
+    C.active.splice(C.active.indexOf(c), 1);
+    C.done.push(c.id);
+    addMessage(`Encargo cumplido: «${d.name}». ${GIVER_NAME(d.giver)} os entrega ${got.join(', ')}.`);
+    chronicle(`Encargo cumplido: «${d.name}».`);
+    done.push(d.name);
+  }
+  return done;
+}
+export function dropContract(id) {
+  const C = S.contracts;
+  const i = C.active.findIndex((c) => c.id === id);
+  if (i < 0) return;
+  C.active.splice(i, 1);
+  const d = CONTRACTS[id];
+  if (d.giver === 'topolev') trust(-4, 'abandonáis su encargo');
+  if (FACTIONS[d.giver]) addRep(S, d.giver, -5);
+}

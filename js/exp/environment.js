@@ -16,6 +16,7 @@ import { RADIO } from '../data/lore.js';
 import { D8, FISTS, BLOCKING_OBJ, ESSENCE_COLOR } from './shared.js';
 import { ACTORS } from '../data/actors.js';
 
+import { addStress } from '../core/story.js';
 export class EnvironmentPart {
   // ---------------------------------------------------------------- entorno
   environment() {
@@ -57,7 +58,17 @@ export class EnvironmentPart {
     this.terrainTick();
     if (this.ended) return;
     this.zoneTick();
+    // defensa de la base: cuando no quedan atacantes, se gana
+    if (this.def.special === 'defensa' && !this.defenseWon && this.turn > 3 && !this.enemies.some((e) => e.attacker && e.hp > 0)) {
+      this.defenseWon = 1;
+      this.say('★ ¡El Puesto resiste! No queda ni un atacante en pie.', 'good');
+      for (const sq of [...this.team]) this.extract(sq);
+      this.checkActive();
+      return;
+    }
     this.factionTick();
+    this.moraleTick();
+    this.contractTick();
     if (this.ended) return;
     // humo y detector
     for (let k = 0; k < N; k++) if (this.smoke[k]) this.smoke[k]--;
@@ -76,6 +87,11 @@ export class EnvironmentPart {
       // radiación
       let r = this.rad[k] + this.ambient + surge * 0.45;
       if (this.surface && this.weather === 'lluvia' && this.outdoors(sq.x, sq.y)) r += this.flag(sq, 'rainShield') ? 0.05 : 0.25;
+      // invierno: hipotermia al raso sin abrigo
+      if (this.season === 'invierno' && this.surface && this.outdoors(sq.x, sq.y) && !this.flag(sq, 'warm') && this.turn % 12 === 0) {
+        const armor = sq.a.equip.armor;
+        if (!(armor && (ITEMS[armor.b].rad || 0) >= 25)) { this.damageAgent(sq, 1, 'hipotermia'); addStress(sq.a, 1); if (sq === this.cur && this.turn % 48 === 0) this.say(`${this.nm(sq)} tirita: el frío del invierno cala hasta los huesos (abrigo de invierno o un traje grueso lo evitan).`, 'warn'); if (!this.inMap(sq)) continue; }
+      }
       const tt = this.t[k];
       if ((tt === T.WATER || tt === T.DEEP) && this.flag(sq, 'waterproof')) r = Math.max(0, r - 0.5 - this.def.ambientRad * 0.5);
       for (const e of this.enemies) if (ACTORS[e.type].abil.includes('aura') && cheb(e.x, e.y, sq.x, sq.y) <= 2) r += 3 + e.lvl * 0.4;
@@ -153,7 +169,7 @@ export class EnvironmentPart {
     // radio ambiental
     if (this.turn >= this.nextRadio) {
       this.nextRadio = this.turn + rng.int(60, 110);
-      this.say(`📻 ${rng.pick(RADIO)}`, 'dimt');
+      if (!this.interceptRadio()) this.say(`📻 ${rng.pick(RADIO)}`, 'dimt');
     }
     // evacuación
     if (this.evac) {

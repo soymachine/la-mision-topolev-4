@@ -206,6 +206,13 @@ export const MODULES = [
   { id: 'barracones', name: 'Barracones', glyph: '⌂', desc: 'Más agentes en plantilla y escuadrones más grandes.', eff: (l) => `Plantilla ${4 + l * 2} · escuadrón de ${squadSize(l)}` },
   { id: 'almacen', name: 'Almacén', glyph: '▤', desc: 'Más capacidad para guardar objetos en la base.', eff: (l) => `Capacidad ${stashSize(l)} objetos` },
   { id: 'garaje', name: 'Garaje', glyph: 'Ш', desc: 'Compra, mejora y repara compañeros mecánicos: el perro «Laika-M» y los drones.', eff: (l) => ['Sin garaje', 'Laika-M, Strizh y módulos básicos · reparaciones', '+ dron Mula, Eco y más módulos', '+ Kamikadze y Relé', 'reparaciones −25%', 'reparaciones −50%'][l] },
+  { id: 'banya', name: 'Banya', glyph: '♨', desc: 'Sauna rusa: vapor, abedul y silencio. El mejor remedio contra el estrés.', eff: (l) => (l ? `−${6 + l * 5} de estrés al día por agente` : 'Sin banya') },
+  { id: 'comedor', name: 'Comedor', glyph: '☕', desc: 'Pelmeni, té y conversación. Las escenas del comedor alivian más el estrés y suben la afinidad.', eff: (l) => (l ? `comedor: −${4 + l * 3} de estrés tras cada expedición · +${l} de afinidad entre supervivientes` : 'Se cena de pie') },
+  { id: 'invernadero', name: 'Invernadero', glyph: '♣', desc: 'Hidroponía bajo lámparas: raciones y medicinas de hierbas cada día.', eff: (l) => (l ? `cada día: ${l} objeto(s) (raciones, yodo, vendas, té)` : 'Sin invernadero') },
+  { id: 'contencion', name: 'Celda de contención', glyph: '#', desc: 'Para los chebylitas capturados vivos: producen esencia cada día… y a veces se escapan.', eff: (l) => (l ? `${l * 2} celda(s) · fugas ${Math.max(1, 5 - l)}% al día por espécimen` : 'Sin celdas') },
+  { id: 'refugio', name: 'Refugio antirradiación', glyph: '☢', desc: 'Búnker de plomo: los agentes eliminan más radiación al descansar.', eff: (l) => (l ? `−${l * 6} de radiación extra al día` : 'Sin refugio') },
+  { id: 'taller_fab', name: 'Taller de fabricación', glyph: '⚒', desc: 'Fabricar munición, medicinas, mods y mejoras con materiales; desmontar objetos.', eff: (l) => (l ? `recetas de nivel ${Math.min(3, l)}${l >= 4 ? ' · desmontar da un 50% más' : ''}` : 'Sin taller') },
+  { id: 'sala_radio', name: 'Sala de radio', glyph: '╪', desc: 'Antenas y descifradores: más mensajes interceptados, mejor reputación y mejores precios del KGB.', eff: (l) => (l ? `+${l * 10}% interceptaciones · +${l} de reputación ganada · KGB +${l * 5}%` : 'Radio de mano') },
   { id: 'laboratorio', name: 'Laboratorio de esencia', glyph: '✦', desc: 'Extrae más esencia de cada chebylita y desbloquea la tecnología de esencia.', eff: (l) => `+${l * 10}% esencia${l >= 3 ? ' · celdas de esencia' : ''}` },
 ];
 export const MODULE_MAX = 5;
@@ -216,7 +223,7 @@ export function moduleCost(id, lvl) {
   // coste para pasar de lvl a lvl+1
   const ess = [40, 120, 300, 650, 1300][lvl];
   const rub = [150, 400, 900, 1800, 3500][lvl];
-  const f = { armeria: 1, polvorin: 0.7, blindaje: 1, enfermeria: 0.8, taller: 0.9, radar: 1.1, barracones: 1.2, almacen: 0.6, laboratorio: 1.3, garaje: 0.9 }[id] || 1;
+  const f = { armeria: 1, polvorin: 0.7, blindaje: 1, enfermeria: 0.8, taller: 0.9, radar: 1.1, barracones: 1.2, almacen: 0.6, laboratorio: 1.3, garaje: 0.9, banya: 0.6, comedor: 0.5, invernadero: 0.7, contencion: 1.0, refugio: 0.8, taller_fab: 0.9, sala_radio: 0.8 }[id] || 1;
   return { ess: Math.round(ess * f), rub: Math.round(rub * f) };
 }
 

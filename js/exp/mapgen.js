@@ -1166,6 +1166,16 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
       for (const [x, y] of far.slice(0, nSm)) spawns.push({ type: 'smuggler', lvl: g.int(lvMin, lvMax), x, y, state: 'errante', poi: null, faction: 'contrabandistas' });
     }
   }
+  // Defensa de la base (fase 21.6): los atacantes entran por los bordes
+  if (sp === 'defensa') {
+    for (const type of def.attackers || []) {
+      const spot = findSpot({ minDist: 22, poiGap: 0, tries: 200 }) || findSpot({ minDist: 12, poiGap: 0, tries: 200 });
+      if (!spot) continue;
+      const human = !ENEMIES[type];
+      spawns.push({ type, lvl: g.int(lvMin, lvMax), x: spot[0], y: spot[1], state: 'alerta', poi: null, faction: human ? def.attackFaction : undefined, attacker: 1 });
+      blocked[I(spot[0], spot[1])] = 2;
+    }
+  }
   // Útero de corium: lagos de combustible fundido
   if (sp === 'corium') {
     for (let n = 0; n < g.int(6, 10); n++) {
@@ -1196,6 +1206,7 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
   const railRows = [];
   if (sp === 'tren') for (let y = 1; y < H - 1; y++) { let n = 0; for (let x = 0; x < W; x++) if (t[I(x, y)] === T.RAIL) n++; if (n > W * 0.5) railRows.push(y); }
   // fase 19: contenedores sellados (soldadura, soplete) y minas enemigas ocultas (sonda sísmica)
+  for (const o of objects) if ((o.kind === 'locker' || o.kind === 'crate' || o.kind === 'corpse') && o.items && g.chance(0.22)) o.items.push(createItem(g.pick(['chatarra', 'chatarra', 'electronica', 'plomo']), 0, g, g.int(1, 3)));
   for (const o of objects) if ((o.kind === 'locker' || o.kind === 'crate') && !o.vault && !o.owner && !o.special && g.chance(0.12)) { o.sealed = 1; o.items.push(rollLoot(Math.min(10, lvMax + 1), g, { rarityBonus: 0.5 })); }
   const mines = [];
   if (tier >= 3 && g.chance(0.55)) {

@@ -17,6 +17,7 @@ import { D8, FISTS, BLOCKING_OBJ, ESSENCE_COLOR } from './shared.js';
 import { ACTORS } from '../data/actors.js';
 
 import { modEss } from '../data/modifiers.js';
+import { addStress, markNoteRead } from '../core/story.js';
 // objetos que abren un diálogo al usarlos (fase 17); o.dlg permite otro diálogo
 const OBJ_DIALOG = { trader: 'wismut_trader', medic: 'wismut_medic', board: 'wismut_board', archive: 'objeto7_archive' };
 export class UsePart {
@@ -31,7 +32,7 @@ export class UsePart {
         const o = this.objAt(sq.x + dx, sq.y + dy);
         if (!o) continue;
         if (o.kind === 'cart') continue;
-        const usable = o.kind === 'vein' || o.kind === 'shard' ? o.amount > 0 : o.kind === 'note' ? dx === 0 && dy === 0 : o.kind === 'survivor' || OBJ_DIALOG[o.kind] ? true : o.kind === 'radio' ? !o.opened : !o.opened || (o.items && o.items.length);
+        const usable = o.kind === 'vein' || o.kind === 'shard' ? o.amount > 0 : o.kind === 'note' ? dx === 0 && dy === 0 : o.kind === 'survivor' || OBJ_DIALOG[o.kind] ? true : o.kind === 'radio' || o.kind === 'sabotage' ? !o.opened : !o.opened || (o.items && o.items.length);
         if (usable) return this.interactObj(sq, o);
       }
       // 2b. personas: prisioneros y gente con la que se puede hablar
@@ -59,8 +60,11 @@ export class UsePart {
   interactObj(sq, o) {
     if (o.kind === 'vein' || o.kind === 'shard') return this.mine(sq, o);
     if (o.kind === 'radio') return this.listenRadio(sq, o);
+    if (o.kind === 'sabotage') return o.opened ? false : this.sabotage(sq, o);
+    if (o.kind === 'survivor' && o.missing) return this.rescueMissing(sq, o);
     if (o.kind === 'note') {
       // diarios de otras expediciones: se traducen al leerlos y el KGB los quiere
+      if (o.fnote == null && o.note != null) { const col = markNoteRead(o.note); if (col) this.say(`📚 ${col}`, 'good'); }
       if (o.fnote != null && !o.opened) { const it = createItem('foreigndiary', 0, rng); if (mergeInto(sq.a.bag, it, bagCapacity(sq.a))) this.addFloor(sq.x, sq.y, it); this.say(`${this.nm(sq)} se guarda el diario. Al KGB le interesará.`, 'o1'); }
       o.opened = true; this.dirty = true;
       if (sq === this.cur) this.emit('note', o);
@@ -105,7 +109,7 @@ export class UsePart {
     let n = rng.int(3, 6) * (st.mining ? 2 : 1);
     n = Math.min(n, o.amount);
     o.amount -= n;
-    const gain = Math.max(1, Math.round(n * (1 + st.essence / 100) * modEss(this.mods)));
+    const gain = Math.max(1, Math.round(n * (1 + st.essence / 100) * modEss(this.mods) * (S.research && S.research.r_cristal ? 1.2 : 1)));
     sq.ess += gain; this.tally.essence += gain;
     this.fx.push({ type: 'mine', x: o.x, y: o.y, tx: sq.x, ty: sq.y, n: gain });
     this.noise(o.x, o.y, 7);
@@ -210,6 +214,22 @@ export class UsePart {
         if (d.buff) { this.addBuff(sq, d.buff); parts.push(`${d.buff.name} ${d.buff.turns}t`); }
         this.fx.push({ type: 'heal', x: sq.x, y: sq.y, color: d.use === 'antirad' ? '#b8f53d' : d.use === 'buff' ? '#ffb02e' : null });
         this.say(`${this.nm(sq)} usa ${d.name}${parts.length ? ` (${parts.join(', ')})` : ''}.`, 'good');
+        break;
+      }
+      case 'vodka': {
+        addStress(a, -15);
+        a.hp = Math.min(st.hpMaxEff, a.hp + 3);
+        a.vodka = (a.vodka || 0) + 1;
+        this.say(`${this.nm(sq)} da un trago de vodka. El miedo se aparta un poco (−15 estrés).`, 'o1');
+        if (a.vodka >= 6) this.acquire(sq, 'adicto');
+        break;
+      }
+      case 'dronekit': {
+        const dog = this.enemies.find((x) => x.type === 'laika' && Math.max(Math.abs(x.x - sq.x), Math.abs(x.y - sq.y)) <= 1);
+        const comp = a.equip.comp;
+        if (dog) { dog.hp = Math.min(dog.hpMax, dog.hp + Math.ceil(dog.hpMax / 2)); this.say(`${this.nm(sq)} repara a Laika (${dog.hp}/${dog.hpMax}).`, 'good'); }
+        else if (comp && ITEMS[comp.b].cat === 'companion' && !comp.broken && comp.hp != null) { comp.hp = Math.min(ITEMS[comp.b].hp || comp.hp, comp.hp + Math.ceil((ITEMS[comp.b].hp || 10) / 2)); this.say(`${this.nm(sq)} repara su ${ITEMS[comp.b].name}.`, 'good'); }
+        else { this.say('No hay ningún compañero mecánico al lado que reparar.', 'dimt'); return false; }
         break;
       }
       case 'whitenoise':
@@ -426,7 +446,7 @@ export class UsePart {
     else if (slot && slot !== 'case') a.equip[slot] = null;
     else return false;
     c.vault.push(it);
-    this.say(`${this.nm(sq)} guarda <span style="color:${rarityColor(it.r)}">${esc(itemName(it))}</span> en el contenedor y lo sella <span class="dimt">[▣ ${caseUsed(c)}/${ITEMS[c.b].caseSlots}]</span>.`, 'o1');
+    this.say(`${this.nm(sq)} guarda <span style="color:${rarityColor(it.r)}">${esc(itemName(it))}</span> en el contenedor y lo sella <span class="dimt">[▣ ${caseUsed(c)}/${ITEMS[c.b].caseSlots + (c.caseBonus || 0)}]</span>.`, 'o1');
     this.fx.push({ type: 'pickup', x: sq.x, y: sq.y, color: '#ffd23f' });
     return true;
   }

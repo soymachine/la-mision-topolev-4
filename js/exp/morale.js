@@ -1,0 +1,219 @@
+// Expedición · Moral (fase 20): estrés, aflicciones y virtudes, afinidad entre agentes, duelo y encargos en zona
+// (métodos mezclados en Expedition: ver expedition.js)
+import { rng, cheb } from '../util/rng.js';
+import { S } from '../core/state.js';
+import { ACTORS } from '../data/actors.js';
+import { addStress, addAff, affOf, affState, memorialEntry, CONTRACTS, contractZone } from '../core/story.js';
+import { esc } from '../util/dom.js';
+import { INTERCEPTS } from '../data/lore.js';
+import { FACTIONS } from '../data/factions.js';
+
+const AFFLICTIONS = {
+  panico: { name: 'Pánico', turns: 2, desc: 'huye del enemigo más cercano' },
+  paranoia: { name: 'Paranoia', turns: 4, desc: 'dispara a cualquiera que se mueva', flags: { paranoia: 1 } },
+  temblor: { name: 'Temblor', turns: 5, desc: '−8 de puntería', mods: { acc: -8 } },
+};
+
+export class MoralePart {
+  // ---------------------------------------------------------------- estrés por turno
+  moraleTick() {
+    for (const sq of this.team) {
+      const a = sq.a;
+      let d = 0;
+      if (!this.isLit(sq.x, sq.y) && !this.agentLight(sq)) d += 0.12;      // oscuridad
+      if (this.rad[this.key(sq.x, sq.y)] > 1) d += 0.15;                    // radiación
+      if (this.flag(sq, 'music') || this.team.some((o) => o !== sq && cheb(o.x, o.y, sq.x, sq.y) <= 3 && this.flag(o, 'music'))) d -= 0.3; // la radio VEF
+      for (const o of this.team) if (o !== sq && cheb(o.x, o.y, sq.x, sq.y) <= 3 && affState(affOf(a, o.a)) === 'inseparables') d -= 0.1;
+      if (d) addStress(a, d);
+      // virtud: al cruzar el umbral, a veces alguien se crece
+      if (a.stress >= 70 && !sq.virtueRolled) {
+        sq.virtueRolled = 1;
+        if (rng.chance(0.18)) {
+          this.addBuff(sq, { name: 'Heroísmo', turns: 12, mods: { dmgPct: 30, acc: 4 } });
+          addStress(a, -25);
+          this.say(`★ ${this.nm(sq)} aprieta los dientes: «¡No me vais a ver temblar!» (Heroísmo: +30% daño, +4 puntería).`, 'good');
+          continue;
+        }
+      }
+      // aflicciones con estrés alto
+      if (a.stress >= 70 && !(sq.buffs || []).some((b) => b.aff) && rng.chance((a.stress - 60) / 600)) {
+        const id = rng.pick(Object.keys(AFFLICTIONS));
+        const A = AFFLICTIONS[id];
+        this.addBuff(sq, { name: A.name, turns: A.turns, mods: A.mods || {}, flags: A.flags || {}, aff: id });
+        this.say(`⚠ ${this.nm(sq)} sufre un ataque de ${A.name.toLowerCase()}: ${A.desc}.`, 'bad');
+        this.interrupt = true;
+      }
+    }
+  }
+  hasAffliction(sq, id) { return (sq.buffs || []).some((b) => b.aff === id); }
+  // pánico: el agente huye del hostil más cercano en lugar de actuar
+  panicStep(sq) {
+    const foe = this.enemies.filter((e) => this.hostile(sq, e) && this.isVisible(e.x, e.y)).sort((p, q) => Math.hypot(p.x - sq.x, p.y - sq.y) - Math.hypot(q.x - sq.x, q.y - sq.y))[0];
+    if (!foe) return false;
+    let best = null, bd = Math.hypot(foe.x - sq.x, foe.y - sq.y);
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
+      const nx = sq.x + dx, ny = sq.y + dy;
+      if (!this.passable(nx, ny) || this.entityAt(nx, ny)) continue;
+      const d = Math.hypot(foe.x - nx, foe.y - ny);
+      if (d > bd) { bd = d; best = [nx, ny]; }
+    }
+    this.say(`${this.nm(sq)} huye presa del pánico.`, 'warn');
+    if (best) { this.moveEntity(sq, best[0], best[1]); this.onAgentEnter(sq); }
+    return true;
+  }
+  // modificadores de moral para las estadísticas del agente (los usa ast)
+  moraleMods(sq, st) {
+    const a = sq.a;
+    const s = a.stress || 0;
+    if (s >= 70) { st.acc -= 3; st.vision = Math.max(3, st.vision - 1); } else if (s >= 45) st.acc -= 1;
+    for (const o of this.team) {
+      if (o === sq || cheb(o.x, o.y, sq.x, sq.y) > 3) continue;
+      const rel = affState(affOf(a, o.a));
+      if (rel === 'inseparables') { st.acc += 3; st.ev += 2; }
+      else if (rel === 'camaradas') st.acc += 1;
+      else if (rel === 'rivales') { st.acc -= 2; st.dmgPct = (st.dmgPct || 0) + 10; }
+    }
+  }
+
+  // ---------------------------------------------------------------- sucesos que tocan la moral
+  // un agente muere: duelo, venganza y la entrada del memorial
+  moraleOnDeath(sq, a, killer) {
+    const f = S.fallen[0];
+    if (f) memorialEntry(f, a, this.def.name);
+    for (const o of this.team) {
+      if (o === sq) continue;
+      const v = affOf(a, o.a);
+      addStress(o.a, 22 + (v >= 30 ? 18 : 0));
+      if (v >= 30) {
+        this.say(`${this.nm(o)} grita el nombre de ${esc(a.nick)}. (Duelo: +estrés.)`, 'bad');
+        if (killer && ACTORS[killer.type] && !o.a.vengeance && rng.chance(0.5)) {
+          o.a.vengeance = { type: killer.type, name: ACTORS[killer.type].name };
+          this.acquire(o, 'venganza');
+          this.say(`🔥 ${this.nm(o)} jura venganza contra ${ACTORS[killer.type].name}: +15% de daño contra su especie.`, 'warn');
+        }
+      }
+    }
+  }
+  // al ver a un jefe por primera vez
+  moraleOnBoss(e) {
+    if (e.bossSeen) return;
+    e.bossSeen = 1;
+    for (const o of this.team) addStress(o.a, 8);
+  }
+  // emboscada: daño de alguien que no estaba a la vista
+  moraleOnAmbush(sq, srcE) {
+    if (srcE && !srcE.seen) addStress(sq.a, 4);
+  }
+  // fuego amigo
+  moraleOnFriendlyFire(src, victim) {
+    if (!src || !victim || src === victim || !src.a || !victim.a) return;
+    addAff(src.a, victim.a, -8);
+    addStress(victim.a, 3);
+  }
+  // compartir trinchera: abatir algo con un compañero cerca
+  moraleOnKill(src, e) {
+    if (!src || !src.a) return;
+    for (const o of this.team) if (o !== src && cheb(o.x, o.y, src.x, src.y) <= 3) { sq_trench(this, src, o); }
+    if (ACTORS[e.type] && ACTORS[e.type].boss) addStress(src.a, -15);
+    if (src.a.vengeance && src.a.vengeance.type === e.type) this.say(`${this.nm(src)} se cobra su venganza.`, 'good');
+  }
+
+  // ---------------------------------------------------------------- mensajes interceptados (fase 20.6)
+  // a veces la radio capta a otra facción hablando de un alijo: se marca en el radar
+  interceptRadio() {
+    if (!rng.chance(0.35 + ((S.modules.sala_radio || 0) * 0.1) + (S.research && S.research.r_comunicaciones ? 0.2 : 0))) return false;
+    const targets = this.objects.filter((o) => !o.opened && (o.owner || o.kind === 'cache' || o.kind === 'crate') && !this.explored[this.key(o.x, o.y)]);
+    if (!targets.length) return false;
+    const owned = targets.filter((o) => o.owner);
+    const o = owned.length ? rng.pick(owned) : rng.pick(targets);
+    const pool = INTERCEPTS.filter((m) => !o.owner || m.f === o.owner);
+    const m = rng.pick(pool.length ? pool : INTERCEPTS);
+    const s = this.sectorAt(o.x, o.y);
+    for (let y = o.y - 1; y <= o.y + 1; y++) for (let x = o.x - 1; x <= o.x + 1; x++) if (this.inb(x, y)) this.explored[this.key(x, y)] = 1;
+    if (!this.pois.some((p) => p.x === o.x && p.y === o.y)) this.pois.push({ type: 'cache', x: o.x, y: o.y, lvl: o.lvl || 1, name: 'Alijo (radio interceptada)', best: 1 });
+    this.dirty = true;
+    this.say(`📻 <span style="color:${(FACTIONS[m.f] || {}).color || ''}">Interceptado (${(FACTIONS[m.f] || {}).short || '?'})</span>: ${m.t.replace(/\{s\}/g, s ? s.code : '?')} <span class="cyan">(marcado en el radar)</span>`, 'o1');
+    return true;
+  }
+
+  // ---------------------------------------------------------------- encargos con lugar (fase 20.5)
+  spawnContractStuff() {
+    const list = (S.contracts && S.contracts.active) || [];
+    for (const c of list) {
+      if (contractZone(c) !== this.def.id || this.floor) continue;
+      const d = CONTRACTS[c.id];
+      const spot = this.farSpot(20);
+      if (!spot) continue;
+      if (d.kind === 'escort') {
+        const e = this.spawnEnemy('swe_scientist', Math.max(1, this.def.lvl[0]), spot[0], spot[1], 'errante', null, 'suecia');
+        e.vip = c.id; e.home = [spot[0], spot[1]];
+        this.say(`📻 Encargo «${d.name}»: el dosimetrista sueco emite desde algún punto del mapa. Encontradlo y llevadlo a una extracción.`, 'cyan');
+      } else if (d.kind === 'sabotage') {
+        const o = { kind: 'sabotage', x: spot[0], y: spot[1], opened: false, items: [], contract: c.id };
+        this.objects.push(o); this.objMap.set(this.key(o.x, o.y), o);
+        this.pois.push({ type: 'cache', x: o.x, y: o.y, lvl: this.def.lvl[1], name: 'Centro de mando (sabotaje)', best: 3 });
+        this.say(`📻 Encargo «${d.name}»: el centro de mando está marcado en el radar.`, 'cyan');
+      } else if (d.kind === 'missing') {
+        const o = { kind: 'survivor', x: spot[0], y: spot[1], opened: true, items: [], line: 0, lvl: this.def.lvl[0], missing: c.who, contract: c.id };
+        this.objects.push(o); this.objMap.set(this.key(o.x, o.y), o);
+        this.pois.push({ type: 'cache', x: o.x, y: o.y, lvl: this.def.lvl[0], name: `Radiobaliza de ${c.who}`, best: 2 });
+        this.say(`📻 Encargo «${d.name}»: la radiobaliza de ${esc(c.who)} se capta en este mapa.`, 'cyan');
+      }
+    }
+  }
+  farSpot(minD) {
+    for (let i = 0; i < 400; i++) {
+      const x = rng.int(2, this.w - 3), y = rng.int(2, this.h - 3);
+      if (!this.passable(x, y) || this.entityAt(x, y) || this.objAt(x, y)) continue;
+      if (Math.hypot(x - this.start[0], y - this.start[1]) < minD) continue;
+      if (![[1, 0], [-1, 0], [0, 1], [0, -1]].every(([dx, dy]) => this.passable(x + dx, y + dy))) continue;
+      return [x, y];
+    }
+    return null;
+  }
+  // cada turno: el sueco se une al escuadrón cuando alguien llega a su lado
+  contractTick() {
+    for (const e of this.enemies) {
+      if (!e.vip || e.escort > 0) continue;
+      if (this.team.some((q) => cheb(q.x, q.y, e.x, e.y) <= 1)) {
+        e.escort = 999;
+        this.say(`${this.enm(e)}: «Tack! ¡Gracias! Os sigo hasta la extracción».`, 'good');
+      }
+    }
+  }
+  // al extraer a un agente: el sueco escoltado sale con él
+  contractOnExtract(sq) {
+    for (const e of [...this.enemies]) {
+      if (!e.vip || !(e.escort > 0) || cheb(e.x, e.y, sq.x, sq.y) > 3) continue;
+      this.dismissActor(e);
+      this.facState().contracts = { ...(this.facState().contracts || {}), [e.vip]: 1 };
+      this.say('⇑ El dosimetrista sueco sube con vosotros. Encargo cumplido.', 'good');
+    }
+  }
+  sabotage(sq, o) {
+    o.opened = true; this.dirty = true;
+    this.facState().contracts = { ...(this.facState().contracts || {}), [o.contract]: 1 };
+    this.noise(o.x, o.y, 20);
+    for (const e of this.enemies) if (e.faction === 'usa') { e.state = 'alerta'; e.mem = 25; e.lx = sq.x; e.ly = sq.y; }
+    this.fx.push({ type: 'explosion', x: o.x, y: o.y, r: 1 });
+    this.say('💥 La carga destroza el centro de mando. Suenan todas las alarmas de «Fénix»: ¡salid de aquí!', 'warn');
+    this.pois = this.pois.filter((p) => !(p.x === o.x && p.y === o.y));
+    return true;
+  }
+  rescueMissing(sq, o) {
+    this.facState().contracts = { ...(this.facState().contracts || {}), [o.contract]: 1 };
+    this.facState().rescued = { name: o.missing, lvl: Math.max(2, this.def.lvl[0]) };
+    this.objects.splice(this.objects.indexOf(o), 1); this.objMap.delete(this.key(o.x, o.y));
+    this.pois = this.pois.filter((p) => !(p.x === o.x && p.y === o.y));
+    this.say(`✚ ${esc(o.missing)} está vivo. Herido, sediento, pero vivo. «Sabía que vendríais». Se dirige a la extracción por su cuenta.`, 'good');
+    this.dirty = true;
+    return true;
+  }
+}
+function sq_trench(exp, a, b) {
+  exp.trench = exp.trench || {};
+  const k = a.id < b.id ? a.id + '|' + b.id : b.id + '|' + a.id;
+  if ((exp.trench[k] || 0) >= 10) return;
+  exp.trench[k] = (exp.trench[k] || 0) + 1;
+  addAff(a.a, b.a, 1);
+}

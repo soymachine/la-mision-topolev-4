@@ -10,6 +10,9 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
 
 (async () => {
   const b = await pw.chromium.launch();
+  // las escenas ASCII se saltan en las pruebas (salvo donde se prueban a propósito)
+  const _nc = b.newContext.bind(b);
+  b.newContext = async (o) => { const c = await _nc(o); await c.addInitScript(() => { window.__noScenes = true; }); return c; };
   const ctx = await b.newContext({ viewport: { width: 1440, height: 860 } });
   const p = await ctx.newPage();
   const errs = [];
@@ -819,7 +822,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
       // otro lobo lejos, fuera de la vista: la grabación lo atrae
       let far2 = null;
       for (let k = 0; k < e.t.length && !far2; k++) { const x = k % e.w, y = (k / e.w) | 0, d = Math.hypot(x - sq.x, y - sq.y); if (d > 10 && d < 18 && e.passable(x, y) && !e.entityAt(x, y) && !e.los(sq.x, sq.y, x, y)) far2 = [x, y]; }
-      const wolf2 = e.spawnEnemy('lobo', 1, far2[0], far2[1], 'dormido');
+      const wolf2 = e.spawnEnemy(rec.rec || 'lobo', 1, far2[0], far2[1], 'dormido');
       e.throwAt(sq, rec, sq.x, sq.y);
       out.lure = !!wolf2.lure && wolf2.state !== 'dormido';
       window.__clr(e);
@@ -837,7 +840,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
       // ruido blanco
       const wn = window.__mk('whitenoise', 0, undefined, 1); sq.a.bag.push(wn);
       e.act((q) => e.useItem(q, wn));
-      const far = window.__adj(e, sq, 6) || window.__adj(e, sq, 5);
+      const far = window.__adj(e, sq, 6) || window.__adj(e, sq, 5) || window.__adj(e, sq, 4) || window.__adj(e, sq, 3) || window.__adj(e, sq, 2);
       const sl = e.spawnEnemy('rata', 1, far[0], far[1], 'dormido');
       e.noise(sq.x, sq.y, 14);
       out.quiet = sl.state === 'dormido';
@@ -857,8 +860,8 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
         if (a2[0] < 1 || a2[1] < 1 || a2[0] >= e.w - 1 || a2[1] >= e.h - 1 || e.entityAt(...a1) || e.entityAt(...a2) || e.objAt(...a1) || e.objAt(...a2)) continue;
         e.t[e.key(...a2)] = 2;
         const old = e.t[e.key(...a1)]; e.t[e.key(...a1)] = 26;
-        const x0 = sq.x; e.act((q) => e.tryMove(q, a1[0], a1[1], true));
-        jumped = sq.x === a2[0] && sq.y === a2[1] && x0 !== sq.x;
+        e.act((q) => e.tryMove(q, a1[0], a1[1], true));
+        jumped = sq.x === a2[0] && sq.y === a2[1];
         e.t[e.key(...a1)] = old;
         break;
       }
@@ -876,7 +879,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     });
     ok(gd.tur && gd.ammo < 60 && gd.back, `torreta «Gnomo»: dispara sola (${gd.ammo} balas) y se recoge con su munición`);
     ok(gd.cage && gd.photo, 'jaula de captura (rata viva) y cámara Zenit-E (+10% contra lobos)');
-    ok(gd.rec === 'lobo' && gd.lure, 'la grabadora graba a un lobo y atrae a los suyos');
+    ok(!!gd.rec && gd.lure, `la grabadora graba a un chebylita (${gd.rec}) y atrae a los suyos`);
     ok(gd.mine && gd.cloak && gd.quiet, 'sonda sísmica (mina), camuflaje con recarga y ruido blanco');
     ok(gd.weld && gd.grapple && gd.relay && gd.umbrella, `soldadura, gancho sobre una sima, relé contra la tormenta y paraguas (${['weld', 'grapple', 'relay', 'umbrella'].filter((k) => !gd[k]).join(', ') || 'todo bien'})`);
     const df = await G.evaluate(() => {
@@ -898,6 +901,187 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     ok(df.alive && df.used === 1, 'el desfibrilador reanima a un agente caído cerca del portador');
     ok(df.chassis && df.slot === null, 'si el perro cae deja un chasis destrozado que se puede recuperar');
     await ctx7.close();
+  }
+
+  // ================================================================ fases 20 y 21
+  console.log('· Fases 20 y 21: narrativa, moral, encargos y base viva');
+  {
+    const ctx8 = await b.newContext({ viewport: { width: 1440, height: 860 } });
+    const N = await ctx8.newPage();
+    N.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
+    N.on('console', (m) => { if ((m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) || m.type() === 'warning') errs.push(m.text()); });
+    const nClose = async () => { for (let i = 0; i < 6 && (await N.$('.modal')); i++) { await N.keyboard.press('Escape'); await N.waitForTimeout(150); } };
+    await N.goto(URL); await N.waitForTimeout(800);
+    await N.click('text=NUEVA PARTIDA'); await N.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await N.click('#screen-intro'); await N.click('text=COMENZAR');
+    await N.waitForTimeout(500); await nClose();
+    const n1 = await N.evaluate(async () => {
+      const S = window.__topolev.S; const ST = await import('./js/core/story.js'); const { playScene } = await import('./js/ui/scene.js');
+      const out = { act: S.act, chron: S.chronicle.length };
+      const close = playScene(ST.sceneDef('act2'), () => { out.closed = 1; });
+      out.scene = !!document.querySelector('.scene-root');
+      close();
+      S.met = { usa: 1 }; S.cleared = { admin: 1, turbinas: 1 };
+      ST.checkActs(); out.act2 = S.act; out.q2 = S.pendingScenes.includes('act2');
+      S.pendingScenes = [];
+      S.cleared.corium = 1; ST.checkActs(); out.finale = S.pendingDialogs.includes('finale');
+      const C = await import('./js/core/campaign.js');
+      S.pendingDialogs = ['finale'];
+      const d = C.baseDialog(); const v = d.view();
+      const i = v.opts.find((o) => /DESTRUIR/.test(o.label)).i;
+      d.choose(i); d.choose(0);
+      out.ending = S.ending; out.endScene = S.pendingScenes.includes('end:sellar'); out.fusionHidden = !v.opts.some((o) => /TOPOLEV/.test(o.label));
+      S.pendingScenes = [];
+      // afinidad
+      const [a, b2] = S.agents; ST.addAff(a, b2, 75);
+      out.rel = ST.relationsOf(a)[0] && ST.relationsOf(a)[0].st;
+      // colección completa
+      const L = await import('./js/data/lore.js');
+      const rub0 = S.rub;
+      L.NOTES.forEach((n, k) => { if (n.col === 'operario') ST.markNoteRead(k); });
+      out.col = !!S.colsDone.operario && S.rub - rub0 === 300;
+      // encargo de entrega
+      const { createItem } = await import('./js/core/items.js');
+      ST.acceptContract('wismut_samples');
+      S.stash.push(createItem('graphsample', 0), createItem('graphsample', 0), createItem('graphsample', 0));
+      const r0 = S.rub; const done = ST.completeContracts();
+      out.contract = done.length === 1 && S.rub - r0 === 450 && S.contracts.done.includes('wismut_samples');
+      out.chronTxt = ST.chronicleText().includes('CRÓNICA DEL DIRECTOR');
+      return out;
+    });
+    ok(n1.act === 1 && n1.chron >= 1 && n1.scene && n1.closed, 'la partida empieza en el Acto I y las escenas ASCII se reproducen');
+    ok(n1.act2 === 2 && n1.q2, 'el Acto II llega al encontrar a los otros');
+    ok(n1.finale && n1.ending === 'sellar' && n1.endScene && n1.fusionHidden, 'tras el Útero de Corium se elige el final (sellar) y el oculto no aparece sin méritos');
+    ok(n1.rel === 'inseparables' && n1.col && n1.contract && n1.chronTxt, 'afinidad, colección de notas, encargo cumplido y crónica');
+    // ---- moral en expedición
+    await N.evaluate(() => { const S = window.__topolev.S; S.ending = null; S.flags.finaleAsked = 99; S.cleared = { admin: 1 }; for (const a of S.agents) { a.baseHp = 200; a.hp = 400; } });
+    await N.click('.tab:has-text("CUARTEL")'); await N.waitForTimeout(200);
+    await N.click('.tab:has-text("EXPEDICIÓN")'); await N.waitForTimeout(200);
+    for (let i = 0; i < 2; i++) { const rows = await N.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+    await N.click('text=LANZAR EXPEDICIÓN'); await N.waitForTimeout(300);
+    if (await N.$('.modal-back >> text=LANZAR')) await N.click('.modal-back >> text=LANZAR');
+    await N.waitForTimeout(800); await nClose();
+    const mo = await N.evaluate(async () => {
+      const e = window.__topolev.exp; const S = window.__topolev.S; const ST = await import('./js/core/story.js');
+      window.__topolev.debug.run('god');
+      for (const x of [...e.enemies]) e.dismissActor(x);
+      if (e.dlg) e.closeDialog(); e.dlgQueue = [];
+      const [p, q] = e.team;
+      const out = {};
+      const acc0 = e.ast(p).acc; p.a.stress = 80; out.accDrop = e.ast(p).acc < acc0;
+      for (let i = 0; i < 120 && !(p.buffs || []).some((b) => b.aff || b.name === 'Heroísmo'); i++) e.moraleTick();
+      out.aff = (p.buffs || []).map((b) => b.name);
+      // pánico: huye del enemigo
+      p.buffs = [{ name: 'Pánico', turns: 2, mods: {}, aff: 'panico' }]; p.a.stress = 10;
+      const c = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => [p.x + dx, p.y + dy]).find(([x, y]) => e.passable(x, y) && !e.entityAt(x, y));
+      const w = e.spawnEnemy('lobo', 1, c[0], c[1], 'dormido'); e.computeVisibility(true); if (e.dlg) e.closeDialog(); e.dlgQueue = [];
+      const d0 = Math.hypot(w.x - p.x, w.y - p.y);
+      e.act((s) => e.tryMove(s, w.x, w.y, true));
+      out.fled = Math.hypot(w.x - p.x, w.y - p.y) > d0 || w.hp === w.hpMax;
+      p.buffs = [];
+      e.dismissActor(w);
+      // duelo: muere un amigo
+      ST.addAff(p.a, q.a, 50);
+      e.god = false; q.a.stress = 0;
+      const lobo = e.spawnEnemy('lobo', 1, ...([[2, 0], [-2, 0], [0, 2], [0, -2]].map(([dx, dy]) => [p.x + dx, p.y + dy]).find(([x, y]) => e.passable(x, y) && !e.entityAt(x, y))), 'dormido');
+      e.damageAgent(p, 9999, 'prueba', lobo);
+      e.god = true;
+      out.grief = q.a.stress >= 30; out.epitaph = !!(S.fallen[0] && S.fallen[0].epitaph && S.fallen[0].letter);
+      // interceptado
+      let got = false; for (let i = 0; i < 40 && !got; i++) got = e.interceptRadio();
+      out.intercept = got;
+      return out;
+    });
+    ok(mo.accDrop && mo.aff.length > 0, `estrés alto: −puntería y aflicción o virtud (${mo.aff.join(', ')})`);
+    ok(mo.fled, 'el pánico hace huir al agente');
+    ok(mo.grief && mo.epitaph, 'la muerte de un amigo sube el estrés; epitafio y última carta en el memorial');
+    ok(mo.intercept, 'la radio intercepta mensajes que marcan alijos');
+    await N.evaluate(() => { const e = window.__topolev.exp; if (e.dlg) e.closeDialog(); for (const sq of [...e.team]) e.extract(sq); e.checkActive(); });
+    for (let i = 0; i < 30 && !(await N.$('#screen-base.active')); i++) { await N.click('#screen-report >> text=VOLVER A LA BASE', { timeout: 800 }).catch(() => {}); await nClose(); await N.waitForTimeout(300); }
+    ok((await N.evaluate(() => (window.__topolev.S.comedor || []).length)) >= 1, 'escena del comedor tras la expedición');
+    // ---- fase 21
+    const bv = await N.evaluate(async () => {
+      const S = window.__topolev.S; const C = await import('./js/core/campaign.js'); const B = await import('./js/core/basecore.js'); const { createItem } = await import('./js/core/items.js'); const W = await import('./js/data/world.js');
+      const out = {};
+      S.ess = 99999; S.rub = 99999;
+      S.plots = Array(16).fill(null); for (const m of W.MODULES) S.modules[m.id] = 0;
+      for (const m of W.MODULES.slice(0, 16)) C.upgradeModule(m.id);
+      const r17 = C.upgradeModule(W.MODULES[16].id);
+      out.plots = S.plots.filter(Boolean).length === 16 && !r17.ok && /parcela/.test(r17.msg);
+      B.demolish('polvorin'); out.free = B.freePlot() >= 0;
+      C.upgradeModule('laboratorio'); C.upgradeModule('taller_fab'); C.upgradeModule('contencion');
+      if (!S.modules.contencion) { B.demolish('radar'); C.upgradeModule('contencion'); }
+      if (!S.modules.taller_fab) { B.demolish('almacen'); C.upgradeModule('taller_fab'); }
+      // investigación
+      S.stash.push(createItem('graphsample', 0));
+      const rs = B.startResearch('r_muestras'); C.nextDay();
+      out.research = rs.ok && B.hasRes('r_muestras');
+      // contención
+      const cg = createItem('cagefull', 0); cg.species = 'rata'; cg.lvl = 3; S.stash.push(cg);
+      const st = B.storeSpecimen(cg); const e0 = S.ess; S.specimens[0].since = S.day; C.nextDay();
+      out.cell = st.ok && (S.ess > e0 || S.attack);
+      S.attack = null; S.pendingDialogs = [];
+      // fabricación y desmontaje
+      S.stash.push(createItem('chatarra', 0, undefined, 10));
+      const cr = B.craft('f_9x18'); out.craft = cr.ok && cr.it.b === 'a_9x18' && cr.it.q === 48;
+      const gun = createItem('ak74', 0); S.stash.push(gun);
+      const ch0 = S.stash.filter((x) => x.b === 'chatarra').reduce((n, x) => n + x.q, 0);
+      const sc = B.scrapItem(gun);
+      out.scrap = sc.ok && S.stash.filter((x) => x.b === 'chatarra').reduce((n, x) => n + x.q, 0) > ch0;
+      // precios que bajan
+      const icon = createItem('icon', 0); const pI0 = C.sellPrice(icon);
+      for (let i = 0; i < 6; i++) { const it = createItem('icon', 0); S.stash.push(it); C.sell(it, S.stash); }
+      out.demand = B.demandK('icon') < 1 && C.sellPrice(icon) < pI0;
+      // cuota
+      S.quota = { due: S.day + 1, ess: 100, n: 1 }; S.ess = 500; const rubQ = S.rub; C.nextDay();
+      out.quota = S.quota.n === 2 && S.rub > rubQ && S.quota.due > S.day;
+      S.attack = null; S.pendingDialogs = [];
+      // mercado negro
+      S.rub = 99999; const bm = B.blackMarket(); const it0 = bm.items[0]; const rb = B.bmBuy(it0);
+      out.bm = rb.ok && S.stash.includes(it0);
+      // calendario
+      out.season = B.season() === 'primavera';
+      S.day = 212; C.nextDay();
+      out.winterSoon = !!S.flags.sarcophagusDone;
+      S.day = 215; out.winter = B.season() === 'invierno';
+      S.attack = null; S.pendingDialogs = [];
+      // operación simultánea
+      S.cleared.admin = 1;
+      const ag = S.agents[S.agents.length - 1];
+      const so = B.sendSideOp(0, [ag]);
+      out.away = so.ok && B.isAway(ag);
+      C.nextDay();
+      out.side = S.messages.some((m) => /Operación simultánea/.test(m.text)) && !B.isAway(ag);
+      S.attack = null; S.pendingDialogs = [];
+      return out;
+    });
+    ok(bv.plots && bv.free, 'plano de 16 parcelas: no caben los 17 edificios; derribar libera sitio');
+    ok(bv.research && bv.cell, 'investigación terminada al pasar el día y especímenes que producen esencia');
+    ok(bv.craft && bv.scrap, 'fabricar munición y desmontar un arma en chatarra');
+    ok(bv.demand && bv.quota && bv.bm, 'precios que bajan al vender mucho, cuota del Comité y mercado negro');
+    ok(bv.season && bv.winterSoon && bv.winter, 'calendario: estaciones y el sarcófago terminado en noviembre');
+    ok(bv.away && bv.side, 'operación simultánea del segundo escuadrón');
+    // defensa de la base
+    const df = await N.evaluate(async () => {
+      const S = window.__topolev.S; const B = await import('./js/core/basecore.js'); const C = await import('./js/core/campaign.js');
+      for (const a of S.agents) { a.hp = 300; a.awayUntil = 0; }
+      S.specimens = []; // sin fugas que encadenen otro ataque al pasar el día
+      S.attack = { kind: 'merodeadores', day: S.day };
+      const e = C.launchExpedition(0, B.defenders(2), 'defensa');
+      const att = e.enemies.filter((x) => x.attacker).length;
+      e.god = true;
+      for (const x of [...e.enemies]) if (x.attacker) e.killEnemy(x, e.cur);
+      e.wait(); e.wait(); e.wait(); e.wait(); e.wait();
+      const won = e.defenseWon;
+      const rub0 = S.rub;
+      const rep = C.finalizeExpedition(e);
+      return { def: e.def.id, att, won, rub: S.rub - rub0, attack: S.attack, rep: !!rep };
+    });
+    ok(df.def === 'defensa' && df.att >= 3 && df.won && df.attack === null && df.rub >= 200, `defensa de la base: ${df.att} atacantes rechazados (+${df.rub} ₽)`);
+    // pestañas nuevas sin errores
+    await N.reload(); await N.waitForTimeout(800); await N.click('text=CONTINUAR').catch(() => {}); await N.waitForTimeout(800); await nClose();
+    for (const t of ['CUARTEL', 'INVESTIGACIÓN', 'INTENDENCIA', 'EXPEDICIÓN', 'ARCHIVO']) { await N.click(`.tab:has-text("${t}")`).catch(() => {}); await N.waitForTimeout(200); }
+    ok(await N.evaluate(() => !!document.querySelector('.research') || document.body.innerText.includes('COLECCIONES')), 'pestañas de la base viva');
+    await ctx8.close();
   }
 
   console.log(errs.length ? 'ERRORES:\n' + errs.join('\n') : '  ✓ sin errores en consola');

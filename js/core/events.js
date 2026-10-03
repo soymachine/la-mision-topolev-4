@@ -110,7 +110,7 @@ const EFF = {
   rep: ([f, n], c) => {
     // Políglota (Comisario): las mejoras de reputación son mayores
     const poly = n > 0 ? Math.max(0, ...(c.exp ? c.exp.team.map((q) => q.a) : S.agents).map((a) => talentFlag(a, 'polyglot'))) : 0;
-    n = Math.round(n * (1 + poly / 100));
+    n = Math.round(n * (1 + poly / 100)) + (n > 0 ? (S.modules && S.modules.sala_radio) || 0 : 0);
     addRep(S, f, n);
     const F = FACTIONS[f];
     if (F) say(c, `Reputación con <span style="color:${F.color}">${esc(F.short || F.name)}</span>: ${n > 0 ? '+' : ''}${n} (${S.rep[f]}).`, n > 0 ? 'good' : 'warn');

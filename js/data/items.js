@@ -3,6 +3,7 @@
 // tier: 0..5 (disponibilidad en la intendencia y nivel de aparición)
 import { WEAPONS, NEW_AMMO } from './weapons.js';
 import { COMPANION_ITEMS } from './companions.js';
+import { MATERIALS } from './basedata.js';
 import { MODS } from './mods.js';
 
 export const CAT_INFO = {
@@ -18,6 +19,7 @@ export const CAT_INFO = {
   valuable: { name: 'Botín', glyph: '$' },
   companion: { name: 'Compañero', glyph: '§' },
   dogmod: { name: 'Módulo de Laika', glyph: '¬' },
+  material: { name: 'Material', glyph: '%' },
 };
 
 export const AMMO_NAMES = {
@@ -31,6 +33,7 @@ export const ITEMS = {
   ...MODS,
   ...NEW_AMMO,
   ...COMPANION_ITEMS,
+  ...MATERIALS,
 
   // ---------- MUNICIÓN ----------
   a_9x18: { cat: 'ammo', name: 'Munición 9×18 mm', glyph: '"', tier: 0, stack: 120, value: 1, pack: 24, desc: 'Para Makarov y Stechkin.' },
@@ -174,10 +177,10 @@ export const ITEMS = {
 
   // ---------- BOTÍN (valiosos para vender) ----------
   komsomol: { cat: 'valuable', name: 'Insignia del Komsomol', glyph: '$', tier: 0, value: 15, desc: 'Esmalte rojo y una sonrisa de Lenin.' },
-  vodka: { cat: 'valuable', name: 'Botella de Stolichnaya', glyph: '$', tier: 0, value: 25, desc: 'Todavía precintada. Un milagro.' },
+  vodka: { cat: 'consumable', name: 'Botella de Stolichnaya', glyph: '!', tier: 0, stack: 5, use: 'vodka', value: 25, desc: 'Todavía precintada. Un trago quita 15 de estrés y da 3 de salud… pero engancha.' },
   reel: { cat: 'valuable', name: 'Cinta de bobina', glyph: '$', tier: 0, value: 30, desc: 'Grabación de una sala de control. ¿Qué contendrá?' },
   poljot: { cat: 'valuable', name: 'Reloj Poljot', glyph: '$', tier: 1, value: 45, desc: 'Se detuvo a la 1:23.' },
-  vef: { cat: 'valuable', name: 'Radio VEF', glyph: '$', tier: 1, value: 55, desc: 'Radio de transistores letona.' },
+  vef: { cat: 'gadget', name: 'Radio VEF', glyph: '¤', tier: 1, flags: { music: 1 }, value: 55, desc: 'Radio de transistores letona. La música baja el estrés de quien la lleva y de quien esté a 3 casillas.' },
   medal: { cat: 'valuable', name: 'Medalla «Héroe del Trabajo»', glyph: '$', tier: 1, value: 65, desc: 'Otorgada a un operario de turno.' },
   graphsample: { cat: 'valuable', name: 'Muestra de grafito', glyph: '$', tier: 2, value: 70, desc: 'Bloque del moderador del reactor.' },
   board: { cat: 'valuable', name: 'Placa de circuito RBMK', glyph: '$', tier: 2, value: 85, desc: 'Electrónica de control del reactor.' },
@@ -189,7 +192,7 @@ export const ITEMS = {
   pvs5: { cat: 'helmet', name: 'Gafas de visión nocturna AN/PVS-5', glyph: '^', tier: 3, prot: 0, rad: 0, nv: 1, vision: 1, value: 900, west: 1, origin: 'usa', desc: 'A oscuras ves casi tan lejos como con luz, sin delatarte.' },
   pasgt: { cat: 'helmet', name: 'Casco PASGT', glyph: '^', tier: 3, prot: 3, rad: 0, value: 520, west: 1, origin: 'usa', desc: 'Kevlar. Los soviéticos lo llaman «el casco alemán».' },
   pasgtvest: { cat: 'armor', name: 'Chaleco PASGT', glyph: '[', tier: 3, prot: 5, rad: 5, ev: -1, value: 900, west: 1, origin: 'usa', desc: 'Chaleco antifragmentos de kevlar.' },
-  m62coat: { cat: 'armor', name: 'Abrigo de invierno M/62', glyph: '[', tier: 2, prot: 2, rad: 10, ev: 1, flags: { stealth: 1 }, value: 380, west: 1, origin: 'finlandia', desc: 'Abrigo blanco finlandés. Abriga, amortigua los pasos y se confunde con la ceniza.' },
+  m62coat: { cat: 'armor', name: 'Abrigo de invierno M/62', glyph: '[', tier: 2, prot: 2, rad: 10, ev: 1, flags: { stealth: 1, warm: 1 }, value: 380, west: 1, origin: 'finlandia', desc: 'Abrigo blanco finlandés. Abriga, amortigua los pasos y se confunde con la ceniza.' },
   skirucksack: { cat: 'backpack', name: 'Mochila de esquí finlandesa', glyph: '(', tier: 2, slots: 7, value: 340, west: 1, origin: 'finlandia', desc: '+7 huecos de mochila.' },
   rados: { cat: 'gadget', name: 'Dosímetro sueco RDS', glyph: '¤', tier: 2, rad: 15, essence: 5, value: 300, west: 1, origin: 'suecia', desc: '+15% resistencia a la radiación y +5% esencia: avisa de los focos antes de pisarlos.' },
   smock: { cat: 'armor', name: 'Guerrera de camuflaje DPM', glyph: '[', tier: 2, prot: 2, rad: 0, ev: 2, flags: { stealth: 1 }, value: 420, west: 1, origin: 'uk', desc: 'Camuflaje británico. Más difícil de ver y de acertar.' },

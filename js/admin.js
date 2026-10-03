@@ -15,6 +15,10 @@ import { ATTRS, ATTR_MAX, TALENTS, TALENT_EVERY } from './data/talents.js';
 import { SPECS, SPEC_TALENTS, SPEC_LEVEL, rerollCost } from './data/specs.js';
 import { BACKGROUNDS } from './data/backgrounds.js';
 import { MODIFIERS, WEATHER } from './data/modifiers.js';
+import { ACTS, SCENES, ENDINGS, STAFF, COMEDOR, LETTERS_FROM, EPITAPHS, LAST_LETTERS } from './data/story.js';
+import { PLOTS, MATERIALS, RESEARCH, RECIPES, SEASONS, HISTORY, ATTACKS, dateOf } from './data/basedata.js';
+import { CONTRACTS, GIVER_NAME } from './core/story.js';
+import { COLLECTIONS, INTERCEPTS } from './data/lore.js';
 import { ACQUIRED, MEDALS, WOUNDS, WOUND_CHANCE, RETIRE_LEVEL, MAX_INSTRUCTORS, INSTRUCTOR_XP, ROOKIE_LEVEL } from './data/honors.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -264,6 +268,50 @@ sec('Narrativa', 'radio', 'Mensajes de radio', RADIO.length, () => `<div class="
 sec('Narrativa', 'supervivientes', 'Supervivientes', SURVIVOR_LINES.length, () => `<div class="list">${SURVIVOR_LINES.map((n) => `<div class="note row-f">☺ ${esc(n)}</div>`).join('')}</div><p class="desc">Hablar con un superviviente abre el diálogo <b>survivor</b> (ver «Diálogos»).</p>`, 'Hay un 50% de probabilidad de encontrar uno por expedición.');
 sec('Narrativa', 'eventos', 'Eventos', EVENTS.length, renderEvents, 'Sucesos narrativos de data/events.js: un disparador, condiciones y efectos. «Una vez» puede ser por partida, por expedición o por agente.');
 sec('Narrativa', 'dialogos', 'Diálogos', Object.keys(DIALOGS).length, renderDialogs, 'Árboles de diálogo de data/dialogs.js. Las opciones con condición aparecen desactivadas si no se cumple; las marcadas con ⌛ gastan el turno.');
+
+// ----- CAMPAÑA (fases 20 y 21) -----
+const rewText = (r) => [r.rub ? tag(`+${r.rub} ₽`, 'g') : '', r.ess ? tag(`+${r.ess} ✦`, 'c') : '', r.trust ? tag(`confianza ${r.trust > 0 ? '+' : ''}${r.trust}`, r.trust > 0 ? 'g' : 'b') : '', r.rep ? tag(`${FACTIONS[r.rep[0]] ? FACTIONS[r.rep[0]].name : r.rep[0]} ${r.rep[1] > 0 ? '+' : ''}${r.rep[1]}`, r.rep[1] > 0 ? 'g' : 'b') : '', r.stress ? tag(`estrés ${r.stress}`, 'g') : '', r.item ? tag(Array.isArray(r.item) ? `«${r.item[1]}»` : `«${r.nm || (ITEMS[r.item] || {}).name}»`, 'c') : ''].join('');
+const costText = (c) => [c.ess ? `<span style="color:${ESS}">${c.ess} ✦</span>` : '', c.rub ? `${c.rub} ₽` : '', ...Object.entries(c.items || {}).map(([b, n]) => `${n}× ${esc((ITEMS[b] || {}).name || b)}`), c.specimen ? `${c.specimen} espécimen${c.specimen > 1 ? 'es' : ''} vivo${c.specimen > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ');
+const sceneBlock = (id, sc) => `<div class="block row-f"><h3 style="color:${sc.color}">${esc(sc.title || sc.name)} <span class="desc">· ${id}</span></h3><pre style="color:${sc.color};font-size:.85em;line-height:1.1">${esc(sc.art)}</pre>${sc.lines.map((l) => `<div>${esc(l)}</div>`).join('')}</div>`;
+sec('Campaña', 'actos', 'Actos y escenas', Object.keys(ACTS).length + Object.keys(SCENES).length, () => `${Object.entries(ACTS).map(([n, a]) => `<div class="block row-f"><h3>${esc(a.name)}</h3><div class="desc">${esc(a.desc)}</div></div>`).join('')}${Object.entries(SCENES).map(([id, sc]) => sceneBlock(id, sc)).join('')}`, 'El Acto II llega al encontrar a una facción extranjera y llevar 2 zonas superadas (o 8 zonas abiertas, o superar Metro-2). El Acto III, al leer el expediente Topolev o superar el Objeto 7 o las Raíces (escena «past»: −10 de confianza). Las escenas se reproducen a pantalla completa (clic, espacio o intro avanza; Esc salta).');
+sec('Campaña', 'finales', 'Finales', Object.keys(ENDINGS).length, () => Object.entries(ENDINGS).map(([id, e]) => sceneBlock(id, e)).join(''), 'Al volver del Útero de Corium se abre el diálogo «finale». Partido: entregar 500 ✦. Sellar: siempre disponible. Occidente: reputación con Suecia o Finlandia ≥ 40, o con los contrabandistas ≥ 30. Fusión (oculto): haber leído el expediente del Objeto 7 y confianza de Topolev ≥ 70. Se puede posponer y volver otro día. El epílogo se guarda en la crónica.');
+sec('Campaña', 'personal', 'Personal de la base', Object.keys(STAFF).length, () => Object.entries(STAFF).map(([id, p]) => `<div class="block row-f"><h3 style="color:${p.color}">${esc(p.name)} <span class="desc">· ${esc(p.role)}${p.tab ? ' · pestaña ' + p.tab.toUpperCase() : ''}</span></h3>${(p.lines || []).map((l) => `<div>${esc(l)}</div>`).join('')}</div>`).join(''), 'Cada uno habla en su pestaña. La confianza de Topolev (0–100, empieza en 50) sube con sus encargos y extracciones y baja con las muertes y las cuotas incumplidas; con 75 o más el laboratorio rinde un 5% más.');
+sec('Campaña', 'comedor', 'Comedor, cartas y epitafios', Object.values(COMEDOR).flat().length + LETTERS_FROM.length + EPITAPHS.length + LAST_LETTERS.length, () => `${Object.entries(COMEDOR).map(([k, l]) => `<div class="block row-f"><h3>Comedor · ${esc(k)}</h3>${l.map((x) => `<div>${esc(x)}</div>`).join('')}</div>`).join('')}<div class="block row-f"><h3>Cartas de la familia</h3>${LETTERS_FROM.map((x) => `<div>✉ <b>${esc(x.from)}</b>: ${esc(x.text)}</div>`).join('')}</div><div class="block row-f"><h3>Epitafios</h3>${EPITAPHS.map((x) => `<div>✝ ${esc(x)}</div>`).join('')}</div><div class="block row-f"><h3>Últimas cartas</h3>${LAST_LETTERS.map((x) => `<div>${esc(x)}</div>`).join('')}</div>`, 'Tras cada expedición, una escena breve del comedor según lo ocurrido (muertes, amistades, rivalidades, estrés, éxito). Cada pocos días llega una carta de la familia de un agente (−12 de estrés). En el memorial, cada caído tiene epitafio y última carta.');
+sec('Campaña', 'encargos', 'Encargos', Object.keys(CONTRACTS).length, () => table(Object.entries(CONTRACTS).map(([id, c]) => ({ id, ...c })), [
+  { h: 'Encargo', v: (c) => `<span class="nm">${esc(c.name)}</span><div class="desc">${esc(c.desc)}</div>`, s: (c) => c.name },
+  { h: 'Quién', v: (c) => esc(GIVER_NAME(c.giver)), s: (c) => c.giver },
+  { h: 'Tipo', v: (c) => tag(c.kind, 'c') + (c.zone ? tag(MAPS[mapIndex(c.zone)] ? MAPS[mapIndex(c.zone)].name : c.zone) : ''), s: (c) => c.kind },
+  { h: 'Recompensa', v: (c) => rewText(c.reward) },
+]), 'CUARTEL ofrece 3 encargos al día (máximo 3 aceptados). Entregar: el objeto tiene que estar en el almacén al volver. Fotografía y captura: con la cámara Zenit-E o la jaula. Escolta, sabotaje y desaparecido: el objetivo aparece en su zona (el desaparecido, en cualquiera).');
+sec('Campaña', 'colecciones', 'Colecciones de notas', Object.keys(COLLECTIONS).length, () => table(Object.entries(COLLECTIONS).map(([id, c]) => ({ id, ...c, n: NOTES.filter((x) => x.col === id).length })), [
+  { h: 'Colección', v: (c) => `<span class="nm">${esc(c.name)}</span><div class="desc">${esc(c.desc)}</div>`, s: (c) => c.name },
+  { h: 'Notas', v: (c) => c.n, s: (c) => c.n, num: 1 },
+  { h: 'Al completarla', v: (c) => rewText(c.reward) },
+]), 'Cada nota pertenece a una colección; al leerlas todas se cobra la recompensa. Las notas ya leídas salen menos. Se consultan en ARCHIVO.');
+sec('Campaña', 'interceptadas', 'Radio interceptada', INTERCEPTS.length, () => `<div class="list">${INTERCEPTS.map((n) => `<div class="note row-f">📻 <b>${esc((FACTIONS[n.f] || {}).name || n.f)}</b>: ${esc(n.t)}</div>`).join('')}</div>`, 'En las zonas con humanos extranjeros, la radio capta a veces sus transmisiones: marcan un alijo en el mapa.');
+
+// ----- BASE VIVA (fase 21) -----
+sec('Base', 'investigacion', 'Investigación', Object.keys(RESEARCH).length, () => table(Object.entries(RESEARCH).map(([id, r]) => ({ id, ...r })), [
+  { h: '', g: true, v: (r) => esc(r.glyph) },
+  { h: 'Proyecto', v: (r) => `<span class="nm">${esc(r.name)}</span> <span class="desc">${r.id}</span>`, s: (r) => r.name },
+  { h: 'Efecto', v: (r) => esc(r.desc) },
+  { h: 'Coste', v: (r) => costText(r.cost) },
+  { h: 'Días', v: (r) => r.days, s: (r) => r.days, num: 1 },
+  { h: 'Requiere', v: (r) => r.req.map((q) => esc(RESEARCH[q].name)).join(', ') || '—' },
+]), 'Pestaña INVESTIGACIÓN (tecla 0). Hace falta el Laboratorio; un proyecto a la vez y avanza al pasar el día (el nivel del laboratorio acorta los plazos). Los especímenes vivos salen de la Celda de contención.');
+sec('Base', 'fabricacion', 'Fabricación y materiales', RECIPES.length + Object.keys(MATERIALS).length, () => table(RECIPES, [
+  { h: 'Receta', v: (r) => `<span class="nm">${esc(r.name)}</span>`, s: (r) => r.name },
+  { h: 'Taller', v: (r) => r.lvl, s: (r) => r.lvl, num: 1 },
+  { h: 'Coste', v: (r) => Object.entries(r.cost).map(([b, n]) => `${n}× ${esc((ITEMS[b] || {}).name || b)}`).join(' · ') + (r.ess ? ` · <span style="color:${ESS}">${r.ess} ✦</span>` : '') },
+  { h: 'Investigación', v: (r) => (r.research ? esc(RESEARCH[r.research].name) : '—') },
+]) + `<h3>Materiales</h3><div class="list">${Object.entries(MATERIALS).map(([id, m]) => `<div class="note row-f"><b>${esc(m.glyph)} ${esc(m.name)}</b> <span class="desc">${id} · ${m.value} ₽</span> — ${esc(m.desc)}</div>`).join('')}</div>`, 'Taller de fabricación (edificio). Los materiales salen de contenedores (22%), máquinas destruidas (chatarra y electrónica) y chebylitas (tejido). Desmontar un objeto en el almacén devuelve chatarra y electrónica según su nivel. La batería de litio y la placa de contenedor se instalan en el propio taller.');
+sec('Base', 'calendario', 'Calendario e historia', Object.keys(SEASONS).length + HISTORY.length, () => `${table(Object.entries(SEASONS).map(([id, s]) => ({ id, ...s })), [
+  { h: '', g: true, v: (s) => esc(s.glyph) }, { h: 'Estación', v: (s) => `<span class="nm">${esc(s.name)}</span>` }, { h: 'Efecto', v: (s) => esc(s.desc) },
+])}<h3>Televisión</h3><div class="list">${HISTORY.map((h) => `<div class="note row-f"><b>${dateOf(h.day).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</b> (día ${h.day}) — ${esc(h.text)}</div>`).join('')}</div>`, 'El día 1 es el 2 de mayo de 1986. En invierno, el agua de superficie se hiela y sin abrigo se sufre hipotermia; en otoño llueve más. Con el sarcófago terminado, la radiación de ambiente del Sarcófago baja un 40%. Cada 30 días, la cuota del Comité.');
+sec('Base', 'ataques', 'Ataques a la base', Object.keys(ATTACKS).length, () => table(Object.entries(ATTACKS).map(([id, a]) => ({ id, ...a })), [
+  { h: 'Ataque', v: (a) => `<span class="nm">${esc(a.name)}</span><div class="desc">${esc(a.desc)}</div>`, s: (a) => a.name },
+  { h: 'Atacantes', v: (a) => (a.enemies ? a.enemies.map((e) => esc((HUMANS[e] || ENEMIES[e] || {}).name || e)).join(', ') : 'los especímenes fugados y chebylitas de la zona') },
+]), `Desde el día 12, un 5% al día (y siempre que haya una fuga en la celda de contención). Defender: una expedición especial al Puesto con los agentes que estén en la base; rechazarlo da +200 ₽ y +5 de confianza. Ceder (o perder): −25% de rublos, −20% de esencia, hasta 3 objetos del almacén y +15 de estrés para todos. Parcelas: ${PLOTS}, así que no caben todos los edificios.`);
 
 // ------------------------------------------------------------ vistas especiales
 function renderSummary() {
