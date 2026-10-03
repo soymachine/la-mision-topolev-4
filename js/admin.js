@@ -375,6 +375,7 @@ function renderRarities() {
     { h: '', g: true, v: (r) => `<span style="color:${r.color}">■</span>` },
     { h: 'Rareza', v: (r) => `<span style="color:${r.color};font-weight:700">${r.name}</span>`, s: (r) => r.id },
     { h: 'Color', v: (r) => r.color },
+    { h: 'Modo daltónico', v: (r) => `<b style="color:${r.cb}">${r.sym}</b> <span style="color:${r.cb}">${r.cb}</span>` },
     { h: 'Multiplicador', num: true, v: (r) => '×' + r.mult, s: (r) => r.mult },
     { h: 'Propiedades', num: true, v: (r) => r.affixes, s: (r) => r.affixes },
     { h: 'Valor', num: true, v: (r) => '×' + r.value, s: (r) => r.value },

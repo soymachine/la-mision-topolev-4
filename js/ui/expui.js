@@ -22,6 +22,7 @@ import { showDialog } from './dialog.js';
 
 import { WEATHER } from '../data/modifiers.js';
 import { DOG_ORDERS } from '../data/companions.js';
+import { a11yButtons } from './a11y.js';
 const SOCIAL_TIP = { trader: 'Compra y venta.', medic: 'Curas y tratamiento de la radiación.', board: 'Rumores y trabajos.', archive: 'Expedientes del KGB.' };
 export function toggleFullscreen() {
   try {
@@ -1130,6 +1131,7 @@ export class ExpeditionUI {
       btn('ZOOM +', () => this.zoom(1)), btn('ZOOM −', () => this.zoom(-1)),
       btn('PANTALLA COMPLETA', () => { toggleFullscreen(); close(); }),
       btn(`TEXTO: ${UI_SCALES[settings.uiScale || 0].name}`, () => { cycleUiScale(); close(); this.refresh(); this.renderLog(); setTimeout(() => { this.sizeMinimap(); this.r.resize(); }, 50); this.openMenu(); }),
+      ...a11yButtons(() => { close(); this.refresh(); this.openMenu(); }).map(([lab, fn]) => btn(lab, fn)),
       btn('GUARDAR Y SALIR AL TÍTULO', () => { save(); close(); this.stop(); this.hooks.onQuit(); }, 'danger'),
     );
     body.append(el('div', { class: 'dimt', style: { marginTop: '1em', textAlign: 'center' }, text: 'La expedición se guarda automáticamente. No se puede abandonar: solo se sale por una extracción.' }));

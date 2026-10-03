@@ -2,8 +2,11 @@
 import { settings } from './core/state.js';
 
 let ac = null, master = null, noiseBuf = null;
+// el navegador no deja crear el audio antes de un gesto del usuario (clic o tecla): hasta entonces, silencio
+let gesture = false;
+if (typeof window !== 'undefined') for (const ev of ['pointerdown', 'keydown']) window.addEventListener(ev, () => { gesture = true; }, { capture: true, once: true });
 function ctx() {
-  if (!settings.sound) return null;
+  if (!settings.sound || !gesture) return null;
   if (!ac) {
     try {
       ac = new (window.AudioContext || window.webkitAudioContext)();

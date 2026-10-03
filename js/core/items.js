@@ -1,7 +1,7 @@
 // Instancias de objetos: generación, estadísticas, nombres, valor, tooltips
 import { ITEMS, CAT_INFO, AFFIXES, MYTHIC_NAMES, EPITHETS, UNCOMMON_SUFFIX, RARE_SUFFIX, AMMO_NAMES, GADGET_SETS } from '../data/items.js';
 import { MOD_SLOTS, weaponSlots } from '../data/mods.js';
-import { RARITIES, rarityWeights } from '../data/rarity.js';
+import { RARITIES, rarityWeights, rarSym } from '../data/rarity.js';
 import { rng as grng, uid } from '../util/rng.js';
 import { esc } from '../util/dom.js';
 import { ENEMIES } from '../data/enemies.js';
@@ -247,7 +247,7 @@ export function itemTooltip(it, compare = null, extra = '') {
   const s = itemStats(it);
   const rr = RARITIES[it.r];
   const col = rr.color;
-  let h = `<div class="tt-title" style="color:${col}">${esc(itemName(it))}${it.q > 1 ? ` <span class="dimt">×${it.q}</span>` : ''}</div>`;
+  let h = `<div class="tt-title" style="color:${col}">${rarSym(it.r)}${esc(itemName(it))}${it.q > 1 ? ` <span class="dimt">×${it.q}</span>` : ''}</div>`;
   h += `<div class="tt-sub">${CAT_INFO[d.cat].name}${d.cat === 'weapon' ? ' · ' + WTYPE_NAMES[d.wtype] : ''}${d.cat !== 'ammo' ? ` · <span style="color:${col}">${rr.name}</span>` : ''} · Nv ${d.tier}</div>`;
   if (d.art) h += `<pre class="tt-art" style="color:${col}">${esc(d.art)}</pre>`;
   // estado propio del objeto (fase 19): compañeros, cargas, grabaciones, capturas
@@ -346,7 +346,7 @@ export function itemTooltip(it, compare = null, extra = '') {
 
 export function itemHTML(it, opts = {}) {
   const col = rarityColor(it.r);
-  return `<span class="ig" style="color:${col}">${itemGlyph(it)}</span><span class="in" style="color:${col}">${esc(itemName(it))}</span>${it.q > 1 ? `<span class="iq">×${it.q}</span>` : ''}${opts.extra || ''}`;
+  return `<span class="ig" style="color:${col}">${itemGlyph(it)}</span><span class="in" style="color:${col}">${rarSym(it.r)}${esc(itemName(it))}</span>${it.q > 1 ? `<span class="iq">×${it.q}</span>` : ''}${opts.extra || ''}`;
 }
 
 // Fusiona pilas: añade it a la lista respetando el máximo de la pila. Devuelve el resto (o null)

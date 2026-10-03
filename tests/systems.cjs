@@ -1608,6 +1608,44 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     await ctx10.close();
   }
 
+  console.log('· Fase 24: calidad, accesibilidad y modos');
+  {
+    const ctx11 = await b.newContext({ viewport: { width: 1440, height: 860 } });
+    const A = await ctx11.newPage();
+    A.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
+    A.on('console', (m) => { if ((m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) || m.type() === 'warning') errs.push(m.text()); });
+    await A.goto(URL); await A.waitForTimeout(800);
+    // 24.1 modo daltónico y alto contraste desde el menú principal
+    const r0 = await A.evaluate(async () => { const R = await import('./js/data/rarity.js'); return R.RARITIES[2].color; });
+    await A.click('text=MODO DALTÓNICO: NO'); await A.waitForTimeout(150);
+    await A.click('text=ALTO CONTRASTE: NO'); await A.waitForTimeout(150);
+    const cb = await A.evaluate(async () => {
+      const R = await import('./js/data/rarity.js'); const I = await import('./js/core/items.js');
+      const it = I.createItem('makarov', 2);
+      return { cls: document.body.classList.contains('cb') && document.body.classList.contains('hc'), color: R.RARITIES[2].color, sym: I.itemHTML(it).includes('◆') && I.itemTooltip(it).includes('◆'), css: getComputedStyle(document.documentElement).getPropertyValue('--r2').trim() };
+    });
+    ok(cb.cls && cb.color !== r0 && cb.color === '#f0e442' && cb.css === '#f0e442', 'modo daltónico: paleta Okabe-Ito en las rarezas y clases en <body>; alto contraste activado');
+    ok(cb.sym, 'rarezas con símbolo (◆ raro) en el nombre y el tooltip');
+    // se recuerda al recargar
+    await A.reload(); await A.waitForTimeout(800);
+    const kept = await A.evaluate(async () => { const R = await import('./js/data/rarity.js'); return document.body.classList.contains('cb') && document.body.classList.contains('hc') && R.RARITIES[2].color === '#f0e442'; });
+    ok(kept, 'los ajustes de accesibilidad se guardan y se aplican al arrancar');
+    // una expedición con los dos modos activados, sin errores (marcas de actitud incluidas)
+    await A.click('text=NUEVA PARTIDA'); await A.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await A.click('#screen-intro'); await A.click('text=COMENZAR');
+    await A.waitForTimeout(300);
+    await A.click('.tab:has-text("EXPEDICIÓN")'); await A.waitForTimeout(200);
+    for (let i = 0; i < 2; i++) { const rows = await A.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+    await A.click('text=LANZAR EXPEDICIÓN'); await A.waitForTimeout(300);
+    if (await A.$('.modal-back >> text=LANZAR')) await A.click('.modal-back >> text=LANZAR');
+    await A.waitForTimeout(800);
+    await A.evaluate(() => { const e = window.__topolev.exp; const c = e.cur; for (const [dx, dy] of [[2, 0], [0, 2], [-2, 0]]) if (e.passable(c.x + dx, c.y + dy) && !e.entityAt(c.x + dx, c.y + dy)) { e.spawnEnemy('rda_rifle', 2, c.x + dx, c.y + dy, 'errante'); break; } e.computeVisibility(true); });
+    await A.waitForTimeout(600);
+    ok(await A.evaluate(() => !!document.querySelector('.map-canvas')), 'el mapa se dibuja con el modo daltónico y el alto contraste');
+    // volver a dejarlos como estaban
+    await A.evaluate(async () => { const { settings, saveSettings } = await import('./js/core/state.js'); settings.colorblind = false; settings.contrast = false; saveSettings(); });
+    await ctx11.close();
+  }
+
   console.log(errs.length ? 'ERRORES:\n' + errs.join('\n') : '  ✓ sin errores en consola');
   await b.close();
   if (fails || errs.length) { console.log(`FALLOS: ${fails}`); process.exit(1); }

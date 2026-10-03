@@ -8,6 +8,7 @@ import { sfx } from '../audio.js';
 import { FONT } from '../render/ascii.js';
 import { uiBurst } from './fx.js';
 import { toggleFullscreen } from './expui.js';
+import { a11yButtons } from './a11y.js';
 
 // ------------------------------------------------------------ logo ASCII
 function asciiLogo(lines, cols) {
@@ -67,6 +68,7 @@ export class TitleScreen {
     menu.append(btn(`SONIDO: ${settings.sound ? 'SÍ' : 'NO'}`, () => { settings.sound = !settings.sound; saveSettings(); this.open(); }));
     menu.append(btn(`EFECTO CRT: ${settings.crt ? 'SÍ' : 'NO'}`, () => { settings.crt = !settings.crt; document.body.classList.toggle('no-crt', !settings.crt); saveSettings(); this.open(); }));
     menu.append(btn(`TEXTO: ${UI_SCALES[settings.uiScale || 0].name}`, () => { cycleUiScale(); this.open(); }));
+    for (const [lab, fn] of a11yButtons(() => this.open())) menu.append(btn(lab, fn));
     R.append(this.bg, el('div', { class: 'title-wrap' },
       this.logo,
       el('div', { class: 'title-sub', text: 'CHERNÓBIL · RSS DE UCRANIA · 1986' }),
@@ -521,6 +523,9 @@ export class HelpScreen {
 <h2>BOTÍN Y RAREZAS</h2>
 <p>${rar}</p>
 <p>Cuanto más rara es una pieza, mejores estadísticas y más propiedades extra (◆) tiene. Las zonas profundas dan mejor botín. Al pasar el ratón sobre un objeto verás sus estadísticas y la comparación (▲▼) con lo que llevas equipado.</p>
+
+<h2>ACCESIBILIDAD</h2>
+<p>En el menú principal (y en el menú de la base y de la expedición): <b>MODO DALTÓNICO</b> cambia los colores de las rarezas a una paleta distinguible (Okabe-Ito) y les pone un símbolo (· común, + no común, ◆ raro, ★ épico, ✦ legendario, ✪ mítico); en el mapa, las personas llevan además ! (hostil), ? (neutral) o + (aliado). <b>ALTO CONTRASTE</b> aclara los textos, marca los bordes, quita el efecto CRT y aviva los colores del mapa. Se recuerdan entre sesiones.</p>
 
 <h2>CONSEJOS</h2>
 <ul>

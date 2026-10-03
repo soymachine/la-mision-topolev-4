@@ -19,6 +19,7 @@ export class MapRenderer {
   constructor(host) {
     this.host = host;
     this.canvas = document.createElement('canvas');
+    this.canvas.className = 'map-canvas'; // (alto contraste: filtro CSS, fase 24.1)
     host.append(this.canvas);
     this.ctx = this.canvas.getContext('2d');
     this.parts = new Particles();
@@ -531,6 +532,7 @@ export class MapRenderer {
       }
     }
     // ---- enemigos ----
+    this.cbMode = document.body.classList.contains('cb');
     const lunge = this.lunge;
     for (const en of e.enemies) {
       const k = en.y * e.w + en.x;
@@ -560,6 +562,8 @@ export class MapRenderer {
         ctx.strokeStyle = att === 'surr' ? 'rgba(255,255,255,.75)' : att === 'hostile' ? 'rgba(255,59,48,.8)' : att === 'allied' ? 'rgba(61,220,107,.7)' : 'rgba(255,210,63,.6)';
         ctx.lineWidth = 1;
         ctx.strokeRect(sx + 0.5, sy + 0.5, cw - 1, ch - 1);
+        // fase 24.1: modo daltónico: la actitud también con un signo (! hostil, ? neutral, + aliado)
+        if (this.cbMode && !en.surrendered && !(en.escort > 0)) { ctx.font = `${Math.round(this.fs * 0.55)}px ${FONT}`; ctx.fillStyle = '#ffffff'; ctx.fillText(att === 'hostile' ? '!' : att === 'allied' ? '+' : '?', sx + cw * 0.85, sy + ch * 0.2); ctx.font = font; }
         // bandera blanca (rendido) o escolta (os acompaña)
         if (en.surrendered || en.escort > 0) { ctx.font = `${Math.round(this.fs * 0.6)}px ${FONT}`; ctx.fillStyle = en.surrendered ? '#ffffff' : '#3ddc6b'; ctx.fillText(en.surrendered ? '⚑' : '+', sx + cw * 0.85, sy + ch * 0.2); ctx.font = font; }
         if (en.charmed) { ctx.strokeStyle = 'rgba(192,108,255,.8)'; ctx.strokeRect(sx + 1.5, sy + 1.5, cw - 3, ch - 3); }

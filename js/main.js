@@ -7,6 +7,7 @@ import { ExpeditionUI } from './ui/expui.js';
 import { BaseUI } from './ui/base.js';
 import { TitleScreen, IntroScreen, ReportScreen, HelpScreen } from './ui/screens.js';
 import { installDebug } from './ui/debug.js';
+import { applyA11y } from './ui/a11y.js';
 
 let current = null;
 let prevScreen = 'title';
@@ -22,6 +23,7 @@ async function boot() {
   initDom();
   applyUiScale(settings);
   document.body.classList.toggle('no-crt', !settings.crt);
+  applyA11y(); // fase 24.1: modo daltónico y alto contraste
   try {
     await Promise.race([
       Promise.all([document.fonts.load('15px "JetBrains Mono"'), document.fonts.load('700 15px "JetBrains Mono"'), document.fonts.load('800 15px "JetBrains Mono"')]),

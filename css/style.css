@@ -449,3 +449,14 @@ body.no-crt #crt { display: none; }
 .bm-box, .side-box { border: 1px dashed var(--o4); padding: .5em 1ch; margin-top: .5em; }
 .side-zone { background: var(--bg2, #120a04); color: var(--o1); border: 1px solid var(--o4); font: inherit; margin: .3em 0; }
 .agent-mini.sel { background: var(--o6); }
+
+/* ---------- fase 24.1: alto contraste y modo daltónico ---------- */
+body.hc {
+  --txt: #fff1e0; --dim: #d9a066; --o1: #ffd29a; --o2: #ffb35c; --o3: #ff9a3c; --o4: #c06a20; --o5: #8a4a10;
+  --bg2: #000; --bg3: #0a0502; --good: #5cff8f; --bad: #ff5a50; --warn: #ffe066; --cyan: #7ffcf5;
+  font-weight: 600;
+}
+body.hc #crt { display: none; }
+body.hc .map-canvas, body.hc #minimap { filter: contrast(1.3) brightness(1.18) saturate(1.15); }
+body.hc .panel, body.hc .modal, body.hc .btn { border-color: var(--o2) !important; }
+body.hc .dimt, body.hc .desc { color: var(--dim) !important; }

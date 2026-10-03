@@ -31,6 +31,7 @@ import { FACTIONS, REP_LEVELS, repLevel, repOf, squadAttitude, ATTITUDE_TEXT, AT
 import { SQUADS, HUMANS } from '../data/humans.js';
 import { floorsFor } from '../exp/expedition.js';
 import * as ECO from '../core/ecosys.js';
+import { a11yButtons } from './a11y.js';
 
 const TABS = [
   { id: 'cuartel', label: 'CUARTEL' },
@@ -1176,6 +1177,7 @@ export class BaseUI {
       }),
       btn('PANTALLA COMPLETA', () => { toggleFullscreen(); close(); }),
       btn(`TEXTO: ${UI_SCALES[settings.uiScale || 0].name}`, () => { cycleUiScale(); close(); this.render(); this.openMenu(); }),
+      ...a11yButtons(() => { close(); this.render(); this.openMenu(); }).map(([lab, fn]) => btn(lab, fn)),
       btn('SALIR AL TÍTULO', () => { save(); close(); this.close(); this.hooks.onQuit(); }, 'danger'),
     );
     close = modal({ title: 'MENÚ', body, width: '46ch' });
