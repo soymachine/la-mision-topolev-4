@@ -607,6 +607,13 @@ export class MapRenderer {
       if (en.stun > 0 && !e.entityAt(rx, ry - 1)) glyph(rx, ry - 1, ['✶', '*', '·', '*'][Math.floor(T_ * 8) % 4], '#ffe9a0');
       if (en.state === 'dormido' && Math.sin(T_ * 1.3 + en.x * 2) > 0.985) this.parts.add({ x: en.x + 0.8, y: en.y, vy: -0.8, vx: 0.3, life: 1.4, ch: 'z', color: col, scale: 0.6 });
     }
+    // ---- «ir a»: la casilla a la que va cada agente, con una × de su color ----
+    for (const sq of e.squad) {
+      if (!sq.goto || !e.inMap(sq)) continue;
+      const [gx, gy] = sq.goto;
+      if (gx < x0 || gx > x1 || gy < y0 || gy > y1 || e.entityAt(gx, gy)) continue;
+      glyph(gx, gy, '×', sq.a.color, null, 1, true, sq.a.color, 0.18 + 0.1 * Math.sin(T_ * 4));
+    }
     // ---- agentes ----
     for (const sq of e.squad) {
       if (!e.inMap(sq)) { this.pos.delete(sq.id); continue; }

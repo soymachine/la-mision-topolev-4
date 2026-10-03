@@ -750,12 +750,28 @@ export class Expedition {
   nm(sq) { return `<span style="color:${sq.a.color}">${esc(sq.a.nick)}</span>`; }
 
   // ---------------------------------------------------------------- órdenes / control
+  // orden a todo el escuadrón (menos al que controlas). SEGUIR además reagrupa: quita las posiciones fijadas y los
+  // «ir a»; MANTENER los deja donde están
   setOrder(order) {
-    for (const sq of this.squad) if (sq !== this.cur) sq.order = order;
-    this.say(`Orden al escuadrón: <b>${ORDERS[order]}</b>.`, 'o1');
+    for (const sq of this.squad) {
+      if (sq === this.cur) continue;
+      sq.order = order;
+      if (order === 'seguir') { sq.hold = false; sq.goto = null; }
+    }
+    this.say(`Orden al escuadrón: <b>${ORDERS[order]}</b>${order === 'seguir' ? ' (todos se reagrupan con quien controlas)' : ''}.`, 'o1');
     this.emit('update');
   }
-  switchActive(i) {
+  // orden a un solo agente (ficha del escuadrón)
+  setAgentOrder(sq, order) {
+    if (!sq || !ORDERS[order]) return;
+    sq.order = order;
+    if (order === 'seguir') { sq.hold = false; sq.goto = null; }
+    this.say(`${this.nm(sq)}: <b>${ORDERS[order]}</b>.`, 'o1');
+    this.emit('update');
+  }
+  // cambiar de agente. El que dejas, si lo has movido, se queda en su sitio (⚓ posición fijada) en lugar de ir detrás
+  // del nuevo; si iba de camino a un sitio (opts.goto), sigue hasta allí él solo y luego se queda
+  switchActive(i, opts = {}) {
     const team = this.team;
     if (!team.length) return;
     let idx = i;
@@ -766,8 +782,27 @@ export class Expedition {
       idx = this.squad.indexOf(up[(cur + 1) % up.length]);
     }
     if (!this.inMap(this.squad[idx]) || this.squad[idx].downed) return; // a un abatido no se le controla
+    const prev = this.cur;
+    if (prev && prev !== this.squad[idx] && this.inMap(prev)) this.leaveControl(prev, opts.goto);
     this.active = idx;
+    const nc = this.cur;
+    nc.goto = null; // al que controlas lo mueves tú
+    nc.ctrlFrom = [nc.x, nc.y];
     this.emit('switch');
+  }
+  leaveControl(sq, goto) {
+    if (goto && (goto[0] !== sq.x || goto[1] !== sq.y)) {
+      sq.goto = [goto[0], goto[1]]; sq.hold = false;
+      this.say(`${this.nm(sq)} sigue hacia su posición por su cuenta.`, 'dimt');
+      return;
+    }
+    const from = sq.ctrlFrom;
+    if (!from || from[0] !== sq.x || from[1] !== sq.y) {
+      if (!sq.hold) {
+        sq.hold = true;
+        this.say(`⚓ ${this.nm(sq)} se queda en esa posición${sq.order === 'seguir' || sq.order === 'pasivo' ? '' : ` (${ORDERS[sq.order]})`}. <span class="dimt">SEGUIR (O o su ficha) para que vuelva a ir con el grupo.</span>`, 'o1');
+      }
+    }
   }
 
   // ---------------------------------------------------------------- turno

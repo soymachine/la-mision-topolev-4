@@ -344,13 +344,19 @@ export class ExpeditionUI {
       if ((a.stress || 0) >= 45) chips.push(`<span class="status-chip ${a.stress >= 70 ? 'bad' : 'warn'}" title="Estrés">EST ${Math.round(a.stress)}</span>`);
       const card = el('div', { class: `agent-card ${sq === e.cur ? 'active' : ''} ${!sq.alive ? 'dead' : sq.out ? 'gone' : ''}` });
       card.innerHTML = `
-        <div class="ln2"><span><span style="color:${a.color}">@</span> <span class="nm">${esc(a.nick)}</span> <span class="dimt">${esc(a.last)} · Nv ${a.lvl}</span></span><span class="dimt">${sq !== e.cur && e.inMap(sq) ? ORDERS[sq.order] + ' ' : ''}[${i + 1}]</span></div>
+        <div class="ln2"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis"><span style="color:${a.color}">@</span> <span class="nm">${esc(a.nick)}</span> <span class="dimt">${esc(a.last)} · Nv ${a.lvl}</span></span><span class="dimt" style="flex:none">${e.inMap(sq) && !sq.downed ? `<span class="sq-order${sq === e.cur ? ' cur' : ''}" data-ord="1">${sq === e.cur ? '' : sq.goto ? '→ ' : sq.hold ? '⚓ ' : ''}${ORDERS[sq.order]}</span> ` : ''}[${i + 1}]</span></div>
         ${status ? `<div>${status}</div>` : `
         <div class="ln2"><span>SAL ${hpBar(a.hp, st.hpMaxEff, 14)}</span><span>${Math.max(0, a.hp)}/${st.hpMaxEff}</span></div>
         <div class="ln2"><span>RAD ${bar(Math.min(100, a.rad), 100, 14, 'rad')}</span><span>${Math.round(a.rad)}</span></div>
         <div class="ln2"><span style="color:${w ? rarityColor(w.r) : 'inherit'};overflow:hidden;text-overflow:ellipsis">${w ? esc(ITEMS[w.b].name) : 'Puños'}</span><span>${ws && ws.mag ? `${w.ammoKind && ITEMS[w.ammoKind] ? `<span style="color:${AMMO_KINDS[ITEMS[w.ammoKind].kind].color}" title="Munición ${AMMO_KINDS[ITEMS[w.ammoKind].kind].name}">${AMMO_KINDS[ITEMS[w.ammoKind].kind].short}</span> ` : ''}${w.ld}/${ws.mag} <span class="dimt">+${e.ammoFor(sq)}</span>` : ''} <span class="cyan">✦${sq.ess}</span></span></div>
         ${chips.length ? `<div>${chips.join('')}</div>` : ''}`}`;
-      if (e.inMap(sq) && !sq.downed) card.addEventListener('click', () => { e.switchActive(i); sfx.click(); });
+      if (e.inMap(sq) && !sq.downed) card.addEventListener('click', () => { this.switchTo(i); sfx.click(); });
+      // la orden de cada agente: clic para cambiarla (sin cambiar de agente)
+      const ordEl = card.querySelector('[data-ord]');
+      if (ordEl) {
+        ordEl.addEventListener('click', (ev) => { ev.stopPropagation(); const ks = Object.keys(ORDERS); e.setAgentOrder(sq, ks[(ks.indexOf(sq.order) + 1) % ks.length]); sfx.click(); this.refresh(); });
+        tip(ordEl, () => `<div class="tt-title">ORDEN DE ${esc(a.nick.toUpperCase())}</div><div>Clic: ${Object.values(ORDERS).join(' → ')}.</div>${sq.hold ? '<div class="cyan">⚓ Posición fijada: no va detrás del grupo. SEGUIR lo devuelve al grupo.</div>' : ''}${sq.goto ? '<div class="cyan">→ De camino a la posición que le marcaste.</div>' : ''}<div class="dimt">Al cambiar de agente, el que has movido se queda donde lo dejas; si iba de camino a un punto, llega solo.</div>`);
+      }
       // soltar objetos sobre un compañero adyacente para dárselos
       dropzone(card, {
         accepts: (d) => d && d.kind === 'inv' && e.inMap(sq) && sq !== e.cur && cheb(sq.x, sq.y, e.cur.x, e.cur.y) <= 1,
@@ -531,7 +537,7 @@ export class ExpeditionUI {
     }
     if (/^[1-4]$/.test(lower)) {
       const i = +lower - 1;
-      if (e.squad[i] && e.inMap(e.squad[i])) { e.switchActive(i); sfx.click(); }
+      if (e.squad[i] && e.inMap(e.squad[i])) { this.switchTo(i); sfx.click(); }
       return;
     }
     if (act) { ev.preventDefault(); this.doAction(act); }
@@ -559,7 +565,7 @@ export class ExpeditionUI {
       case 'inventory': this.openInventory(); break;
       case 'map': this.toggleBigMap(); break;
       case 'orders': this.cycleOrder(); break;
-      case 'next': e.switchActive(); sfx.click(); break;
+      case 'next': this.switchTo(); sfx.click(); break;
       case 'help': this.hooks.onHelp(); break;
       case 'zoomIn': this.zoom(1); break;
       case 'zoomOut': this.zoom(-1); break;
@@ -592,6 +598,14 @@ export class ExpeditionUI {
     if (c) this.r.centerOn(c.x, c.y, true);
   }
 
+  // cambiar de agente: si el actual iba de camino (clic para viajar), sigue hasta allí por su cuenta
+  switchTo(i) {
+    const e = this.exp;
+    const tr = this.travel;
+    const goto = tr && tr.i < tr.path.length ? tr.path[tr.path.length - 1] : null;
+    this.travel = null;
+    e.switchActive(i, { goto });
+  }
   cycleOrder() {
     const e = this.exp;
     const keys = Object.keys(ORDERS);
@@ -848,7 +862,7 @@ export class ExpeditionUI {
     if (obj && cheb(x, y, c.x, c.y) <= 1) { if (this.canAct()) e.act((sq) => e.interactObj(sq, obj)); return; }
     const ag = e.agentAt(x, y);
     if (ag && e.canRescue(c, ag)) { if (this.canAct()) e.act((sq) => e.rescue(sq, ag)); return; } // fase 23.3: levantar al abatido
-    if (ag && cheb(x, y, c.x, c.y) > 1) { e.switchActive(e.squad.indexOf(ag)); return; }
+    if (ag && cheb(x, y, c.x, c.y) > 1) { this.switchTo(e.squad.indexOf(ag)); return; }
     this.startTravel(x, y);
   }
   startTravel(x, y, toEnemy = false) {

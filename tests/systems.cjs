@@ -2233,6 +2233,68 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     await ctx20.close();
   }
 
+  // ================================================================ escuadrón: recolocar a cada agente
+  console.log('· Escuadrón: recolocar agentes');
+  {
+    const ctx21 = await b.newContext({ viewport: { width: 1440, height: 860 } });
+    const R = await ctx21.newPage();
+    R.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
+    R.on('console', (m) => { if ((m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) || m.type() === 'warning') errs.push(m.text()); });
+    await R.goto(URL); await R.waitForTimeout(800);
+    await R.click('text=NUEVA PARTIDA'); await R.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await R.click('#screen-intro'); await R.click('text=COMENZAR');
+    await R.waitForTimeout(300);
+    await R.click('.tab:has-text("EXPEDICIÓN")'); await R.waitForTimeout(200);
+    await R.click('[data-go]'); await R.waitForTimeout(150); for (let i = 0; i < 3; i++) { const rr = await R.$$('.modal .agent-row'); if (rr[i]) await rr[i].click(); }
+    await R.click('text=LANZAR EXPEDICIÓN'); await R.waitForTimeout(300);
+    if (await R.$('.modal-back >> text=LANZAR')) await R.click('.modal-back >> text=LANZAR');
+    await R.waitForTimeout(800);
+    for (let i = 0; i < 6 && (await R.$('.modal')); i++) { await R.keyboard.press('Escape'); await R.waitForTimeout(120); }
+    const rp = await R.evaluate(async () => {
+      const { astar } = await import('./js/exp/path.js');
+      const e = window.__topolev.exp; window.__topolev.debug.run('god');
+      for (const x of [...e.enemies]) if (!e.isComp(x)) e.dismissActor(x);
+      if (e.dlg) e.closeDialog(); e.dlgQueue = [];
+      const out = {};
+      const A = e.squad[0], B = e.squad[1];
+      // A se aleja 3 pasos y se cambia a B: A se queda (⚓)
+      for (let n = 0; n < 3; n++) { const d = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]].find(([dx, dy]) => e.passable(A.x + dx, A.y + dy) && !e.entityAt(A.x + dx, A.y + dy)); if (d) e.moveDir(d[0], d[1]); }
+      const posA = [A.x, A.y];
+      e.switchActive(1);
+      out.hold = A.hold === true && e.cur === B;
+      for (let n = 0; n < 6; n++) e.wait();
+      out.stays = A.x === posA[0] && A.y === posA[1];
+      // B recibe un «ir a» al cambiar de nuevo a A: llega solo y se queda
+      let goal = null;
+      for (let r = 6; r >= 3 && !goal; r--) for (let dy = -r; dy <= r && !goal; dy++) for (let dx = -r; dx <= r && !goal; dx++) {
+        const gx = B.x + dx, gy = B.y + dy;
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r || !e.passable(gx, gy) || e.entityAt(gx, gy)) continue;
+        const p = astar(e.w, e.h, B.x, B.y, gx, gy, (x, y) => (e.passable(x, y) ? 1 : Infinity), 2000);
+        if (p && p.length && p.length <= 9) goal = [gx, gy];
+      }
+      out.goal = !!goal;
+      e.switchActive(0, { goto: goal });
+      out.going = !!B.goto;
+      for (let n = 0; n < 14 && B.goto; n++) e.wait();
+      out.arrived = B.x === goal[0] && B.y === goal[1] && B.hold && !B.goto;
+      // órdenes por agente y SEGUIR reagrupa
+      e.setAgentOrder(B, 'emboscada');
+      out.indiv = B.order === 'emboscada' && e.squad.filter((q) => q !== B && q !== e.cur).every((q) => q.order !== 'emboscada');
+      e.setOrder('seguir');
+      out.regroup = !B.hold && !B.goto && B.order === 'seguir';
+      return out;
+    });
+    ok(rp.hold && rp.stays, 'al cambiar de agente, el que has movido se queda en su posición (⚓) en vez de seguir al nuevo');
+    ok(rp.goal && rp.going && rp.arrived, `si cambias mientras iba de camino, llega solo a su destino y se queda (${JSON.stringify(rp)})`);
+    ok(rp.indiv && rp.regroup, 'órdenes por agente; SEGUIR reagrupa a todos');
+    // la ficha: clic en la orden la cambia sin cambiar de agente
+    await R.waitForTimeout(200);
+    const before = await R.evaluate(() => ({ cur: window.__topolev.exp.active, ord: window.__topolev.exp.squad[1].order }));
+    await R.click('.agent-card >> nth=1 >> [data-ord]'); await R.waitForTimeout(150);
+    const after = await R.evaluate(() => ({ cur: window.__topolev.exp.active, ord: window.__topolev.exp.squad[1].order }));
+    ok(after.cur === before.cur && after.ord !== before.ord, `ficha: clic en la orden de un agente la cambia (${before.ord} → ${after.ord}) sin cambiar de agente`);
+    await ctx21.close();
+  }
+
   console.log(errs.length ? 'ERRORES:\n' + errs.join('\n') : '  ✓ sin errores en consola');
   await b.close();
   if (fails || errs.length) { console.log(`FALLOS: ${fails}`); process.exit(1); }

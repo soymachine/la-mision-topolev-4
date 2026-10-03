@@ -405,7 +405,8 @@ ${helpKeysHTML()}
 <h2>TURNOS Y COMBATE</h2>
 <ul>
 <li>Cada acción (moverse, disparar, recargar, usar un objeto) consume un turno. Después actúan tus compañeros y luego los chebylitas (los rápidos actúan más de una vez).</li>
-<li>Controlas a un agente; los demás le siguen y disparan solos según sus órdenes. Puedes cambiar de agente cuando quieras.</li>
+<li>Controlas a un agente; los demás le siguen y disparan solos según sus órdenes. Puedes cambiar de agente cuando quieras (1–4, ${keyName('next')}, clic en su ficha o en su @).</li>
+<li><b>Recolocar al escuadrón</b>: al cambiar de agente, el que has movido <b>se queda donde lo dejas</b> (⚓ posición fijada) y sigue disparando según su orden. Si cambias mientras va de camino a un punto (clic para viajar), <b>llega él solo</b> (→, con una × de su color en el destino): así puedes mover a varios a la vez. Cada ficha muestra su orden: clic en ella para cambiarla solo a ese agente. <b>SEGUIR</b> (${keyName('orders')} o los botones de órdenes) los reagrupa a todos.</li>
 <li>El % de impacto depende del arma, la puntería del agente, la distancia respecto al alcance del arma y la esquiva del objetivo. Las escopetas pierden daño a distancia; los fusiles de tirador odian la corta distancia.</li>
 <li>Los disparos hacen <b>ruido</b> y despiertan a los nidos cercanos. Las armas cuerpo a cuerpo son silenciosas.</li>
 <li>La armadura resta daño a cada golpe. La agilidad hace que te fallen más.</li>

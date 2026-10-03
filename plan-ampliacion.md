@@ -657,6 +657,11 @@ Idea del director: los efectos actuales se quedan como **capa lógica** (se calc
 - [ ] Pendiente de decidir: los indicadores pequeños dentro de la casilla (barra de vida de 2 px, ★ élite, ∷ suprimido, cobertura ▄█, turnos del abatido, signos del modo daltónico) siguen como estaban.
 - [ ] Pendiente: efectos CSS de la interfaz (resplandores con box-shadow, transiciones con desplazamiento, efecto CRT).
 
+## Revisión 6: recolocar a cada agente ✔
+- [x] Al cambiar de agente (1–4, Tab, clic en su ficha o en su @), el que has movido **se queda donde lo dejas** (⚓ posición fijada: no va detrás del nuevo, pero sigue disparando según su orden).
+- [x] Si cambias mientras iba de camino (clic para viajar), **llega solo** a su destino (→, × de su color en la casilla) y allí se queda: se puede mover a varios a la vez.
+- [x] **Órdenes por agente**: cada ficha muestra la suya; clic para cambiarla solo a ese agente. Los botones de grupo siguen; **SEGUIR** reagrupa a todos (quita posiciones fijadas y destinos).
+
 ## Banco de ideas (sin fase asignada)
 
 - **Vehículos en superficie:** un UAZ-469 o un BRDM para viajar rápido entre puntos de la superficie (combustible limitado y ruido).

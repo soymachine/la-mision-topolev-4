@@ -35,6 +35,8 @@ export class AIPart {
       const heal = a.bag.filter((it) => ITEMS[it.b].use === 'heal').sort((x, y) => ITEMS[x.b].heal - ITEMS[y.b].heal)[0];
       if (heal) { this.useItem(sq, heal); return; }
     }
+    // «ir a»: va a la posición que le dejaste aunque haya enemigos a la vista; al llegar se queda allí (⚓)
+    if (sq.goto && this.gotoStep(sq)) return;
     const ws = this.weaponStats(sq);
     const w = this.weapon(sq);
     // disparar
@@ -55,7 +57,7 @@ export class AIPart {
         if (a.equip[other]) { sq.cur = other; return; }
       }
     }
-    if (sq.order === 'mantener' || sq.order === 'emboscada') return;
+    if (sq.order === 'mantener' || sq.order === 'emboscada' || sq.hold) return; // ⚓ posición fijada: no sigue a nadie
     // seguir al líder (o acudir a la evacuación)
     let lead = this.cur;
     let near = 2;
@@ -74,6 +76,29 @@ export class AIPart {
         this.moveEntity(sq, nx, ny); this.onAgentEnter(sq);
       }
     }
+  }
+  // un paso hacia la posición de «ir a». Devuelve true si ha gastado el turno en ello
+  gotoStep(sq) {
+    const [gx, gy] = sq.goto;
+    const arrive = (msg) => { sq.goto = null; sq.hold = true; sq.gotoWait = 0; if (msg) this.say(msg, 'dimt'); };
+    if (sq.x === gx && sq.y === gy) { arrive(`⚓ ${this.nm(sq)} en posición.`); return false; }
+    // el sitio lo ocupa otro: se queda al lado
+    const occ = this.entityAt(gx, gy);
+    if (occ && occ !== sq && cheb(sq.x, sq.y, gx, gy) <= 1) { arrive(`⚓ ${this.nm(sq)} en posición (junto al punto marcado).`); return false; }
+    const path = astar(this.w, this.h, sq.x, sq.y, gx, gy, (x, y) => (this.passable(x, y) && !this.enemyAt(x, y) ? (this.agentAt(x, y) ? 4 : this.hazardCost(x, y)) : Infinity), 4000);
+    if (!path || !path.length) { arrive(`${this.nm(sq)} no encuentra camino y se queda donde está (⚓).`); return false; }
+    const [nx, ny] = path[0];
+    if (this.entityAt(nx, ny)) {
+      // alguien en medio: espera un par de turnos y, si sigue igual, se queda
+      sq.gotoWait = (sq.gotoWait || 0) + 1;
+      if (sq.gotoWait > 3) { arrive(`⚓ ${this.nm(sq)} no puede pasar y se queda ahí.`); return false; }
+      return true;
+    }
+    sq.gotoWait = 0;
+    if (this.tile(nx, ny) === T.DOOR) this.t[this.key(nx, ny)] = T.DOOR_OPEN;
+    this.moveEntity(sq, nx, ny); this.onAgentEnter(sq);
+    if (sq.x === gx && sq.y === gy) arrive(`⚓ ${this.nm(sq)} en posición.`);
+    return true;
   }
   hazardCost(x, y) {
     const k = this.key(x, y);
