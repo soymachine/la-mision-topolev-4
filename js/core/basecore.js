@@ -396,7 +396,7 @@ function resolveSideOps() {
       a.missions = (a.missions || 0) + 1;
       const st = agentStats(a);
       a.hp = Math.max(1, a.hp - Math.round(st.hpMaxEff * (roll < ch ? 0.15 : 0.45) * Math.random()));
-      a.rad = Math.min(140, a.rad + Math.round(m.ambientRad * 40 * Math.random()));
+      a.rad = 0; // vuelven a la base: descontaminación automática (como al volver de una expedición)
       addStress(a, roll < ch ? 6 : 18);
       // muerte, solo si la operación sale muy mal
       if (roll > ch + 0.35 && Math.random() < 0.35) {

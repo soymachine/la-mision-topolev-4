@@ -130,6 +130,8 @@ function upgrade(d) {
   baseDefaults(d);
   worldDefaults(d);
   statsDefaults(d); // fase 24.6: estadísticas ampliadas
+  // descontaminación automática al volver a la base: los agentes que ya estaban en ella quedan limpios (una vez)
+  if (!d.deconV) { const away = new Set(((d.exp && d.exp.squad) || []).map((q) => q.id)); for (const a of d.agents || []) if (!away.has(a.id)) a.rad = 0; d.deconV = 1; }
   // fase 18: la reputación pasa a ser absoluta (−100…+100) partiendo de la postura inicial de cada facción
   if (!d.repV) { for (const [f, F] of Object.entries(FACTIONS)) if (F.rep0 != null) d.rep[f] = Math.max(-100, Math.min(100, F.rep0 + (d.rep[f] || 0))); d.repV = 1; }
   for (const a of d.agents || []) upgradeAgent(a);

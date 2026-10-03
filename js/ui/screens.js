@@ -360,7 +360,7 @@ export class HelpScreen {
 <h2>LA BASE</h2>
 <ul>
 <li><b>CUARTEL</b>: resumen, mensajes del Dr. Topolev y último informe.</li>
-<li><b>EQUIPO</b>: <b>arrastra y suelta</b> objetos entre el almacén, las ranuras del agente y su mochila. Doble clic para moverlos rápido. Puedes tratar heridas y radiación pagando rublos.</li>
+<li><b>EQUIPO</b>: <b>arrastra y suelta</b> objetos entre el almacén, las ranuras del agente y su mochila. Doble clic para moverlos rápido. Puedes tratar las heridas pagando rublos. La radiación se elimina sola al volver a la base (descontaminación).</li>
 <li><b>BARRACONES</b>: recluta nuevos agentes (llegan candidatos cada día) o despide a los que sobren.</li>
 <li><b>LABORATORIO</b>: mejora los módulos (Armería, Polvorín, Blindaje, Enfermería, Taller, Radar, Barracones, Almacén y Laboratorio de esencia) con esencia y rublos. En la <b>Forja de esencia</b> puedes arrastrar una pieza de equipo para subir su rareza; los cristales de esencia se convierten aquí.</li>
 <li><b>INTENDENCIA</b>: compra material (el catálogo cambia cada día) y vende el botín. El botín <span style="color:#ffb02e">$</span> se vende a precio completo.</li>
@@ -534,7 +534,7 @@ ${helpKeysHTML()}
 
 <h2>RADIACIÓN Y PELIGROS</h2>
 <ul>
-<li>La radiación se acumula en el agente (barra <span style="color:#b8f53d">RAD</span>) y <b>reduce su salud máxima</b>. A partir de 100 causa daño cada turno. Los trajes y el antirrad la reducen; la enfermería la trata en la base.</li>
+<li>La radiación se acumula en el agente (barra <span style="color:#b8f53d">RAD</span>) y <b>reduce su salud máxima</b>. A partir de 100 causa daño cada turno. Los trajes y el antirrad la reducen durante la expedición; al volver a la base, los agentes se descontaminan solos y la radiación vuelve a 0.</li>
 <li>El agua está contaminada. Las esporas envenenan (las máscaras de gas protegen). El fuego quema. Las anomalías eléctricas dan descargas.</li>
 <li>Tras un tiempo, el reactor emite un <b class="bad">PULSO</b> y la radiación ambiente sube sin parar: ¡no te entretengas demasiado!</li>
 </ul>

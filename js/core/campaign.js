@@ -308,6 +308,12 @@ export function finalizeExpedition(exp) {
       if (sq.recovered) { row.recovered = sq.recovered; rep.lostItems = Math.max(0, rep.lostItems - 1); }
       if (sq.essKept) { row.essKept = sq.essKept; rep.essRaw += sq.essKept; }
     }
+    // al volver a la base, descontaminación automática (después de los rasgos: «Irradiado» sigue contando lo que traían)
+    if (sq.out && a) {
+      const r = Math.round(a.rad || 0);
+      if (r > 0) row.news.push(`☢ Descontaminado al volver: −${r} de radiación`);
+      a.rad = 0;
+    }
     rep.agents.push(row);
   }
   rep.ess = Math.round(rep.essRaw * labBonus);

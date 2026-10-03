@@ -483,13 +483,14 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     for (let xx = 0; xx < e.w; xx++) if (e.tile(xx, row) === 32 && !e.entityAt(xx, row)) { x = xx; break; }
     if (x < 0) return { rows: e.railRows.length };
     const en = e.spawnEnemy('rata', 1, x, row, 'dormido');
+    if (en.x !== x || en.y !== row) e.moveEntity(en, x, row); // que esté de verdad en la vía
     // el tren pasa por la vía más cercana al agente activo: se deja solo esta para la prueba
     const rows0 = e.railRows; e.railRows = [row];
     e.trainAt = e.turn; e.zoneTick();
     e.railRows = rows0;
     return { rows: rows0.length, dead: !e.enemies.includes(en) || en.hp < en.hpMax, next: e.trainAt > e.turn, onRail: en.y === row };
   });
-  ok(tn.rows > 0 && tn.dead && tn.next, 'el tren fantasma de Yanov arrolla lo que hay en la vía');
+  ok(tn.rows > 0 && tn.dead && tn.next, `el tren fantasma de Yanov arrolla lo que hay en la vía${tn.rows > 0 && tn.dead && tn.next ? '' : ' ' + JSON.stringify(tn)}`);
   await endExp();
   // ---- Campamento Wismut: comerciante y enfermería
   await launchZone('wismut');
@@ -2151,6 +2152,15 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
       ui.openLoot({ obj }); const t2 = [...document.querySelectorAll('.modal .item.loot-hide')].length; if (ui.lootClose) ui.lootClose();
       return { t0, t1, lr4, t2 };
     });
+    // radiación: al volver a la base se descontaminan solos
+    const dc = await Q.evaluate(async () => {
+      const e = window.__topolev.exp; const ui = window.__topolev.expUI; const a = e.cur.a; a.rad = 70;
+      for (const q of e.squad) q.out = true;
+      const rep = ui.hooks.onEnd(e);
+      const row = rep.agents.find((r) => r.name && r.news && r.news.some((n) => /Descontaminado/.test(n)));
+      return { rad: a.rad, news: !!row };
+    });
+    ok(dc.rad === 0 && dc.news, 'al volver de la expedición la radiación de los agentes vuelve a 0 (y el informe lo dice)');
     ok(lr.t0 === 3 && lr.t1 === 0 && lr.lr4 && lr.t2 === 0, `botín: los objetos aparecen uno a uno (con brillo y partículas desde épico) y no se repite al reabrir (${JSON.stringify(lr)})`);
     await ctx19.close();
   }
