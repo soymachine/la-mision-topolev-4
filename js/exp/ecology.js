@@ -89,7 +89,7 @@ export class EcologyPart {
   }
   bossPhase(e, ph) {
     this.say(`☠ ${ph.say}`, 'bad');
-    this.fx.push({ type: 'spawn', x: e.x, y: e.y });
+    this.fx.push({ type: 'spawn', x: e.x, y: e.y }, { type: 'snd', s: 'phase' });
     e.state = 'alerta'; e.mem = 30;
     if (ph.add) e.xab = [...new Set([...(e.xab || []), ...ph.add])];
     if (ph.heal) e.hp = Math.min(e.hpMax, e.hp + Math.round(e.hpMax * ph.heal));
@@ -123,7 +123,7 @@ export class EcologyPart {
         e.cd3 = 6;
         const n = this.wakeAround(e, 22);
         this.noise(e.x, e.y, 22);
-        this.fx.push({ type: 'wake', x: e.x, y: e.y });
+        this.fx.push({ type: 'wake', x: e.x, y: e.y }, { type: 'snd', s: 'howl' });
         if (this.isVisible(e.x, e.y) || this.isSquad(tgt)) this.say(`📢 ${this.enm(e)} aúlla con un gemido mecánico${n ? `: ${n} chebylita(s) despiertan` : ''}.`, 'warn');
       }
       if (!ACTORS[e.type].boss) return true;
@@ -131,6 +131,7 @@ export class EcologyPart {
     // aullido de la jauría: una vez, al ver a su presa
     if (this.has(e, 'howl') && !e.howled) {
       e.howled = 1;
+      this.fx.push({ type: 'snd', s: 'howl' });
       const n = this.wakeAround(e, 16);
       this.noise(e.x, e.y, 10);
       if (this.isVisible(e.x, e.y)) this.say(`${this.enm(e)} aúlla${n ? `: ${n} chebylita(s) responden` : ''}.`, 'warn');

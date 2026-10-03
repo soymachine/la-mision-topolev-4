@@ -15,6 +15,7 @@ export class TacticsPart {
   toggleCrouch(sq = this.cur) {
     if (!sq || !this.inMap(sq)) return false;
     sq.crouch = !sq.crouch; sq.crouchStep = false;
+    this.fx.push({ type: 'snd', s: 'crouch' }); // fase 24.5.4
     this.say(sq.crouch ? `${this.nm(sq)} se agacha: más difícil de ver, pero más lento.` : `${this.nm(sq)} se pone de pie.`, 'dimt');
     this.emit('update');
     return true;
@@ -52,6 +53,7 @@ export class TacticsPart {
   knockDown(sq, cause) {
     sq.downed = 3 + (this.team.some((o) => this.flag(o, 'rescue')) ? 1 : 0);
     sq.downCause = cause; sq.a.hp = 0; sq.crouch = false;
+    this.fx.push({ type: 'snd', s: 'heartbeat' });
     sq.poison = 0; sq.burn = 0; // (si no, el veneno lo remataría sin margen para levantarlo)
     this.fx.push({ type: 'hurt', x: sq.x, y: sq.y });
     this.say(`✚ ¡${this.nm(sq)} cae abatido! Se desangra: ${sq.downed} turnos para levantarlo (<b>F</b> a su lado; mejor con un botiquín).`, 'bad');
@@ -68,7 +70,7 @@ export class TacticsPart {
       if (sq.a.hp > 0) { sq.downed = 0; this.say(`${this.nm(sq)} se levanta.`, 'good'); continue; }
       sq.downed--;
       if (sq.downed <= 0) this.agentDies(sq, `se desangró (${sq.downCause || 'herido'})`);
-      else this.say(`✚ ${this.nm(sq)} se desangra: ${sq.downed} turno(s).`, 'warn');
+      else { this.say(`✚ ${this.nm(sq)} se desangra: ${sq.downed} turno(s).`, 'warn'); this.fx.push({ type: 'snd', s: 'heartbeat' }); }
     }
   }
   // ¿puede sq levantar a t? (a su lado, o a 2 casillas con el desfibrilador, una vez por expedición)
@@ -93,7 +95,7 @@ export class TacticsPart {
     t.downed = 0; t.a.hp = Math.max(1, Math.min(st.hpMaxEff, hp));
     addAff(sq.a, t.a, 15); addStress(t.a, -10);
     sq.a.saves = (sq.a.saves || 0) + 1;
-    this.fx.push({ type: 'heal', x: t.x, y: t.y });
+    this.fx.push({ type: 'heal', x: t.x, y: t.y }, { type: 'snd', s: 'revive' });
     this.say(`✚ ${this.nm(sq)} levanta a ${this.nm(t)} con ${how} (${t.a.hp} de salud).`, 'good');
     this.emit('update');
     return true;
@@ -128,6 +130,7 @@ export class TacticsPart {
     const rounds = Math.min(w.ld, Math.max(6, (ws.burst || 3) * 3));
     if (rounds < 5) { if (sq === this.cur) this.say('Pocas balas en el cargador para suprimir (5 como mínimo).', 'dimt'); return false; }
     if (this.canShoot(sq, tgt) !== 'ok') { this.attack(sq, tgt); return false; }
+    this.fx.push({ type: 'snd', s: 'suppress' });
     w.ld -= rounds;
     for (let i = 0; i < 4; i++) this.fx.push({ type: 'shot', x0: sq.x, y0: sq.y, x1: tgt.x + rng.int(-1, 1), y1: tgt.y + rng.int(-1, 1), hit: false, delay: i * 60, wtype: ws.wtype });
     let n = 0;
@@ -148,7 +151,7 @@ export class TacticsPart {
     w.dur = Math.max(0, w.dur - 0.5 * (k === 'inc' || k === 'hp' ? 1.6 : 1) * (wet ? 1.5 : 1));
     if (rng.chance(Math.max(0, (60 - w.dur) / 400))) {
       w.jammed = 1;
-      this.fx.push({ type: 'miss', x: sq.x, y: sq.y });
+      this.fx.push({ type: 'miss', x: sq.x, y: sq.y }, { type: 'snd', s: 'jam' });
       this.say(`🔧 ¡A ${this.nm(sq)} se le encasquilla el arma! (estado ${Math.round(w.dur)}%) Pulsa <b>R</b> para desencasquillarla.`, 'bad');
       return true;
     }
@@ -186,6 +189,7 @@ export class TacticsPart {
   // granada con mecha: queda en el suelo y explota al final del turno indicado (lista `pending`, se guarda)
   armNade(n) { this.pending.push({ kind: 'nade', ...n }); }
   nadeTick() {
+    if (this.pending.some((p) => p.kind === 'nade' && p.at > this.turn)) this.fx.push({ type: 'snd', s: 'tick' }); // mecha encendida
     for (const p of [...this.pending]) {
       if (p.kind !== 'nade' || p.at > this.turn) continue;
       this.pending.splice(this.pending.indexOf(p), 1);

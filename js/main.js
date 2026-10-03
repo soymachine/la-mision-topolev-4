@@ -9,6 +9,7 @@ import { TitleScreen, IntroScreen, ReportScreen, HelpScreen } from './ui/screens
 import { installDebug } from './ui/debug.js';
 import { applyA11y } from './ui/a11y.js';
 import { applyLang } from './i18n/index.js';
+import { music } from './audio.js';
 
 let current = null;
 let prevScreen = 'title';
@@ -18,6 +19,8 @@ function show(id) {
   hideTooltip();
   for (const s of $$('.screen')) s.classList.toggle('active', s.id === 'screen-' + id);
   current = id;
+  // fase 24.5.2: música tranquila en la base y el informe; silencio en el título (la expedición pone su drone)
+  if (id === 'base' || id === 'report') music.play('base'); else if (id === 'title' || id === 'intro') music.stop();
 }
 
 async function boot() {

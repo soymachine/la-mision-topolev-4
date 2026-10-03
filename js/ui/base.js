@@ -14,7 +14,7 @@ import { SPECS, SPEC_TALENTS, SPEC_LEVEL, rerollCost } from '../data/specs.js';
 import { bgName, BACKGROUNDS } from '../data/backgrounds.js';
 import { ACQUIRED, MEDALS, RETIRE_LEVEL, MAX_INSTRUCTORS, INSTRUCTOR_XP, ROOKIE_LEVEL } from '../data/honors.js';
 import * as C from '../core/campaign.js';
-import { sfx } from '../audio.js';
+import { sfx, music } from '../audio.js';
 import { uiBurst, uiSparkEl, uiFly, uiText } from './fx.js';
 import { fmt } from '../util/rng.js';
 import { toggleFullscreen } from './expui.js';
@@ -1163,7 +1163,7 @@ export class BaseUI {
     const btn = (label, fn, cls = '') => el('button', { class: 'btn ' + cls, onclick: () => { sfx.click(); fn(); } }, label);
     body.append(
       btn(t('menu.continue'), () => close()),
-      btn(t('menu.sound', { v: t(settings.sound ? 'yes' : 'no') }), () => { settings.sound = !settings.sound; saveSettings(); close(); this.openMenu(); }),
+      btn(t('menu.sound', { v: t(settings.sound ? 'yes' : 'no') }), () => { settings.sound = !settings.sound; saveSettings(); music.sync(); close(); this.openMenu(); }),
       btn(t('menu.crt', { v: t(settings.crt ? 'yes' : 'no') }), () => { settings.crt = !settings.crt; document.body.classList.toggle('no-crt', !settings.crt); saveSettings(); close(); this.openMenu(); }),
       btn(t('menu.save'), () => { if (save()) toast(t('menu.saved', { n: slot }), 'good'); else toast(t('menu.saveFail'), 'bad', 6000); close(); }),
       btn(t('menu.export'), () => {

@@ -544,7 +544,7 @@ export class Expedition {
         const groups = {};
         for (const e of list) { const k = e.type + '|' + e.lvl + '|' + actorFaction(e); groups[k] = (groups[k] || 0) + 1; }
         const txt = Object.entries(groups).map(([k, n]) => { const [tp, l, f] = k.split('|'); return `<span style="color:${actorColor({ type: tp, lvl: +l, faction: f })}">${n > 1 ? n + '× ' : ''}${ACTORS[tp].name} Nv ${l}</span>`; }).join(', ');
-        if (att === 'hostile') { this.say(`¡Contacto! ${txt}`, 'warn'); this.interrupt = true; this.fx.push({ type: 'alert' }); }
+        if (att === 'hostile') { this.say(`¡Contacto! ${txt}`, 'warn'); this.interrupt = true; this.fx.push({ type: 'alert' }); if (list.some((e) => e.elite)) this.fx.push({ type: 'snd', s: 'elite' }); }
         else if (att === 'neutral') { this.say(`Avistas a ${txt} <span class="warn">(neutral)</span>.`, 'o1'); this.interrupt = true; }
         else this.say(`Aliados a la vista: ${txt}.`, 'good');
       }

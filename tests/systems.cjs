@@ -1688,6 +1688,55 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     await ctx11.close();
   }
   {
+    // 24.5 música generativa y sonido: temas por pantalla y zona, intensidad, volúmenes separados y sonidos nuevos
+    const ctx14 = await b.newContext({ viewport: { width: 1440, height: 860 } });
+    const Au = await ctx14.newPage();
+    Au.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
+    Au.on('console', (m) => { if ((m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) || m.type() === 'warning') errs.push(m.text()); });
+    await Au.goto(URL); await Au.waitForTimeout(800);
+    await Au.click('text=NUEVA PARTIDA'); await Au.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await Au.click('#screen-intro'); await Au.click('text=COMENZAR');
+    await Au.waitForTimeout(400);
+    const mb = await Au.evaluate(async () => { const A = await import('./js/audio.js'); return { want: A.music.wanted, theme: A.music.theme }; });
+    ok(mb.want === 'base' && mb.theme === 'base', `música tranquila en la base (${mb.theme})`);
+    // volúmenes separados desde el menú de la base; se guardan
+    await Au.click('text=≡ MENÚ'); await Au.waitForTimeout(150);
+    await Au.click('.modal >> text=/VOL. MÚSICA: 40%/'); await Au.waitForTimeout(150);
+    await Au.click('.modal >> text=/VOL. EFECTOS: 100%/'); await Au.waitForTimeout(150);
+    const vol = await Au.evaluate(() => { const st = JSON.parse(localStorage.getItem('topolev_settings_v1')); return { m: st.musicVol, f: st.sfxVol }; });
+    ok(Math.abs(vol.m - 0.6) < 0.01 && vol.f === 0, `volúmenes de música y efectos por separado, guardados (${vol.m} / ${vol.f})`);
+    await Au.click('.modal >> text=/MÚSICA: SÍ/'); await Au.waitForTimeout(150);
+    const off = await Au.evaluate(async () => { const A = await import('./js/audio.js'); return A.music.theme; });
+    await Au.click('.modal >> text=/MÚSICA: NO/'); await Au.waitForTimeout(150);
+    const on = await Au.evaluate(async () => { const A = await import('./js/audio.js'); return A.music.theme; });
+    ok(off === null && on === 'base', 'MÚSICA: NO la apaga (con fundido) y SÍ la vuelve a poner');
+    for (let i = 0; i < 4 && (await Au.$('.modal')); i++) { await Au.keyboard.press('Escape'); await Au.waitForTimeout(120); }
+    // expedición: drone de la zona e intensidad con el peligro
+    await Au.click('.tab:has-text("EXPEDICIÓN")'); await Au.waitForTimeout(200);
+    for (let i = 0; i < 2; i++) { const rows = await Au.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+    await Au.click('text=LANZAR EXPEDICIÓN'); await Au.waitForTimeout(300);
+    if (await Au.$('.modal-back >> text=LANZAR')) await Au.click('.modal-back >> text=LANZAR');
+    await Au.waitForTimeout(800);
+    const ex = await Au.evaluate(async () => {
+      const A = await import('./js/audio.js'); const e = window.__topolev.exp; const ui = window.__topolev.expUI;
+      const theme = A.music.theme, zoneTheme = A.themeForZone(e.def);
+      for (const x of [...e.enemies]) if (!e.isComp(x)) e.dismissActor(x);
+      const calm = ui.danger();
+      const c = e.cur; let n = 0;
+      for (const [dx, dy] of [[2, 0], [0, 2], [-2, 0], [0, -2], [2, 2]]) if (n < 3 && e.passable(c.x + dx, c.y + dy) && !e.entityAt(c.x + dx, c.y + dy)) { const en = e.spawnEnemy('lobo', 2, c.x + dx, c.y + dy, 'alerta'); en.state = 'alerta'; n++; }
+      e.computeVisibility(true);
+      const hot = ui.danger(); A.music.setIntensity(hot);
+      // los sonidos nuevos (24.5.4) suenan sin errores
+      for (const k of ['tick', 'heartbeat', 'revive', 'suppress', 'jam', 'crouch', 'howl', 'phase', 'elite']) A.sfx[k]();
+      e.toggleCrouch(e.cur); const snd = e.fx.some((f) => f.type === 'snd' && f.s === 'crouch'); e.toggleCrouch(e.cur);
+      return { theme, zoneTheme, calm, hot, inten: A.music.intensity, snd };
+    });
+    ok(ex.theme === ex.zoneTheme && ['subsuelo', 'superficie', 'laboratorio', 'corium'].includes(ex.theme), `drone de la zona al entrar en la expedición (${ex.theme})`);
+    ok(ex.hot > ex.calm && ex.inten === ex.hot, `la intensidad sube con enemigos en alerta (${ex.calm.toFixed(2)} → ${ex.hot.toFixed(2)})`);
+    ok(ex.snd, 'sonidos nuevos de las fases 19–23 (agacharse, latido, mecha…) sin errores');
+    await Au.waitForTimeout(400);
+    await ctx14.close();
+  }
+  {
     // 24.4 localización: inglés en el menú, las pestañas y los datos; lo que falta cae al español
     const ctx13 = await b.newContext({ viewport: { width: 1440, height: 860 } });
     const L = await ctx13.newPage();

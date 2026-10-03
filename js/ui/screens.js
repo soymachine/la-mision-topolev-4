@@ -4,7 +4,7 @@ import { S, hasSave, settings, saveSettings, listSlots, slotInfo, lastSlot, expo
 import { RARITIES } from '../data/rarity.js';
 import { ENEMIES, enemyColor } from '../data/enemies.js';
 import { MAPS } from '../data/world.js';
-import { sfx } from '../audio.js';
+import { sfx, music } from '../audio.js';
 import { FONT } from '../render/ascii.js';
 import { uiBurst } from './fx.js';
 import { toggleFullscreen } from './expui.js';
@@ -68,7 +68,7 @@ export class TitleScreen {
     menu.append(btn(t('menu.help'), () => this.hooks.onHelp()));
     menu.append(btn(t('menu.controls'), () => controlsModal()));
     menu.append(btn(t('menu.fullscreen'), () => toggleFullscreen()));
-    menu.append(btn(t('menu.sound', { v: t(settings.sound ? 'yes' : 'no') }), () => { settings.sound = !settings.sound; saveSettings(); this.open(); }));
+    menu.append(btn(t('menu.sound', { v: t(settings.sound ? 'yes' : 'no') }), () => { settings.sound = !settings.sound; saveSettings(); music.sync(); this.open(); }));
     menu.append(btn(t('menu.crt', { v: t(settings.crt ? 'yes' : 'no') }), () => { settings.crt = !settings.crt; document.body.classList.toggle('no-crt', !settings.crt); saveSettings(); this.open(); }));
     menu.append(btn(t('menu.text', { v: t('scale.' + (settings.uiScale || 0)) }), () => { cycleUiScale(); this.open(); }));
     for (const [lab, fn] of a11yButtons(() => this.open())) menu.append(btn(lab, fn));
@@ -506,6 +506,7 @@ ${helpKeysHTML()}
 
 <h2>ACCESIBILIDAD</h2>
 <p>En el menú principal (y en el menú de la base y de la expedición): <b>MODO DALTÓNICO</b> cambia los colores de las rarezas a una paleta distinguible (Okabe-Ito) y les pone un símbolo (· común, + no común, ◆ raro, ★ épico, ✦ legendario, ✪ mítico); en el mapa, las personas llevan además ! (hostil), ? (neutral) o + (aliado). <b>ALTO CONTRASTE</b> aclara los textos, marca los bordes, quita el efecto CRT y aviva los colores del mapa. Se recuerdan entre sesiones.</p>
+<p><b>MÚSICA</b>: un drone generativo que cambia con la zona (superficie, subsuelo, laboratorios, corium) y se vuelve más tenso con el peligro (enemigos en alerta, el pulso del reactor, un jefe a la vista, un agente abatido); en la base suena un tema tranquilo. <b>VOL. MÚSICA</b> y <b>VOL. EFECTOS</b> se ajustan por separado.</p>
 <p><b>IDIOMA</b>: español o inglés (English). En inglés ya están traducidos los menús, las pestañas de la base, el HUD de la expedición, los controles y los nombres de zonas, chebylitas y objetos básicos; lo que aún no tiene traducción sale en español.</p>
 <p><b>CONTROLES TÁCTILES</b> (AUTO / SÍ / NO; en AUTO se activan solos en pantallas táctiles): durante la expedición aparece una cruceta de 8 direcciones (el punto del centro espera un turno; manteniéndola pulsada se repite) y botones para interactuar (F), apuntar (⌖; en el modo apuntar pasa al siguiente objetivo y F dispara), recargar, curarse, habilidad, granada, agacharse, cambiar de agente, inventario y ✕ (cancelar o menú). Tocar el mapa es como hacer clic (ir, atacar, abrir); <b>mantener pulsado</b> muestra la información de la casilla; <b>pellizcar</b> acerca o aleja; <b>arrastrar el radar</b> mueve la vista. En pantallas estrechas el panel del agente se abre con ☰.</p>
 

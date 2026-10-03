@@ -15,7 +15,7 @@ import { S, save, settings, saveSettings } from '../core/state.js';
 import { ORDERS, ESSENCE_COLOR } from '../exp/shared.js';
 import { astar } from '../exp/path.js';
 import { cheb, rng } from '../util/rng.js';
-import { sfx } from '../audio.js';
+import { sfx, music, themeForZone } from '../audio.js';
 import { uiFly } from './fx.js';
 import { NOTES, FOREIGN_NOTES } from '../data/lore.js';
 import { showDialog } from './dialog.js';
@@ -142,6 +142,7 @@ export class ExpeditionUI {
     this.active = true;
     this.mode = null; this.travel = null; this.big = null;
     this.relabel(false); // por si se cambió el idioma desde la base
+    music.play(themeForZone(exp.def)); music.setIntensity(0); // fase 24.5: drone de la zona
     this.r.resize();
     if (!settings.zoom) settings.zoom = Math.round(Math.max(13, Math.min(18, innerWidth / 105)));
     this.r.setZoom(settings.zoom);
@@ -214,7 +215,7 @@ export class ExpeditionUI {
     if (!e.fx.length) return;
     const seen = new Set();
     for (const f of e.fx) {
-      const k = f.type + (f.wtype || '');
+      const k = f.type + (f.wtype || '') + (f.s || '');
       if (seen.has(k)) continue;
       seen.add(k);
       switch (f.type) {
@@ -237,6 +238,7 @@ export class ExpeditionUI {
         case 'surge': sfx.surge(); break;
         case 'alert': sfx.alert(); break;
         case 'ebolt': sfx.zap(); break;
+        case 'snd': if (sfx[f.s]) setTimeout(() => sfx[f.s](), f.delay || 0); break; // fase 24.5.4: sonido sin efecto visual
       }
     }
   }
@@ -248,6 +250,7 @@ export class ExpeditionUI {
   onTurn() {
     const e = this.exp;
     const c = e.cur;
+    music.setIntensity(this.danger());
     if (c && e.inMap(c)) {
       this.r.centerOn(c.x, c.y);
       const r = e.rad[e.key(c.x, c.y)] + e.ambient;
@@ -255,6 +258,17 @@ export class ExpeditionUI {
     }
     this.refresh();
     if (e.turn % 3 === 0) save();
+  }
+
+  // peligro para la música (0–1): enemigos en alerta a la vista, pulso del reactor, jefe a la vista, abatidos
+  danger() {
+    const e = this.exp;
+    let k = 0;
+    for (const en of e.enemies) if (e.seen(en) && e.cur && e.hostile(e.cur, en)) k += en.state === 'alerta' ? 0.18 : 0.05;
+    if (e.enemies.some((en) => e.seen(en) && ACTORS[en.type] && ACTORS[en.type].boss)) k += 0.5;
+    if (e.turn >= e.surgeAt) k += 0.4; else if (e.surgeAt - e.turn <= 30) k += 0.15;
+    if (e.team.some((q) => q.downed)) k += 0.25;
+    return Math.min(1, k);
   }
 
   // ------------------------------------------------------------ HUD
@@ -1174,7 +1188,7 @@ export class ExpeditionUI {
     body.append(
       btn(t('menu.continue'), () => close()),
       btn(t('menu.help'), () => { close(); this.hooks.onHelp(); }),
-      btn(t('menu.sound', { v: t(settings.sound ? 'yes' : 'no') }), () => { settings.sound = !settings.sound; saveSettings(); close(); this.openMenu(); }),
+      btn(t('menu.sound', { v: t(settings.sound ? 'yes' : 'no') }), () => { settings.sound = !settings.sound; saveSettings(); music.sync(); close(); this.openMenu(); }),
       btn(t('menu.crt', { v: t(settings.crt ? 'yes' : 'no') }), () => { settings.crt = !settings.crt; document.body.classList.toggle('no-crt', !settings.crt); saveSettings(); close(); this.openMenu(); }),
       btn(t('menu.zoomIn'), () => this.zoom(1)), btn(t('menu.zoomOut'), () => this.zoom(-1)),
       btn(t('menu.fullscreen'), () => { toggleFullscreen(); close(); }),
