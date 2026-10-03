@@ -9,6 +9,7 @@ import { FONT } from '../render/ascii.js';
 import { uiBurst } from './fx.js';
 import { toggleFullscreen } from './expui.js';
 import { a11yButtons } from './a11y.js';
+import { t } from '../i18n/index.js';
 import { controlsModal, keyName, helpKeysHTML, keyify } from './keys.js';
 
 // ------------------------------------------------------------ logo ASCII
@@ -61,21 +62,21 @@ export class TitleScreen {
     };
     const has = hasSave();
     const last = slotInfo(lastSlot()) ? lastSlot() : (listSlots().find((x) => x.info) || {}).n;
-    if (has && last) menu.append(btn('CONTINUAR', () => this.hooks.onContinue(last), 'primary'));
-    menu.append(btn('NUEVA PARTIDA', () => this.slotsModal('new'), has ? '' : 'primary'));
-    if (has) menu.append(btn('PARTIDAS GUARDADAS', () => this.slotsModal('load')));
-    menu.append(btn('INSTRUCCIONES', () => this.hooks.onHelp()));
-    menu.append(btn('CONTROLES', () => controlsModal()));
-    menu.append(btn('PANTALLA COMPLETA', () => toggleFullscreen()));
-    menu.append(btn(`SONIDO: ${settings.sound ? 'SÍ' : 'NO'}`, () => { settings.sound = !settings.sound; saveSettings(); this.open(); }));
-    menu.append(btn(`EFECTO CRT: ${settings.crt ? 'SÍ' : 'NO'}`, () => { settings.crt = !settings.crt; document.body.classList.toggle('no-crt', !settings.crt); saveSettings(); this.open(); }));
-    menu.append(btn(`TEXTO: ${UI_SCALES[settings.uiScale || 0].name}`, () => { cycleUiScale(); this.open(); }));
+    if (has && last) menu.append(btn(t('menu.continue'), () => this.hooks.onContinue(last), 'primary'));
+    menu.append(btn(t('menu.new'), () => this.slotsModal('new'), has ? '' : 'primary'));
+    if (has) menu.append(btn(t('menu.saves'), () => this.slotsModal('load')));
+    menu.append(btn(t('menu.help'), () => this.hooks.onHelp()));
+    menu.append(btn(t('menu.controls'), () => controlsModal()));
+    menu.append(btn(t('menu.fullscreen'), () => toggleFullscreen()));
+    menu.append(btn(t('menu.sound', { v: t(settings.sound ? 'yes' : 'no') }), () => { settings.sound = !settings.sound; saveSettings(); this.open(); }));
+    menu.append(btn(t('menu.crt', { v: t(settings.crt ? 'yes' : 'no') }), () => { settings.crt = !settings.crt; document.body.classList.toggle('no-crt', !settings.crt); saveSettings(); this.open(); }));
+    menu.append(btn(t('menu.text', { v: t('scale.' + (settings.uiScale || 0)) }), () => { cycleUiScale(); this.open(); }));
     for (const [lab, fn] of a11yButtons(() => this.open())) menu.append(btn(lab, fn));
     R.append(this.bg, el('div', { class: 'title-wrap' },
       this.logo,
-      el('div', { class: 'title-sub', text: 'CHERNÓBIL · RSS DE UCRANIA · 1986' }),
+      el('div', { class: 'title-sub', text: t('title.sub') }),
       menu,
-    ), el('div', { class: 'title-foot', text: 'Un extraction-looter por turnos · ☢ · guardado automático en este navegador' }));
+    ), el('div', { class: 'title-foot', text: t('title.foot') }));
     this.startBg();
   }
   // gestor de ranuras: 'load' (cargar/borrar/exportar/importar) o 'new' (elegir ranura para empezar)
@@ -84,23 +85,23 @@ export class TitleScreen {
     let close;
     const render = () => {
       body.innerHTML = '';
-      body.append(el('div', { class: 'dimt', style: { marginBottom: '1em' }, text: mode === 'new' ? 'Elige una ranura para la nueva partida.' : 'Partidas guardadas en este navegador. Exporta una copia de seguridad para no perderla nunca.' }));
+      body.append(el('div', { class: 'dimt', style: { marginBottom: '1em' }, text: t(mode === 'new' ? 'slots.new' : 'slots.load') }));
       for (const { n, info } of listSlots()) {
         const row = el('div', { class: 'module', style: { gridTemplateColumns: '6ch 1fr auto' } });
         row.append(el('div', { class: 'mg', text: `[${n}]` }));
         row.append(el('div', { html: info
           ? `<b>Día ${info.day}</b> · ${info.agents} agentes · <span class="cyan">${info.ess} ✦</span> · ${info.rub} ₽ · ${info.unlocked} zonas${info.exp ? ' · <span class="warn">en expedición</span>' : ''}<div class="eff">Guardada el ${new Date(info.saved || Date.now()).toLocaleString('es-ES')} · ${info.kb || '?'} KB</div>`
-          : '<span class="dimt">— vacía —</span>' }));
+          : `<span class="dimt">${t('slots.empty')}</span>` }));
         const acts = el('div', { class: 'row', style: { flexWrap: 'wrap', justifyContent: 'flex-end' } });
         const b = (label, fn, cls = '') => el('button', { class: 'btn small ' + cls, onclick: () => { sfx.click(); fn(); } }, label);
         if (mode === 'new') {
-          acts.append(b(info ? 'SOBRESCRIBIR' : 'EMPEZAR AQUÍ', async () => {
+          acts.append(b(t(info ? 'slots.overwrite' : 'slots.start'), async () => {
             if (info && !(await confirmBox('SOBRESCRIBIR', `Se borrará la partida de la ranura ${n} (día ${info.day}). ¿Continuar?`, 'BORRAR Y EMPEZAR', 'CANCELAR', true))) return;
             close(); this.hooks.onNew(n);
           }, info ? 'danger' : 'primary'));
         } else {
           if (info) {
-            acts.append(b('CARGAR', () => { close(); this.hooks.onContinue(n); }, 'primary'));
+            acts.append(b(t('slots.load1'), () => { close(); this.hooks.onContinue(n); }, 'primary'));
             acts.append(b('EXPORTAR', () => {
               const txt = exportSlot(n);
               if (!txt) return;
@@ -505,6 +506,7 @@ ${helpKeysHTML()}
 
 <h2>ACCESIBILIDAD</h2>
 <p>En el menú principal (y en el menú de la base y de la expedición): <b>MODO DALTÓNICO</b> cambia los colores de las rarezas a una paleta distinguible (Okabe-Ito) y les pone un símbolo (· común, + no común, ◆ raro, ★ épico, ✦ legendario, ✪ mítico); en el mapa, las personas llevan además ! (hostil), ? (neutral) o + (aliado). <b>ALTO CONTRASTE</b> aclara los textos, marca los bordes, quita el efecto CRT y aviva los colores del mapa. Se recuerdan entre sesiones.</p>
+<p><b>IDIOMA</b>: español o inglés (English). En inglés ya están traducidos los menús, las pestañas de la base, el HUD de la expedición, los controles y los nombres de zonas, chebylitas y objetos básicos; lo que aún no tiene traducción sale en español.</p>
 <p><b>CONTROLES TÁCTILES</b> (AUTO / SÍ / NO; en AUTO se activan solos en pantallas táctiles): durante la expedición aparece una cruceta de 8 direcciones (el punto del centro espera un turno; manteniéndola pulsada se repite) y botones para interactuar (F), apuntar (⌖; en el modo apuntar pasa al siguiente objetivo y F dispara), recargar, curarse, habilidad, granada, agacharse, cambiar de agente, inventario y ✕ (cancelar o menú). Tocar el mapa es como hacer clic (ir, atacar, abrir); <b>mantener pulsado</b> muestra la información de la casilla; <b>pellizcar</b> acerca o aleja; <b>arrastrar el radar</b> mueve la vista. En pantallas estrechas el panel del agente se abre con ☰.</p>
 
 <h2>CONSEJOS</h2>

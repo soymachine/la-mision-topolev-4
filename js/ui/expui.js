@@ -25,6 +25,7 @@ import { DOG_ORDERS } from '../data/companions.js';
 import { a11yButtons } from './a11y.js';
 import { actionForKey, dirOf, controlsModal, keyName, keyify } from './keys.js';
 import { buildTouchBar, mapGestures, minimapDrag } from './touch.js';
+import { t } from '../i18n/index.js';
 const SOCIAL_TIP = { trader: 'Compra y venta.', medic: 'Curas y tratamiento de la radiación.', board: 'Rumores y trabajos.', archive: 'Expedientes del KGB.' };
 export function toggleFullscreen() {
   try {
@@ -67,12 +68,12 @@ export class ExpeditionUI {
     this.mapHost.append(this.banner);
     // panel lateral
     this.mmCanvas = el('canvas', { id: 'minimap' });
-    this.mmPanel = panel({ title: 'RADAR', right: '<span class="link">M</span>' }, this.mmCanvas);
+    this.mmPanel = panel({ title: t('exp.radar'), right: '<span class="link">M</span>' }, this.mmCanvas);
     this.mmPanel.style.flex = 'none';
     this.mm = new Minimap(this.mmCanvas);
-    this.squadPanel = panel({ title: 'ESCUADRA', right: 'Tab' });
+    this.squadPanel = panel({ title: t('exp.squad'), right: 'Tab' });
     this.squadPanel.style.flex = 'none';
-    this.agentPanel = panel({ title: 'AGENTE', bodyCls: 'scroll' });
+    this.agentPanel = panel({ title: t('exp.agent'), bodyCls: 'scroll' });
     this.agentPanel.classList.add('grow');
     this.side.append(this.mmPanel, this.squadPanel, this.agentPanel);
     // fase 24.3: barra táctil sobre el mapa (solo se ve con body.touch)
@@ -117,6 +118,14 @@ export class ExpeditionUI {
     c.addEventListener('wheel', (ev) => { if (ev.ctrlKey || ev.altKey) return; ev.preventDefault(); this.zoom(ev.deltaY < 0 ? 1 : -1); }, { passive: false });
   }
 
+  // tras cambiar el idioma (24.4) o los ajustes: títulos de los paneles, barra táctil y HUD
+  relabel(full = true) {
+    const set = (p, k) => { const ti = p.querySelector('.frame-title:not(.right)'); if (ti) ti.innerHTML = t(k); };
+    set(this.mmPanel, 'exp.radar'); set(this.squadPanel, 'exp.squad'); set(this.agentPanel, 'exp.agent');
+    const nb = buildTouchBar(this); this.touchBar.replaceWith(nb); this.touchBar = nb;
+    if (full && this.exp) { this.refresh(); this.renderLog(); }
+  }
+
   sizeMinimap() {
     const e = this.exp;
     if (!e) return;
@@ -132,6 +141,7 @@ export class ExpeditionUI {
     this.exp = exp;
     this.active = true;
     this.mode = null; this.travel = null; this.big = null;
+    this.relabel(false); // por si se cambió el idioma desde la base
     this.r.resize();
     if (!settings.zoom) settings.zoom = Math.round(Math.max(13, Math.min(18, innerWidth / 105)));
     this.r.setZoom(settings.zoom);
@@ -267,20 +277,20 @@ export class ExpeditionUI {
     this.top.innerHTML = '';
     this.top.append(
       el('span', { class: 'loc', text: e.def.name.toUpperCase() }),
-      el('span', { class: 'dimt', html: `Nv ${Math.min(10, e.def.lvl[0] + (e.floor || 0))}–${Math.min(10, e.def.lvl[1] + (e.floor || 0))}` }),
-      (e.nFloors || 1) > 1 ? el('span', { html: `<span class="dimt">PISO</span> <b class="${e.floor ? 'warn' : ''}">${e.floor ? '−' + e.floor : 'SUP'}</b><span class="dimt">/${e.nFloors}</span>` }) : '',
-      el('span', { html: sec ? `<span class="dimt">SECTOR</span> ${sec.code} · ${esc(sec.name)}` : '' }),
-      el('span', { html: `<span class="dimt">TURNO</span> <b>${e.turn}</b>` }),
+      el('span', { class: 'dimt', html: `${t('exp.lvl')} ${Math.min(10, e.def.lvl[0] + (e.floor || 0))}–${Math.min(10, e.def.lvl[1] + (e.floor || 0))}` }),
+      (e.nFloors || 1) > 1 ? el('span', { html: `<span class="dimt">${t('exp.floor')}</span> <b class="${e.floor ? 'warn' : ''}">${e.floor ? '−' + e.floor : 'SUP'}</b><span class="dimt">/${e.nFloors}</span>` }) : '',
+      el('span', { html: sec ? `<span class="dimt">${t('exp.sector')}</span> ${sec.code} · ${esc(sec.name)}` : '' }),
+      el('span', { html: `<span class="dimt">${t('exp.turn')}</span> <b>${e.turn}</b>` }),
       e.clock != null ? el('span', { title: WEATHER[e.weather] ? WEATHER[e.weather].desc : '', html: `<span class="${e.isNight() ? 'cyan' : 'warn'}">${e.isNight() ? '☾' : '☀'}</span> <b>${e.timeStr()}</b> <span class="dimt">· ${WEATHER[e.weather] ? WEATHER[e.weather].name.toLowerCase() : ''}</span>` }) : '',
-      e.revealT > 0 ? el('span', { class: 'cyan', html: `Ψ ANTENA ${e.revealT}` }) : '',
-      el('span', { html: surge ? `<span class="bad pulse-red">☢ PULSO ×${surge}</span>` : pulseIn <= 60 ? `<span class="warn">☢ pulso en ${pulseIn}</span>` : `<span class="dimt">☢ amb.</span> ${amb.toFixed(2)}` }),
-      e.evac ? el('span', { class: 'cyan', html: `⇑ EVACUACIÓN ${e.evac.left}` }) : '',
+      e.revealT > 0 ? el('span', { class: 'cyan', html: t('exp.antenna', { n: e.revealT }) }) : '',
+      el('span', { html: surge ? `<span class="bad pulse-red">${t('exp.surge', { n: surge })}</span>` : pulseIn <= 60 ? `<span class="warn">${t('exp.surgeIn', { n: pulseIn })}</span>` : `<span class="dimt">${t('exp.amb')}</span> ${amb.toFixed(2)}` }),
+      e.evac ? el('span', { class: 'cyan', html: t('exp.evac', { n: e.evac.left }) }) : '',
       el('span', { class: 'ess-count', html: `<span class="cyan">✦ ${essTotal}</span>` }),
       el('div', { class: 'right' },
-        el('button', { class: 'btn small', onclick: () => this.toggleBigMap() }, 'MAPA M'),
-        el('button', { class: 'btn small', onclick: () => this.openInventory() }, 'INVENTARIO I'),
-        el('button', { class: 'btn small', onclick: () => this.hooks.onHelp() }, 'AYUDA ?'),
-        el('button', { class: 'btn small', onclick: () => this.openMenu() }, 'MENÚ Esc'),
+        el('button', { class: 'btn small', onclick: () => this.toggleBigMap() }, `${t('exp.map')} ${keyName('map')}`),
+        el('button', { class: 'btn small', onclick: () => this.openInventory() }, `${t('exp.inv')} ${keyName('inventory')}`),
+        el('button', { class: 'btn small', onclick: () => this.hooks.onHelp() }, `${t('exp.help')} ?`),
+        el('button', { class: 'btn small', onclick: () => this.openMenu() }, `${t('exp.menu')} Esc`),
       ),
     );
   }
@@ -295,7 +305,7 @@ export class ExpeditionUI {
       const st = e.inMap(sq) ? e.ast(sq) : agentStats(a);
       const w = a.equip[sq.cur];
       const ws = w ? itemStats(w) : null;
-      const status = !sq.alive ? '<span class="bad">✝ CAÍDO</span>' : sq.out ? '<span class="cyan">⇑ EXTRAÍDO</span>' : sq.downed ? `<span class="bad pulse-red">✚ ABATIDO (${sq.downed})</span> <span class="dimt">F a su lado para levantarlo</span>` : '';
+      const status = !sq.alive ? `<span class="bad">${t('exp.dead')}</span>` : sq.out ? `<span class="cyan">${t('exp.out')}</span>` : sq.downed ? `<span class="bad pulse-red">✚ ABATIDO (${sq.downed})</span> <span class="dimt">F a su lado para levantarlo</span>` : '';
       const chips = [];
       if (sq.poison) chips.push(`<span class="status-chip good">VEN ${sq.poison}</span>`);
       if (sq.burn) chips.push('<span class="status-chip bad">FUEGO</span>');
@@ -518,7 +528,7 @@ export class ExpeditionUI {
       case 'light': e.toggleLight(e.cur); this.refresh(); break;
       case 'crouch': e.toggleCrouch(e.cur); this.refresh(); break;
       case 'ammo': e.cycleAmmo(e.cur); this.refresh(); break;
-      case 'suppress': { const t = this.visibleEnemies()[0]; if (!t) e.say('No hay ningún enemigo a la vista para suprimir.', 'dimt'); else if (this.canAct()) e.act((sq) => e.suppress(sq, t)); } break;
+      case 'suppress': { const tg = this.visibleEnemies()[0]; if (!tg) e.say(t('log.noSuppress'), 'dimt'); else if (this.canAct()) e.act((sq) => e.suppress(sq, tg)); } break;
       case 'companion': this.companionKey(); break;
       case 'grenade': this.quickGrenade(); break;
       case 'inventory': this.openInventory(); break;
@@ -570,7 +580,7 @@ export class ExpeditionUI {
     const e = this.exp;
     const sq = e.cur;
     const fl = e.floorAt(sq.x, sq.y);
-    if (!fl.length) { e.say('No hay nada que recoger aquí.', 'dimt'); return; }
+    if (!fl.length) { e.say(t('log.noPickup'), 'dimt'); return; }
     if (fl.length === 1) e.takeItem(sq, fl, fl[0]);
     else this.openLoot({ floor: true, x: sq.x, y: sq.y });
   }
@@ -580,16 +590,16 @@ export class ExpeditionUI {
     const sq = e.cur;
     const st = agentStats(sq.a);
     const heals = sq.a.bag.filter((it) => ITEMS[it.b].use === 'heal');
-    if (!heals.length) { e.say('No llevas medicinas.', 'bad'); return; }
+    if (!heals.length) { e.say(t('log.noMeds'), 'bad'); return; }
     const missing = st.hpMaxEff - sq.a.hp;
-    if (missing <= 0 && !sq.poison) { e.say('Estás en plena forma.', 'dimt'); return; }
+    if (missing <= 0 && !sq.poison) { e.say(t('log.fullHp'), 'dimt'); return; }
     heals.sort((x, y) => Math.abs(ITEMS[x.b].heal - missing) - Math.abs(ITEMS[y.b].heal - missing));
     if (this.canAct()) e.act((s) => e.useItem(s, heals[0]));
   }
   quickGrenade() {
     const e = this.exp;
     const g = e.cur.a.bag.find((it) => ITEMS[it.b].use === 'throw' && ITEMS[it.b].dmg) || e.cur.a.bag.find((it) => ITEMS[it.b].use === 'throw');
-    if (!g) { e.say('No llevas granadas ni objetos arrojadizos.', 'bad'); return; }
+    if (!g) { e.say(t('log.noNades'), 'bad'); return; }
     this.enterThrow(g);
   }
 
@@ -602,7 +612,7 @@ export class ExpeditionUI {
   enterFire() {
     // enemigos primero; después barriles, tuberías y lámparas a tiro
     const list = [...this.visibleEnemies(), ...this.exp.shootTargets(this.exp.cur)];
-    if (!list.length) { this.exp.say('No hay objetivos a la vista.', 'dimt'); return; }
+    if (!list.length) { this.exp.say(t('log.noTargets'), 'dimt'); return; }
     this.mode = { type: 'fire', list, i: 0, cx: list[0].x, cy: list[0].y };
     this.showBanner();
     this.updateTargetOverlay();
@@ -621,7 +631,7 @@ export class ExpeditionUI {
     if (!e || e.ended || !this.canAct()) return;
     const sq = e.cur;
     const it = sq.a.equip.comp;
-    if (!it) { e.say('Este agente no lleva compañero (ranura COMPAÑERO; se compran en el GARAJE).', 'dimt'); this.renderLog(); return; }
+    if (!it) { e.say(t('log.noComp'), 'dimt'); this.renderLog(); return; }
     const d = ITEMS[it.b];
     if ((d.drone === 'eco' || d.drone === 'kamikadze') && !it.broken && !e.droneOf(sq)) {
       const list = this.visibleEnemies();
@@ -640,11 +650,11 @@ export class ExpeditionUI {
     if (!e || e.ended || !this.canAct()) return;
     const sq = e.cur;
     const ab = e.abilityOf(sq);
-    if (!ab) { e.say('Este agente no tiene especialización (se elige al nivel 5, en la base).', 'dimt'); return; }
-    if (sq.abcd > 0) { e.say(`${ab.name}: disponible en ${sq.abcd} turnos.`, 'dimt'); return; }
+    if (!ab) { e.say(t('log.noSpec'), 'dimt'); return; }
+    if (sq.abcd > 0) { e.say(t('log.abCd', { a: ab.name, n: sq.abcd }), 'dimt'); return; }
     if (!ab.target) { this.travel = null; e.act((q) => e.useAbility(q)); sfx.click(); return; }
     const list = e.abilityTargets(sq);
-    if (!list.length) { e.say('No hay objetivos a la vista.', 'dimt'); return; }
+    if (!list.length) { e.say(t('log.noTargets'), 'dimt'); return; }
     this.mode = { type: 'ability', ab, list, i: 0, cx: list[0].x, cy: list[0].y };
     this.showBanner();
     this.updateTargetOverlay();
@@ -822,7 +832,7 @@ export class ExpeditionUI {
     if (!path && toEnemy) {
       path = astar(e.w, e.h, e.cur.x, e.cur.y, x, y, (px, py) => (e.passable(px, py) && !(e.enemyAt(px, py)) ? 1 : Infinity), 4000);
     }
-    if (!path || !path.length) { e.say('No conozco un camino hasta ahí.', 'dimt'); sfx.error(); return; }
+    if (!path || !path.length) { e.say(t('log.noPath'), 'dimt'); sfx.error(); return; }
     const obj = e.blockedObj(x, y);
     if (obj || toEnemy) path = path.slice(0, -1);
     e.interrupt = false;
@@ -1162,18 +1172,18 @@ export class ExpeditionUI {
     let close;
     const btn = (label, fn, cls = '') => el('button', { class: 'btn ' + cls, onclick: () => { sfx.click(); fn(); } }, label);
     body.append(
-      btn('CONTINUAR', () => close()),
-      btn('INSTRUCCIONES', () => { close(); this.hooks.onHelp(); }),
-      btn(`SONIDO: ${settings.sound ? 'SÍ' : 'NO'}`, () => { settings.sound = !settings.sound; saveSettings(); close(); this.openMenu(); }),
-      btn(`EFECTO CRT: ${settings.crt ? 'SÍ' : 'NO'}`, () => { settings.crt = !settings.crt; document.body.classList.toggle('no-crt', !settings.crt); saveSettings(); close(); this.openMenu(); }),
-      btn('ZOOM +', () => this.zoom(1)), btn('ZOOM −', () => this.zoom(-1)),
-      btn('PANTALLA COMPLETA', () => { toggleFullscreen(); close(); }),
-      btn(`TEXTO: ${UI_SCALES[settings.uiScale || 0].name}`, () => { cycleUiScale(); close(); this.refresh(); this.renderLog(); setTimeout(() => { this.sizeMinimap(); this.r.resize(); }, 50); this.openMenu(); }),
-      btn('CONTROLES', () => { close(); controlsModal(() => this.openMenu()); }),
-      ...a11yButtons(() => { close(); this.refresh(); this.openMenu(); }).map(([lab, fn]) => btn(lab, fn)),
-      btn('GUARDAR Y SALIR AL TÍTULO', () => { save(); close(); this.stop(); this.hooks.onQuit(); }, 'danger'),
+      btn(t('menu.continue'), () => close()),
+      btn(t('menu.help'), () => { close(); this.hooks.onHelp(); }),
+      btn(t('menu.sound', { v: t(settings.sound ? 'yes' : 'no') }), () => { settings.sound = !settings.sound; saveSettings(); close(); this.openMenu(); }),
+      btn(t('menu.crt', { v: t(settings.crt ? 'yes' : 'no') }), () => { settings.crt = !settings.crt; document.body.classList.toggle('no-crt', !settings.crt); saveSettings(); close(); this.openMenu(); }),
+      btn(t('menu.zoomIn'), () => this.zoom(1)), btn(t('menu.zoomOut'), () => this.zoom(-1)),
+      btn(t('menu.fullscreen'), () => { toggleFullscreen(); close(); }),
+      btn(t('menu.text', { v: t('scale.' + (settings.uiScale || 0)) }), () => { cycleUiScale(); close(); this.refresh(); this.renderLog(); setTimeout(() => { this.sizeMinimap(); this.r.resize(); }, 50); this.openMenu(); }),
+      btn(t('menu.controls'), () => { close(); controlsModal(() => this.openMenu()); }),
+      ...a11yButtons(() => { close(); this.relabel(); this.openMenu(); }).map(([lab, fn]) => btn(lab, fn)),
+      btn(t('menu.saveQuit'), () => { save(); close(); this.stop(); this.hooks.onQuit(); }, 'danger'),
     );
-    body.append(el('div', { class: 'dimt', style: { marginTop: '1em', textAlign: 'center' }, text: 'La expedición se guarda automáticamente. No se puede abandonar: solo se sale por una extracción.' }));
-    close = modal({ title: 'PAUSA', body, width: '50ch' });
+    body.append(el('div', { class: 'dimt', style: { marginTop: '1em', textAlign: 'center' }, text: t('menu.expNote') }));
+    close = modal({ title: t('menu.pause'), body, width: '50ch' });
   }
 }

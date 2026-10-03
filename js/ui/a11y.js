@@ -2,6 +2,7 @@
 import { settings, saveSettings } from '../core/state.js';
 import { applyColorblind } from '../data/rarity.js';
 import { applyTouch, touchButton } from './touch.js';
+import { t, LANGS, lang, cycleLang } from '../i18n/index.js';
 
 export function applyA11y() {
   applyColorblind(settings.colorblind);
@@ -9,11 +10,12 @@ export function applyA11y() {
   document.body.classList.toggle('hc', !!settings.contrast);
   applyTouch(); // fase 24.3
 }
-// botones para los menús: [etiqueta, acción]; after() vuelve a dibujar el menú
+// botones para los menús: [etiqueta, acción]; after() vuelve a dibujar el menú (idioma, 24.4; daltónico y contraste, 24.1; táctil, 24.3)
 export function a11yButtons(after) {
   return [
-    [`MODO DALTÓNICO: ${settings.colorblind ? 'SÍ' : 'NO'}`, () => { settings.colorblind = !settings.colorblind; saveSettings(); applyA11y(); after(); }],
-    [`ALTO CONTRASTE: ${settings.contrast ? 'SÍ' : 'NO'}`, () => { settings.contrast = !settings.contrast; saveSettings(); applyA11y(); after(); }],
+    [t('menu.lang', { v: LANGS[lang()] }), () => { cycleLang(); after(); }],
+    [t('menu.colorblind', { v: t(settings.colorblind ? 'yes' : 'no') }), () => { settings.colorblind = !settings.colorblind; saveSettings(); applyA11y(); after(); }],
+    [t('menu.contrast', { v: t(settings.contrast ? 'yes' : 'no') }), () => { settings.contrast = !settings.contrast; saveSettings(); applyA11y(); after(); }],
     touchButton(after),
   ];
 }

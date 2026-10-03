@@ -8,6 +8,7 @@ import { BaseUI } from './ui/base.js';
 import { TitleScreen, IntroScreen, ReportScreen, HelpScreen } from './ui/screens.js';
 import { installDebug } from './ui/debug.js';
 import { applyA11y } from './ui/a11y.js';
+import { applyLang } from './i18n/index.js';
 
 let current = null;
 let prevScreen = 'title';
@@ -23,6 +24,7 @@ async function boot() {
   initDom();
   applyUiScale(settings);
   document.body.classList.toggle('no-crt', !settings.crt);
+  applyLang(); // fase 24.4: idioma de la interfaz y de los datos
   applyA11y(); // fase 24.1: modo daltónico y alto contraste
   try {
     await Promise.race([

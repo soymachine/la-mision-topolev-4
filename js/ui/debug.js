@@ -1,5 +1,6 @@
 // Consola de depuración oculta (fase 13.5): tecla º (o `) · ?debug en la URL la abre al arrancar
 import { el, esc } from '../util/dom.js';
+import { lang, missingKeys, untranslated } from '../i18n/index.js';
 import { S, save } from '../core/state.js';
 import { ITEMS } from '../data/items.js';
 import { ACTORS, actorFaction } from '../data/actors.js';
@@ -56,6 +57,7 @@ export function installDebug(app) {
   const CMDS = {
     help: { a: '', d: 'esta ayuda', f: () => { for (const [k, c] of Object.entries(CMDS)) print(`<b>${k}</b> <span class="dimt">${esc(c.a)}</span> — ${esc(c.d)}`); } },
     clear: { a: '', d: 'limpia la consola', f: () => { out.innerHTML = ''; } },
+    i18n: { a: '', d: 'claves de idioma que faltan (fase 24.4)', f: () => { const m = missingKeys(), u = untranslated('en'); print(`idioma: <b>${lang()}</b> · pedidas sin traducir: ${m.length ? esc(m.join(', ')) : 'ninguna'} · sin traducir al inglés: ${u.length ? esc(u.join(', ')) : 'ninguna'}`); } },
     items: { a: '[filtro]', d: 'lista ids de objetos', f: ([q = '']) => { const l = Object.keys(ITEMS).filter((k) => !q || k.includes(q) || ITEMS[k].name.toLowerCase().includes(q.toLowerCase())); print(l.slice(0, 80).map((k) => `${k} <span class="dimt">${esc(ITEMS[k].name)}</span>`).join(' · ') + (l.length > 80 ? ` … (+${l.length - 80})` : '')); } },
     actors: { a: '[filtro]', d: 'lista ids de actores (chebylitas y personas)', f: ([q = '']) => { const l = Object.keys(ACTORS).filter((k) => !q || k.includes(q) || ACTORS[k].name.toLowerCase().includes(q.toLowerCase())); print(l.map((k) => { const f = FACTIONS[ACTORS[k].faction || 'chebylitas']; return `${k} <span style="color:${f ? f.color : ''}">${esc(ACTORS[k].name)}</span>`; }).join(' · ')); } },
     give: { a: '<id> [rareza 0-5] [cantidad]', d: 'da un objeto (al agente activo o al almacén)', f: ([q, r, n]) => {

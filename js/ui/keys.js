@@ -3,6 +3,7 @@
 // Fijas (no remapeables): flechas y teclado numérico para moverse, 1–4 (agente), Esc (menú/cancelar),
 // Enter (confirmar objetivo) y Numpad5 (esperar).
 import { settings, saveSettings } from '../core/state.js';
+import { t } from '../i18n/index.js';
 
 export const KEY_ACTIONS = [
   { id: 'up', name: 'Mover arriba', def: ['w'], dir: [0, -1] },
@@ -53,16 +54,16 @@ function table() {
 }
 export const actionForKey = (k) => table().get(norm(k)) || null;
 export const dirOf = (id) => (BY_ID[id] && BY_ID[id].dir) || null;
-const PRETTY = { ' ': 'Espacio', Tab: 'Tab', '.': '.', '+': '+', '-': '−', '?': '?' };
-export const prettyKey = (k) => PRETTY[k] || (k.length === 1 ? k.toUpperCase() : k);
+const PRETTY = { Tab: 'Tab', '.': '.', '+': '+', '-': '−', '?': '?' };
+export const prettyKey = (k) => (k === ' ' ? t('ctl.space') : PRETTY[k] || (k.length === 1 ? k.toUpperCase() : k));
 // nombre de la tecla de una acción (para la ayuda y los mensajes)
 export const keyName = (id) => prettyKey(keysFor(id)[0]);
 // asignar: { ok } o { ok: false, conflict: id de la acción que ya la usa, msg }
 export function setKey(id, key) {
-  if (!BY_ID[id]) return { ok: false, msg: 'Acción desconocida.' };
-  if (RESERVED.has(key) || /^Numpad/.test(key)) return { ok: false, msg: 'Esa tecla está reservada.' };
+  if (!BY_ID[id]) return { ok: false, msg: t('ctl.unknown') };
+  if (RESERVED.has(key) || /^Numpad/.test(key)) return { ok: false, msg: t('ctl.reserved') };
   const other = actionForKey(key);
-  if (other && other !== id) return { ok: false, conflict: other, msg: `«${prettyKey(key)}» ya es «${BY_ID[other].name}».` };
+  if (other && other !== id) return { ok: false, conflict: other, msg: t('ctl.conflict', { k: prettyKey(key), a: actionName(other) }) };
   settings.keys = { ...(settings.keys || {}) };
   if (BY_ID[id].def.length === 1 && norm(BY_ID[id].def[0]) === norm(key)) delete settings.keys[id];
   else settings.keys[id] = norm(key);
@@ -70,7 +71,8 @@ export function setKey(id, key) {
   return { ok: true };
 }
 export function resetKeys() { settings.keys = {}; cache = null; saveSettings(); }
-export const actionName = (id) => (BY_ID[id] ? BY_ID[id].name : id);
+// nombre en el idioma elegido (fase 24.4); el campo name de la tabla es el español de referencia
+export const actionName = (id) => (BY_ID[id] ? t('key.' + id) : id);
 
 // ---------------------------------------------------------------- pantalla CONTROLES (24.2.3)
 import { el, modal, toast } from '../util/dom.js';
@@ -79,17 +81,17 @@ export function controlsModal(onClose) {
   let waiting = null;
   const draw = () => {
     body.innerHTML = '';
-    body.append(el('div', { class: 'dimt', style: { marginBottom: '.6em' }, text: 'Haz clic en una tecla y pulsa la nueva (Esc cancela). Fijas: flechas y teclado numérico (moverse), 1–4 (agente), Enter (confirmar objetivo) y Esc (menú).' }));
+    body.append(el('div', { class: 'dimt', style: { marginBottom: '.6em' }, text: t('ctl.hint') }));
     for (const a of KEY_ACTIONS) {
       const custom = settings.keys && settings.keys[a.id];
       const b = el('button', { class: 'btn small' + (custom ? ' primary' : ''), 'data-act': a.id, onclick: () => capture(a, b) }, keysFor(a.id).map(prettyKey).join(' · '));
-      body.append(el('div', { class: 'row', style: { justifyContent: 'space-between', alignItems: 'center', margin: '.15em 0' } }, el('span', { text: a.name }), b));
+      body.append(el('div', { class: 'row', style: { justifyContent: 'space-between', alignItems: 'center', margin: '.15em 0' } }, el('span', { text: actionName(a.id) }), b));
     }
-    body.append(el('div', { style: { marginTop: '.8em', textAlign: 'center' } }, el('button', { class: 'btn', onclick: () => { resetKeys(); toast('Teclas restauradas.', 'good'); draw(); } }, 'RESTAURAR TECLAS')));
+    body.append(el('div', { style: { marginTop: '.8em', textAlign: 'center' } }, el('button', { class: 'btn', onclick: () => { resetKeys(); toast(t('ctl.resetDone'), 'good'); draw(); } }, t('ctl.reset'))));
   };
   const capture = (a, b) => {
     if (waiting) window.removeEventListener('keydown', waiting, true);
-    b.textContent = 'pulsa una tecla…';
+    b.textContent = t('ctl.press');
     waiting = (ev) => {
       ev.preventDefault(); ev.stopImmediatePropagation();
       window.removeEventListener('keydown', waiting, true); waiting = null;
@@ -99,20 +101,20 @@ export function controlsModal(onClose) {
     window.addEventListener('keydown', waiting, true);
   };
   draw();
-  modal({ title: 'CONTROLES', body, actions: [{ label: 'CERRAR' }], onClose: () => { if (waiting) window.removeEventListener('keydown', waiting, true); onClose && onClose(); } });
+  modal({ title: t('ctl.title'), body, actions: [{ label: t('ctl.close') }], onClose: () => { if (waiting) window.removeEventListener('keydown', waiting, true); onClose && onClose(); } });
 }
 
 // filas de la ayuda (24.2.4): siempre con las teclas actuales
 export function helpKeysHTML() {
   const K = (id) => `<span>${keysFor(id).map(prettyKey).join(' · ')}</span>`;
   const rows = [
-    `<span>${['up', 'left', 'down', 'right'].map(keyName).join(' ')} / flechas</span><span>Moverse (y atacar cuerpo a cuerpo al chocar)</span>`,
-    `<span>${['upleft', 'upright', 'downleft', 'downright'].map(keyName).join(' ')} · numpad</span><span>Movimiento en diagonal</span>`,
-    '<span>Clic en el suelo</span><span>Viajar hasta ahí (se detiene al ver enemigos)</span>',
-    '<span>Clic en enemigo</span><span>Disparar (el % de impacto aparece al pasar el ratón)</span>',
+    `<span>${['up', 'left', 'down', 'right'].map(keyName).join(' ')} / ${t('keys.arrows')}</span><span>${t('keys.move')}</span>`,
+    `<span>${['upleft', 'upright', 'downleft', 'downright'].map(keyName).join(' ')} · numpad</span><span>${t('keys.diag')}</span>`,
+    `<span>${t('keys.clickFloor')}</span><span>${t('keys.clickFloorD')}</span>`,
+    `<span>${t('keys.clickEnemy')}</span><span>${t('keys.clickEnemyD')}</span>`,
   ];
-  for (const a of KEY_ACTIONS) if (!a.dir) rows.push(`${K(a.id)}<span>${a.name}${a.id === 'aim' ? ' · Enter dispara' : ''}</span>`);
-  rows.push('<span>1-4</span><span>Elegir agente</span>', '<span>Esc</span><span>Cancelar / menú</span>', '<span>MENÚ → CONTROLES</span><span>Cambiar cualquiera de estas teclas</span>');
+  for (const a of KEY_ACTIONS) if (!a.dir) rows.push(`${K(a.id)}<span>${actionName(a.id)}${a.id === 'aim' ? t('keys.enterFires') : ''}</span>`);
+  rows.push(`<span>1-4</span><span>${t('keys.agent')}</span>`, `<span>Esc</span><span>${t('keys.esc')}</span>`, `<span>${t('keys.remap')}</span><span>${t('keys.remapD')}</span>`);
   return rows.join('\n');
 }
 

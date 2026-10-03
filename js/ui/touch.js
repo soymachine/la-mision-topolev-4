@@ -1,9 +1,10 @@
 // Controles táctiles (fase 24.3): detección, ajuste touch auto|on|off, barra de acciones en pantalla y gestos.
 import { settings, saveSettings } from '../core/state.js';
 import { el } from '../util/dom.js';
+import { t } from '../i18n/index.js';
 
 const MODES = ['auto', 'on', 'off'];
-const MODE_NAME = { auto: 'AUTO', on: 'SÍ', off: 'NO' };
+const MODE_NAME = { auto: () => t('touch.auto'), on: () => t('yes'), off: () => t('no') };
 // ¿pantalla táctil? (puntero grueso o sin ratón con puntos de contacto)
 export function touchDetected() {
   try {
@@ -21,7 +22,7 @@ export function applyTouch() {
 // botón de los menús: AUTO → SÍ → NO
 export function touchButton(after) {
   const m = settings.touch || 'auto';
-  const lab = `CONTROLES TÁCTILES: ${MODE_NAME[m]}${m === 'auto' ? (touchDetected() ? ' (sí)' : ' (no)') : ''}`;
+  const lab = t('menu.touch', { v: MODE_NAME[m]() + (m === 'auto' ? t(touchDetected() ? 'touch.autoYes' : 'touch.autoNo') : '') });
   return [lab, () => { settings.touch = MODES[(MODES.indexOf(m) + 1) % MODES.length]; saveSettings(); applyTouch(); after(); }];
 }
 
@@ -32,17 +33,10 @@ const DPAD = [
   ['←', [-1, 0]], null, ['→', [1, 0]],
   ['↙', [-1, 1]], ['↓', [0, 1]], ['↘', [1, 1]],
 ];
+// [acción, símbolo]; el nombre sale de i18n (touch.<acción>)
 export const TOUCH_ACTIONS = [
-  ['interact', 'F', 'Interactuar'],
-  ['aim', '⌖', 'Apuntar'],
-  ['reload', 'R', 'Recargar'],
-  ['heal', '✚', 'Curarse'],
-  ['ability', '★', 'Habilidad'],
-  ['grenade', '●', 'Granada'],
-  ['crouch', '▾', 'Agacharse'],
-  ['next', '⇄', 'Siguiente agente'],
-  ['inventory', 'I', 'Inventario'],
-  ['cancel', '✕', 'Cancelar / menú'],
+  ['interact', 'F'], ['aim', '⌖'], ['reload', 'R'], ['heal', '✚'], ['ability', '★'],
+  ['grenade', '●'], ['crouch', '▾'], ['next', '⇄'], ['inventory', 'I'], ['cancel', '✕'],
 ];
 export function buildTouchBar(ui) {
   const bar = el('div', { class: 'touch-bar' });
@@ -60,22 +54,23 @@ export function buildTouchBar(ui) {
   };
   for (const d of DPAD) {
     if (!d) {
-      const w = el('button', { class: 'tbtn wait', 'data-touch': 'wait', title: 'Esperar un turno', text: '·' });
+      const w = el('button', { class: 'tbtn wait', 'data-touch': 'wait', title: t('touch.wait'), text: '·' });
       hold(w, () => ui.touchAct('wait'));
       pad.append(w);
       continue;
     }
-    const b = el('button', { class: 'tbtn', 'data-dir': d[1].join(','), title: 'Moverse', text: d[0] });
+    const b = el('button', { class: 'tbtn', 'data-dir': d[1].join(','), title: t('touch.move'), text: d[0] });
     hold(b, () => ui.touchMove(d[1]));
     pad.append(b);
   }
   const acts = el('div', { class: 'touch-acts' });
-  for (const [id, glyph, name] of TOUCH_ACTIONS) {
+  for (const [id, glyph] of TOUCH_ACTIONS) {
+    const name = t('touch.' + id);
     const b = el('button', { class: 'tbtn', 'data-touch': id, title: name }, el('span', { class: 'g', text: glyph }), el('span', { class: 'l', text: name.split(' ')[0] }));
     b.addEventListener('click', (ev) => { ev.preventDefault(); ui.touchAct(id); });
     acts.append(b);
   }
-  const side = el('button', { class: 'tbtn side-tog', 'data-touch': 'side', title: 'Panel del agente', text: '☰' });
+  const side = el('button', { class: 'tbtn side-tog', 'data-touch': 'side', title: t('touch.side'), text: '☰' });
   side.addEventListener('click', () => { document.body.classList.toggle('side-open'); requestAnimationFrame(() => ui.sizeMinimap()); });
   bar.append(pad, acts, side);
   return bar;

@@ -222,7 +222,7 @@ export function importToSlot(n, text) {
 }
 
 function loadSettings() {
-  const def = { sound: true, crt: true, zoom: null, volume: 0.5, colorblind: false, contrast: false, touch: 'auto' };
+  const def = { sound: true, crt: true, zoom: null, volume: 0.5, colorblind: false, contrast: false, touch: 'auto', lang: 'es' };
   try { return { ...def, ...(JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}) }; } catch { return def; }
 }
 export function saveSettings() {

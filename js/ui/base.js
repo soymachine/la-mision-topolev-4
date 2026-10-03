@@ -32,6 +32,7 @@ import { SQUADS, HUMANS } from '../data/humans.js';
 import { floorsFor } from '../exp/expedition.js';
 import * as ECO from '../core/ecosys.js';
 import { a11yButtons } from './a11y.js';
+import { t } from '../i18n/index.js';
 import { controlsModal, keyName } from './keys.js';
 
 const TABS = [
@@ -154,20 +155,20 @@ export class BaseUI {
     R.innerHTML = '';
     // cabecera
     const top = el('div', { class: 'base-top' },
-      el('span', { class: 'logo', html: '☢ LA MISIÓN TOPOLEV' }),
+      el('span', { class: 'logo', html: t('base.logo') }),
       el('span', { class: 'dimt', html: `PUESTO PRIPYAT-7 · DÍA <b>${S.day}</b> · ${B21.dateStr()} · <span title="${esc(B21.seasonInfo().desc)}">${B21.seasonInfo().glyph} ${B21.seasonInfo().name}</span> · cuota: <span class="${S.ess >= S.quota.ess ? 'good' : 'warn'}" title="Cuota del Comité: esencia a entregar">${S.quota.ess} ✦ en ${Math.max(0, S.quota.due - S.day)} d</span> · <span title="Alerta del reactor: ${esc(ECO.alertInfo().desc)}" style="color:${ECO.alertInfo().color}">☢ ${ECO.alertInfo().name}</span>` }),
       el('div', { class: 'res' },
-        this.resEl('ess', '✦', 'Esencia', S.ess, 'cyan'),
-        this.resEl('rub', '₽', 'Rublos', S.rub, 'o0'),
-        this.resEl('ag', '@', 'Agentes', `${S.agents.length}/${C.rosterCap()}`, ''),
-        el('button', { class: 'btn small', onclick: () => this.hooks.onHelp() }, '? INSTRUCCIONES'),
-        el('button', { class: 'btn small', onclick: () => this.openMenu() }, '≡ MENÚ'),
+        this.resEl('ess', '✦', t('base.ess'), S.ess, 'cyan'),
+        this.resEl('rub', '₽', t('base.rub'), S.rub, 'o0'),
+        this.resEl('ag', '@', t('base.ag'), `${S.agents.length}/${C.rosterCap()}`, ''),
+        el('button', { class: 'btn small', onclick: () => this.hooks.onHelp() }, t('base.help')),
+        el('button', { class: 'btn small', onclick: () => this.openMenu() }, t('base.menu')),
       ),
     );
     const tabs = el('div', { class: 'tabs' });
-    TABS.forEach((t, i) => {
-      const tb = el('div', { class: 'tab' + (t.id === this.tab ? ' active' : ''), html: `<span class="k">${i + 1}</span>${t.label}` });
-      tb.addEventListener('click', () => { sfx.click(); this.show(t.id); });
+    TABS.forEach((tb0, i) => {
+      const tb = el('div', { class: 'tab' + (tb0.id === this.tab ? ' active' : ''), html: `<span class="k">${i + 1}</span>${t('tab.' + tb0.id)}` });
+      tb.addEventListener('click', () => { sfx.click(); this.show(tb0.id); });
       tb.addEventListener('pointerenter', () => sfx.hover());
       tabs.append(tb);
     });
@@ -181,7 +182,7 @@ export class BaseUI {
 
   resEl(id, g, label, v, cls) {
     const e = el('span', { class: 'res-item', id: 'res-' + id, html: `<span class="${cls}">${g}</span> <span class="v">${typeof v === 'number' ? fmt(v) : v}</span>` });
-    tip(e, () => `<div class="tt-title">${label}</div><div class="dimt">${{ ess: 'Esencia de chebylita. Se usa para mejorar los módulos del laboratorio.', rub: 'Rublos. Para comprar en la intendencia, reclutar y tratar a los agentes.', ag: 'Agentes en plantilla / capacidad de los barracones.' }[id]}</div>`);
+    tip(e, () => `<div class="tt-title">${label}</div><div class="dimt">${t('base.' + id + 'Tip')}</div>`);
     return e;
   }
   pulseRes(id) { const v = $('#res-' + id + ' .v'); if (v) { v.classList.remove('pulse'); void v.offsetWidth; v.classList.add('pulse'); } }
@@ -1161,11 +1162,11 @@ export class BaseUI {
     let close;
     const btn = (label, fn, cls = '') => el('button', { class: 'btn ' + cls, onclick: () => { sfx.click(); fn(); } }, label);
     body.append(
-      btn('CONTINUAR', () => close()),
-      btn(`SONIDO: ${settings.sound ? 'SÍ' : 'NO'}`, () => { settings.sound = !settings.sound; saveSettings(); close(); this.openMenu(); }),
-      btn(`EFECTO CRT: ${settings.crt ? 'SÍ' : 'NO'}`, () => { settings.crt = !settings.crt; document.body.classList.toggle('no-crt', !settings.crt); saveSettings(); close(); this.openMenu(); }),
-      btn('GUARDAR PARTIDA', () => { if (save()) toast(`Partida guardada (ranura ${slot}).`, 'good'); else toast('¡No se pudo guardar! El almacenamiento del navegador está lleno o bloqueado. Exporta la partida.', 'bad', 6000); close(); }),
-      btn('EXPORTAR COPIA', () => {
+      btn(t('menu.continue'), () => close()),
+      btn(t('menu.sound', { v: t(settings.sound ? 'yes' : 'no') }), () => { settings.sound = !settings.sound; saveSettings(); close(); this.openMenu(); }),
+      btn(t('menu.crt', { v: t(settings.crt ? 'yes' : 'no') }), () => { settings.crt = !settings.crt; document.body.classList.toggle('no-crt', !settings.crt); saveSettings(); close(); this.openMenu(); }),
+      btn(t('menu.save'), () => { if (save()) toast(t('menu.saved', { n: slot }), 'good'); else toast(t('menu.saveFail'), 'bad', 6000); close(); }),
+      btn(t('menu.export'), () => {
         save();
         const txt = exportSlot(slot);
         if (!txt) return;
@@ -1176,13 +1177,13 @@ export class BaseUI {
         setTimeout(() => URL.revokeObjectURL(a.href), 2000);
         close();
       }),
-      btn('PANTALLA COMPLETA', () => { toggleFullscreen(); close(); }),
-      btn(`TEXTO: ${UI_SCALES[settings.uiScale || 0].name}`, () => { cycleUiScale(); close(); this.render(); this.openMenu(); }),
-      btn('CONTROLES', () => { close(); controlsModal(() => this.openMenu()); }),
+      btn(t('menu.fullscreen'), () => { toggleFullscreen(); close(); }),
+      btn(t('menu.text', { v: t('scale.' + (settings.uiScale || 0)) }), () => { cycleUiScale(); close(); this.render(); this.openMenu(); }),
+      btn(t('menu.controls'), () => { close(); controlsModal(() => this.openMenu()); }),
       ...a11yButtons(() => { close(); this.render(); this.openMenu(); }).map(([lab, fn]) => btn(lab, fn)),
-      btn('SALIR AL TÍTULO', () => { save(); close(); this.close(); this.hooks.onQuit(); }, 'danger'),
+      btn(t('menu.quit'), () => { save(); close(); this.close(); this.hooks.onQuit(); }, 'danger'),
     );
-    close = modal({ title: 'MENÚ', body, width: '46ch' });
+    close = modal({ title: t('menu.title'), body, width: '46ch' });
   }
 }
 

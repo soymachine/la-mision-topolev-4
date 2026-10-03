@@ -1688,6 +1688,42 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     await ctx11.close();
   }
   {
+    // 24.4 localización: inglés en el menú, las pestañas y los datos; lo que falta cae al español
+    const ctx13 = await b.newContext({ viewport: { width: 1440, height: 860 } });
+    const L = await ctx13.newPage();
+    L.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
+    L.on('console', (m) => { if ((m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) || m.type() === 'warning') errs.push(m.text()); });
+    await L.goto(URL); await L.waitForTimeout(800);
+    await L.click('text=IDIOMA: Español'); await L.waitForTimeout(200);
+    const en = await L.evaluate(() => { const tx = document.body.innerText; return { menu: tx.includes('NEW GAME') && tx.includes('LANGUAGE: English') && tx.includes('COLOURBLIND MODE: OFF') && !tx.includes('NUEVA PARTIDA'), lang: document.documentElement.lang }; });
+    ok(en.menu && en.lang === 'en', 'IDIOMA: el menú principal pasa al inglés (y <html lang="en">)');
+    const fb = await L.evaluate(async () => {
+      const I = await import('./js/i18n/index.js'); const { ITEMS } = await import('./js/data/items.js'); const { MAPS } = await import('./js/data/world.js');
+      return { miss: I.t('clave.que.no.existe'), es: I.t('menu.new'), interp: I.t('menu.saved', { n: 3 }), item: ITEMS.makarov.name, zone: MAPS[0].name, other: ITEMS.ak74 ? ITEMS.ak74.name : 'x' };
+    });
+    ok(fb.miss === 'clave.que.no.existe' && fb.es === 'NEW GAME' && fb.interp === 'Game saved (slot 3).', 'claves que faltan: devuelven la clave sin romper; interpolación {n}');
+    ok(fb.item === 'Makarov PM pistol' && fb.zone === 'Administrative Block' && /\S/.test(fb.other), 'datos traducidos por id (objetos y zonas); los que no tienen traducción siguen en español');
+    // partida en inglés: pestañas de la base y expedición sin errores
+    await L.click('text=NEW GAME'); await L.click('.modal >> text=START HERE >> nth=0'); await L.click('#screen-intro'); await L.click('text=COMENZAR').catch(() => {});
+    await L.waitForTimeout(300);
+    const tabs = await L.evaluate(() => [...document.querySelectorAll('#screen-base .tab')].map((x) => x.textContent).join(' '));
+    ok(/HQ/.test(tabs) && /BARRACKS/.test(tabs) && /EXPEDITION/.test(tabs), `pestañas de la base en inglés (${tabs.slice(0, 60)}…)`);
+    await L.click('.tab:has-text("EXPEDITION")'); await L.waitForTimeout(200);
+    for (let i = 0; i < 2; i++) { const rows = await L.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+    await L.click('text=LANZAR EXPEDICIÓN'); await L.waitForTimeout(300);
+    if (await L.$('.modal-back >> text=LANZAR')) await L.click('.modal-back >> text=LANZAR');
+    await L.waitForTimeout(800);
+    const hud = await L.evaluate(() => { const tx = document.querySelector('#screen-exp').innerText; return tx.includes('SQUAD') && tx.includes('TURN') && tx.includes('Administrative Block'.toUpperCase()); });
+    ok(hud, 'HUD de la expedición en inglés (ESCUADRA → SQUAD, TURNO → TURN, nombre de la zona)');
+    // volver al español desde el menú de pausa: todo vuelve a su texto original
+    for (let i = 0; i < 6 && (await L.$('.modal')); i++) { await L.keyboard.press('Escape'); await L.waitForTimeout(150); }
+    await L.keyboard.press('Escape'); await L.waitForTimeout(200);
+    await L.click('.modal >> text=LANGUAGE: English'); await L.waitForTimeout(200);
+    const back = await L.evaluate(async () => { const { ITEMS } = await import('./js/data/items.js'); return { item: ITEMS.makarov.name, menu: !!document.querySelector('.modal') && document.querySelector('.modal').innerText.includes('IDIOMA: Español'), squad: document.querySelector('#screen-exp').innerText.includes('ESCUADRA') }; });
+    ok(back.item === 'Pistola Makarov PM' && back.menu && back.squad, 'volver al español restaura los datos y los títulos de los paneles');
+    await ctx13.close();
+  }
+  {
     // 24.3 controles táctiles: móvil en vertical (pantalla táctil, 390 px de ancho)
     const ctx12 = await b.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
     const M = await ctx12.newPage();
