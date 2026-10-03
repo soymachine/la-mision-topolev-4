@@ -452,7 +452,7 @@ ${helpKeysHTML()}
 <li><b>Ruido</b>: pasarelas metálicas <b>═</b> y cristales rotos <b>∴</b> despiertan nidos; la arena <b>░</b> amortigua los pasos. Un ruido fuerte derrumba los escombros inestables <b>▒</b>.</li>
 <li><b>Resbala</b>: el aceite <b>≋</b> (inflamable) cuesta un turno más; en el hielo puedes caer.</li>
 <li><b>Se usan con F</b>: puertas blindadas <b>▓</b> (tarjeta, Técnica 7, soplete o un terminal), terminales <b>▣</b> (piratear con Técnica), interruptores <b>¥</b> (iluminan el sector), grafito <b>▪</b> (muestras, muy radiactivo).</li>
-<li>Las raíces <b>ψ</b> crecen y cierran pasillos: córtalas cuerpo a cuerpo o quémalas. Las vagonetas <b>Ш</b> se empujan por los raíles y arrollan lo que encuentran. Los cristales <b>✧</b> se minan como vetas pequeñas.</li>
+<li>Las raíces <b>ψ</b> crecen y cierran pasillos: córtalas cuerpo a cuerpo o quémalas. Los cristales <b>✧</b> se minan como vetas pequeñas.</li>
 </ul>
 
 <h2>PISOS, LUZ Y CONDICIONES</h2>

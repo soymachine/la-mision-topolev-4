@@ -49,7 +49,7 @@ export const TILES = [
   { name: 'Grafito expuesto', walk: 1, opaque: 0, use: 'graphite', glyphs: ['▪'], fg: ['#3a3a3a', '#4a4a4a'], bg: '#0a0a0a', anim: 'graphite', desc: 'Radiación extrema. Se pueden tomar muestras (F).' },
   { name: 'Raíces de la Raíz-madre', walk: 0, opaque: 0, glyphs: ['ψ', 'Ψ', 'ϒ'], fg: ['#6abf3a', '#58a830'], bg: '#061004', desc: 'Crecen y cierran pasillos. Se cortan cuerpo a cuerpo o se queman.' },
   { name: 'Hielo', walk: 1, opaque: 0, slip: 2, glyphs: ['·', '.'], fg: ['#e8f4ff', '#d0e8ff'], bg: '#0a1218', desc: 'Resbala: a veces caes y pierdes un turno.' },
-  { name: 'Raíles', walk: 1, opaque: 0, glyphs: ['╪', '┼'], fg: ['#8a6a4a'], desc: 'Vías de las vagonetas.' },
+  { name: 'Raíles', walk: 1, opaque: 0, glyphs: ['╪', '┼'], fg: ['#8a6a4a'], desc: 'Vías oxidadas de las vagonetas. Se puede caminar por encima.' },
   { name: 'Lámpara de emergencia', walk: 0, opaque: 0, light: 5, shoot: 'lamp', glyphs: ['☼'], fg: ['#ffe08a'], bg: '#1a1404', anim: 'lamp', desc: 'Ilumina a su alrededor. Se rompe de un disparo.' },
   { name: 'Lámpara rota', walk: 0, opaque: 0, glyphs: ['¤'], fg: ['#6a5a3a'], desc: 'Ya no alumbra.' },
   { name: 'Montacargas (subir)', walk: 1, opaque: 0, use: 'liftup', glyphs: ['↕'], fg: ['#9fe8a0'], bg: '#04140a', anim: 'blink', desc: 'Sube al piso superior. Reúne al escuadrón a su lado.' },

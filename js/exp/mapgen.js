@@ -7,8 +7,34 @@ import { SQUADS, SQUAD_MIN_TIER } from '../data/humans.js';
 import { rollLoot, createItem } from '../core/items.js';
 import { NOTES, SURVIVOR_LINES, FOREIGN_NOTES } from '../data/lore.js';
 import { ITEMS } from '../data/items.js';
+import { BLOCKING_OBJ } from './shared.js';
 
 const D8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+// Ningún objeto que bloquee el paso (cajas, taquillas, vetas…) puede dejar una salida o el montacargas sin camino:
+// si pasa, se quita el objeto que hace de tapón (el que toca la zona alcanzable y la que no). Se repite hasta que haya camino.
+export function clearChokepoints(W, H, t, start, exits, lift, objects) {
+  const targets = [...exits.map((e) => [e.x, e.y]), ...(lift ? [lift] : [])];
+  for (let guard = 0; guard < 40; guard++) {
+    const block = new Map(objects.filter((o) => BLOCKING_OBJ[o.kind] && !o.vault).map((o) => [o.y * W + o.x, o]));
+    const seen = new Uint8Array(W * H), q = [start[1] * W + start[0]];
+    seen[q[0]] = 1;
+    for (let i = 0; i < q.length; i++) {
+      const c = q[i], x = c % W, y = (c / W) | 0;
+      for (const [dx, dy] of D8) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const k = ny * W + nx; if (!seen[k] && TILES[t[k]].walk && !block.has(k)) { seen[k] = 1; q.push(k); } }
+    }
+    if (targets.every(([x, y]) => seen[y * W + x])) return;
+    // tapones: objetos junto a la zona alcanzable que dan a casillas transitables no alcanzadas
+    let plug = null;
+    for (const [k, o] of block) {
+      const x = k % W, y = (k / W) | 0;
+      let inSide = false, outSide = false;
+      for (const [dx, dy] of D8) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const kk = ny * W + nx; if (seen[kk]) inSide = true; else if (TILES[t[kk]].walk && !block.has(kk)) outSide = true; }
+      if (inSide && outSide) { plug = o; break; }
+    }
+    if (!plug) return;
+    objects.splice(objects.indexOf(plug), 1);
+  }
+}
 const D4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const walkable = (t) => TILES[t].walk === 1;
 
@@ -1024,13 +1050,7 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
     const amount = Math.round(g.int(6, 11) * (1 + 0.3 * (lvl - 1)) * (mods.vetamadre ? 1.5 : 1));
     objects.push({ kind: 'shard', x: spot[0], y: spot[1], amount, max: amount, lvl });
   }
-  // Vagonetas sobre los raíles
-  for (const run of rails) {
-    const [x, y] = run[g.chance(0.5) ? 0 : run.length - 1];
-    if (blocked[I(x, y)]) continue;
-    blocked[I(x, y)] = 1;
-    objects.push({ kind: 'cart', x, y, opened: true, items: [] });
-  }
+  // (las vagonetas sobre los raíles se quitaron: podían cerrar el único pasillo hacia la salida)
 
   // ---------------- Fase 17: contenido propio de cada zona ----------------
   const sp = def.special;
@@ -1265,5 +1285,6 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
       if (spot && !objAt.has(I(spot[0], spot[1])) && !spawns.some((sp) => sp.x === spot[0] && sp.y === spot[1])) mines.push({ x: spot[0], y: spot[1] });
     }
   }
+  clearChokepoints(W, H, t, start, exits, lift, objects);
   return { w: W, h: H, t, sec, sectors, start, exits, pois, spawns, objects, floor, radField, anomaly, vents, lift, chasms, litSectors, indoor, antennaAt, railRows, mines };
 }

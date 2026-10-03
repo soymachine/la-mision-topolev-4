@@ -7,7 +7,7 @@ import { T, TILES } from '../data/tiles.js';
 import { MAPS, floorDef } from '../data/world.js';
 import { ENEMIES, scaleEnemy, enemyColor } from '../data/enemies.js';
 import { ITEMS } from '../data/items.js';
-import { generateMap } from './mapgen.js';
+import { generateMap, clearChokepoints } from './mapgen.js';
 import { computeFOV, hasLOS } from './fov.js';
 import { astar, dijkstra } from './path.js';
 import { itemStats, itemName, createItem, rollLoot, mergeInto, rarityColor, gadgetExtras } from '../core/items.js';
@@ -132,7 +132,7 @@ export class Expedition {
     const m = generateMap(def, this.mapIdx, (this.seed + f * 7919) >>> 0, { radar: S.modules.radar, floor: f, floors: this.nFloors, mods: modSet, world });
     this.floor = f;
     this.w = m.w; this.h = m.h; this.t = m.t; this.sec = m.sec; this.sectors = m.sectors;
-    this.exits = m.exits; this.pois = m.pois; this.objects = m.objects; this.vents = m.vents;
+    this.exits = m.exits; this.pois = m.pois; this.objects = (m.objects || []).filter((o) => o.kind !== 'cart'); this.vents = m.vents;
     // notas: preferir las que aún no se han leído (colecciones, fase 20.6)
     for (const o of this.objects) if (o.kind === 'note' && o.fnote == null && S.notesRead && S.notesRead[o.note]) { const u = unreadNote(rng); if (u != null) o.note = u; }
     this.rad = m.radField; this.anomaly = m.anomaly;
@@ -237,6 +237,7 @@ export class Expedition {
     } else [ax, ay] = this.start;
     this.occ = new Map();
     for (const e of this.enemies) this.occ.set(this.key(e.x, e.y), e);
+    this.objects = this.objects.filter((o) => o.kind !== 'cart'); // sin vagonetas (bloqueaban pasillos); también en partidas guardadas
     this.objMap = new Map();
     for (const o of this.objects) this.objMap.set(this.key(o.x, o.y), o);
     const team = this.team;
@@ -304,6 +305,9 @@ export class Expedition {
     this.occ = new Map();
     for (const e of this.enemies) this.occ.set(this.key(e.x, e.y), e);
     for (const sq of this.squad) if (sq.alive && !sq.out) this.occ.set(this.key(sq.x, sq.y), sq);
+    // partidas guardadas con un objeto taponando el único camino a la salida (antes de la revisión): se quita
+    if (this.start && this.t) clearChokepoints(this.w, this.h, this.t, this.start, this.exits || [], this.lift || null, this.objects);
+    this.objects = this.objects.filter((o) => o.kind !== 'cart'); // sin vagonetas (bloqueaban pasillos); también en partidas guardadas
     this.objMap = new Map();
     for (const o of this.objects) this.objMap.set(this.key(o.x, o.y), o);
     if (this.nextRadio == null) this.nextRadio = this.turn + 40;

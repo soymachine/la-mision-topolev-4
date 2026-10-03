@@ -637,6 +637,11 @@ Resumen original: accesibilidad (modo daltónico con símbolos en las rarezas, r
 - [x] R2.7 **EQUIPO**: clic derecho → menú contextual (`contextMenu` en `util/dom.js`) con «Comprar» (suministros y material del día del mismo objeto) y «Dividir la pila…».
 - Pruebas: bloque `ctx19`.
 
+## Revisión 3: sin vagonetas ✔
+- [x] Se quitan las vagonetas (`Ш`): podían cerrar el único pasillo hacia la salida. Ya no se generan y, al cargar una expedición guardada, se eliminan (`expedition.js`).
+- [x] `clearChokepoints()` en `mapgen.js`: si algún objeto que bloquea el paso deja una salida o el montacargas sin camino, se quita el que hace de tapón. Se aplica al generar y al cargar una partida.
+- [x] `tests/mapgen.mjs` comprueba ahora que las salidas y el montacargas son alcanzables con los objetos como obstáculos (antes los ignoraba).
+
 ## Banco de ideas (sin fase asignada)
 
 - **Vehículos en superficie:** un UAZ-469 o un BRDM para viajar rápido entre puntos de la superficie (combustible limitado y ruido).

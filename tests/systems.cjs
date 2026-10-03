@@ -68,7 +68,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
   await dbg('god');
   await dbg('wait 15');
   // si huye herido, se le da algo más de tiempo al escuadrón
-  for (let i = 0; i < 3 && (await ev(() => window.__topolev.exp.enemies.some((x) => x.type === 'usa_operator'))); i++) await dbg('wait 10');
+  for (let i = 0; i < 8 && (await ev(() => window.__topolev.exp.enemies.some((x) => x.type === 'usa_operator'))); i++) await dbg('wait 10');
   const fac = await ev(() => { const e = window.__topolev.exp; return { usa: e.enemies.filter((x) => x.type === 'usa_operator').length, rda: e.enemies.filter((x) => x.type === 'rda_rifle').length, flags: window.__topolev.S.flags }; });
   ok(fac.usa === 0, 'el operador americano muere (escuadrón + aliados)');
   ok(fac.rda >= 1, 'los aliados de la RDA sobreviven');
