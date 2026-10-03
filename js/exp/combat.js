@@ -28,6 +28,7 @@ export class CombatPart {
     let h = ws.acc + st.acc * 2 - es.ev;
     if (e.stun > 0) h += 15;
     if (e.marked > 0 && this.isSquad(sq)) h += e.markPct || 25;
+    if (sq.suppressed > 0 && ws.wtype !== 'melee') h -= 30; // fase 23.4: suprimido
     const cv = this.coverInfo(sq.x, sq.y, e.x, e.y); // fase 23.1: cobertura y flanqueo
     h -= cv.pct;
     if (cv.flank && ws.wtype !== 'melee') h += 15;
@@ -135,7 +136,12 @@ export class CombatPart {
       if ((e.state === 'dormido' || e.state === 'errante') && !e.mem) dmg *= 1 + this.flag(sq, 'ambush') / 100;
       if (ACTORS[e.type].boss) dmg *= 1 + this.flag(sq, 'vsBoss') / 100;
     }
-    const pierce = ws.pierce + (sq.a ? this.flag(sq, 'pierceAdd') : 0);
+    // fase 23.4: munición especial
+    const ak = !melee && sq.a ? this.ammoKindOf(sq) : null;
+    if (ak === 'ap') dmg *= 0.9;
+    else if (ak === 'hp') dmg *= es.armor <= 0 ? 1.3 : es.armor >= 3 ? 0.5 : 1;
+    else if (ak === 'ess' && actorFaction(e) === 'chebylitas') dmg *= 1.2;
+    const pierce = ws.pierce + (sq.a ? this.flag(sq, 'pierceAdd') : 0) + (ak === 'ap' ? 3 : 0);
     dmg = Math.max(1, Math.round(dmg - Math.max(0, es.armor - pierce)));
     return { dmg, crit };
   }
@@ -152,6 +158,7 @@ export class CombatPart {
     }
     const { dmg, crit } = this.rollDmg(ws, st, sq, e, melee, d);
     this.damageEnemy(e, dmg, sq, crit, idx * 70 + 90);
+    if (!melee && e.hp > 0 && sq.a && this.ammoKindOf(sq) === 'inc' && !ACTORS[e.type].mech) e.burn = Math.max(e.burn || 0, 3); // incendiaria
     if (ws.chain) {
       let from = e, hits = 0;
       const done = new Set([e.uid]);

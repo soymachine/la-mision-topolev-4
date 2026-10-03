@@ -5,6 +5,7 @@ import { WEAPONS, NEW_AMMO } from './weapons.js';
 import { COMPANION_ITEMS } from './companions.js';
 import { MATERIALS } from './basedata.js';
 import { TROPHIES } from './ecosystem.js';
+import { SPECIAL_AMMO } from './ammo.js';
 import { MODS } from './mods.js';
 
 export const CAT_INFO = {
@@ -36,6 +37,7 @@ export const ITEMS = {
   ...COMPANION_ITEMS,
   ...MATERIALS,
   ...TROPHIES,
+  ...SPECIAL_AMMO,
 
   // ---------- MUNICIÓN ----------
   a_9x18: { cat: 'ammo', name: 'Munición 9×18 mm', glyph: '"', tier: 0, stack: 120, value: 1, pack: 24, desc: 'Para Makarov y Stechkin.' },

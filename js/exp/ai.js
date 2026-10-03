@@ -134,6 +134,8 @@ export class AIPart {
 
   enemyAct(e) {
     if (ACTORS[e.type].companion) { this.mechAct(e); return; }
+    // fase 23.4: suprimido: la mitad de las veces pierde el turno (agachado, sin avanzar)
+    if (e.suppressed > 0) { e.suppressed--; if (rng.chance(0.5)) return; }
     if (HUMANS[e.type]) { this.humanAct(e); return; }
     const def = ACTORS[e.type];
     // fase 22: reparación, rabia, fases de jefe y aura de élite
@@ -271,7 +273,7 @@ export class AIPart {
     const def = ACTORS[e.type];
     const st = this.est(e);
     const dfn = this.defenseOf(t);
-    const hc = clamp(st.acc - dfn.ev, 5, 95);
+    const hc = clamp(st.acc - dfn.ev - (e.suppressed > 0 ? 30 : 0), 5, 95);
     this.fx.push({ type: 'bite', x0: e.x, y0: e.y, x1: t.x, y1: t.y, color: actorColor(e) });
     if (rng.int(1, 100) > hc) { this.fx.push({ type: 'miss', x: t.x, y: t.y, delay: 80 }); return; }
     mult *= this.ecoMeleeMult(e, t);
@@ -298,7 +300,7 @@ export class AIPart {
     const dfn = this.defenseOf(t);
     const d = Math.hypot(t.x - e.x, t.y - e.y);
     const cv = this.coverInfo(e.x, e.y, t.x, t.y);
-    const hc = clamp(st.acc - dfn.ev - Math.max(0, d - 4) * 3 - cv.pct + (cv.flank ? 15 : 0), 5, 95);
+    const hc = clamp(st.acc - dfn.ev - Math.max(0, d - 4) * 3 - cv.pct + (cv.flank ? 15 : 0) - (e.suppressed > 0 ? 30 : 0), 5, 95);
     const hit = rng.int(1, 100) <= hc;
     this.fx.push({ type: 'ebolt', x0: e.x, y0: e.y, x1: t.x, y1: t.y, hit, color: actorColor(e, Math.max(6, e.lvl)) });
     if (!hit) { this.fx.push({ type: 'miss', x: t.x, y: t.y, delay: 140 }); return; }
@@ -471,6 +473,7 @@ export class AIPart {
     const melee = ws.wtype === 'melee';
     const shots = melee ? 1 : Math.max(1, Math.min(ws.burst || 1, e.ld || 0));
     if (!melee && !this.los(e.x, e.y, t.x, t.y)) { this.moveToward(e, t); return; }
+    if (!melee) this.humanSuppress(e, t, ws); // fase 23.4: a veces barren con fuego de supresión
     this.fx.push({ type: 'muzzle', x: e.x, y: e.y });
     for (let i = 0; i < shots; i++) {
       if (!melee) e.ld--;
@@ -478,6 +481,7 @@ export class AIPart {
       if (!melee && d > ws.range) hc -= (d - ws.range) * 7;
       if (ws.scope && d < 2) hc -= 20;
       if (!melee) { const cv = this.coverInfo(e.x, e.y, t.x, t.y); hc -= cv.pct; if (cv.flank) hc += 15; }
+      if (e.suppressed > 0) hc -= 30;
       hc = clamp(Math.round(hc), 5, 95);
       const hit = rng.int(1, 100) <= hc;
       this.fx.push({ type: melee ? 'slash' : 'shot', x0: e.x, y0: e.y, x1: t.x, y1: t.y, hit, delay: i * 70, wtype: ws.wtype });

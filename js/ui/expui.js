@@ -5,6 +5,7 @@ import { Minimap } from '../render/minimap.js';
 import { TILES, T } from '../data/tiles.js';
 import { ENEMIES, enemyColor, ABIL_TEXT } from '../data/enemies.js';
 import { ELITES } from '../data/ecosystem.js';
+import { AMMO_KINDS } from '../data/ammo.js';
 import { ACTORS, actorColor, actorFaction, isHuman } from '../data/actors.js';
 import { FACTIONS, ATTITUDE_TEXT, ATTITUDE_CLASS } from '../data/factions.js';
 import { ITEMS, AMMO_NAMES } from '../data/items.js';
@@ -288,6 +289,7 @@ export class ExpeditionUI {
       if (sq.autoUsed === false && e.flag && e.inMap(sq) && e.flag(sq, 'autoInject')) chips.push('<span class="status-chip cyan">💉</span>');
       if (a.rad >= 100) chips.push('<span class="status-chip bad pulse-red">RAD!</span>');
       // fase 23.2: agachado y detección
+      if (e.inMap(sq) && sq.suppressed > 0) chips.push('<span class="status-chip warn" title="Fuego de supresión: −30% de impacto">SUPRIMIDO</span>');
       if (e.inMap(sq) && sq.crouch) chips.push('<span class="status-chip cyan" title="Agachado (C): más difícil de ver, más lento">▂ AGACHADO</span>');
       if (e.inMap(sq)) { const dt = e.detectionOf(sq); chips.push(dt === 'visto' ? '<span class="status-chip bad" title="Algún enemigo en alerta te ve">👁 VISTO</span>' : dt === 'oido' ? '<span class="status-chip warn" title="Hay enemigos en alerta cerca, pero no te ven">👂 OÍDO</span>' : '<span class="status-chip good" title="Ningún enemigo en alerta sabe dónde estás">· OCULTO</span>'); }
       if ((a.stress || 0) >= 45) chips.push(`<span class="status-chip ${a.stress >= 70 ? 'bad' : 'warn'}" title="Estrés">EST ${Math.round(a.stress)}</span>`);
@@ -297,7 +299,7 @@ export class ExpeditionUI {
         ${status ? `<div>${status}</div>` : `
         <div class="ln2"><span>SAL ${hpBar(a.hp, st.hpMaxEff, 14)}</span><span>${Math.max(0, a.hp)}/${st.hpMaxEff}</span></div>
         <div class="ln2"><span>RAD ${bar(Math.min(100, a.rad), 100, 14, 'rad')}</span><span>${Math.round(a.rad)}</span></div>
-        <div class="ln2"><span style="color:${w ? rarityColor(w.r) : 'inherit'};overflow:hidden;text-overflow:ellipsis">${w ? esc(ITEMS[w.b].name) : 'Puños'}</span><span>${ws && ws.mag ? `${w.ld}/${ws.mag} <span class="dimt">+${e.ammoFor(sq)}</span>` : ''} <span class="cyan">✦${sq.ess}</span></span></div>
+        <div class="ln2"><span style="color:${w ? rarityColor(w.r) : 'inherit'};overflow:hidden;text-overflow:ellipsis">${w ? esc(ITEMS[w.b].name) : 'Puños'}</span><span>${ws && ws.mag ? `${w.ammoKind && ITEMS[w.ammoKind] ? `<span style="color:${AMMO_KINDS[ITEMS[w.ammoKind].kind].color}" title="Munición ${AMMO_KINDS[ITEMS[w.ammoKind].kind].name}">${AMMO_KINDS[ITEMS[w.ammoKind].kind].short}</span> ` : ''}${w.ld}/${ws.mag} <span class="dimt">+${e.ammoFor(sq)}</span>` : ''} <span class="cyan">✦${sq.ess}</span></span></div>
         ${chips.length ? `<div>${chips.join('')}</div>` : ''}`}`;
       if (e.inMap(sq) && !sq.downed) card.addEventListener('click', () => { e.switchActive(i); sfx.click(); });
       // soltar objetos sobre un compañero adyacente para dárselos
@@ -487,6 +489,8 @@ export class ExpeditionUI {
       case 'v': ev.preventDefault(); this.useAbility(); break;
       case 'l': ev.preventDefault(); e.toggleLight(e.cur); this.refresh(); break;
       case 'c': ev.preventDefault(); e.toggleCrouch(e.cur); this.refresh(); break;
+      case 'n': ev.preventDefault(); e.cycleAmmo(e.cur); this.refresh(); break;
+      case 'z': ev.preventDefault(); { const t = this.visibleEnemies()[0]; if (!t) e.say('No hay ningún enemigo a la vista para suprimir.', 'dimt'); else if (this.canAct()) e.act((sq) => e.suppress(sq, t)); } break;
       case 'd': ev.preventDefault(); this.companionKey(); break;
       case 'b': ev.preventDefault(); this.quickGrenade(); break;
       case 'i': ev.preventDefault(); this.openInventory(); break;

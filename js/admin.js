@@ -15,6 +15,7 @@ import { ATTRS, ATTR_MAX, TALENTS, TALENT_EVERY } from './data/talents.js';
 import { SPECS, SPEC_TALENTS, SPEC_LEVEL, rerollCost } from './data/specs.js';
 import { BACKGROUNDS } from './data/backgrounds.js';
 import { MODIFIERS, WEATHER } from './data/modifiers.js';
+import { AMMO_KINDS, SPECIAL_AMMO } from './data/ammo.js';
 import { ELITES, ALERT_LEVELS, ALERT_EVERY, CALM_DAYS, GROW_DAYS, BOSS_RETURN } from './data/ecosystem.js';
 import { ACTS, SCENES, ENDINGS, STAFF, COMEDOR, LETTERS_FROM, EPITAPHS, LAST_LETTERS } from './data/story.js';
 import { PLOTS, MATERIALS, RESEARCH, RECIPES, SEASONS, HISTORY, ATTACKS, dateOf } from './data/basedata.js';
@@ -229,6 +230,11 @@ sec('Sistemas', 'abatidos', 'Abatidos y rescate', 5, () => table([
   { m: 'Talento Rescate (Sanitario)', v: '+1 turno de margen y levanta con al menos un 25% de salud.' },
   { m: 'Muere si…', v: 'recibe otro golpe, se acaban los turnos, la radiación lo mata o todo el grupo está abatido. Los enemigos que lo tienen al lado lo prefieren como objetivo. No puede subir solo a la evacuación.' },
 ], [{ h: 'Situación', v: (r) => `<b>${esc(r.m)}</b>` }, { h: 'Regla', v: (r) => esc(r.v) }]), 'Fase 23.3. Levantar a alguien da +15 de afinidad entre los dos, −10 de estrés al levantado y cuenta como «salvar a un compañero» para las condecoraciones. Los compañeros con orden distinta de NO DISPARAR acuden solos a levantarlo.');
+sec('Sistemas', 'municion', 'Munición especial', Object.keys(SPECIAL_AMMO).length, () => table(Object.entries(AMMO_KINDS).map(([id, k]) => ({ id, ...k, list: Object.entries(SPECIAL_AMMO).filter(([, d]) => d.kind === id) })), [
+  { h: 'Tipo', v: (k) => `<b style="color:${k.color}">${esc(k.short)} · ${esc(k.name)}</b>`, s: (k) => k.name },
+  { h: 'Efecto', v: (k) => esc(k.desc) },
+  { h: 'Calibres', v: (k) => k.list.map(([id, d]) => tag(`${d.name.replace('Munición ', '').replace(' ' + k.name, '')} · Nv ${d.tier} · ${d.value} ₽`)).join('') },
+]), 'Fase 23.4. Cualquier arma dispara cualquier munición de su calibre; el arma recuerda qué tipo lleva cargado. Tecla N: tipo para la siguiente recarga (lo cargado vuelve a la mochila). Aparecen en el botín (tier del calibre +1, +2 la de esencia) y se fabrican en el Taller de fabricación. Fuego de supresión (Z): subfusiles, fusiles y ametralladoras sin mira con cargador de 15 o más; gasta 6–9 balas, un impacto a mitad de daño y suprime 2 turnos a los enemigos a 1 casilla (−30% de impacto, 50% de perder el turno). Los humanos con armas automáticas suprimen a los agentes (15% por ráfaga).');
 sec('Sistemas', 'nombres', 'Nombres de objetos', MYTHIC_NAMES.length + EPITHETS.length + UNCOMMON_SUFFIX.length + RARE_SUFFIX.length, renderItemNames);
 
 // ----- MUNDO -----

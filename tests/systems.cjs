@@ -192,7 +192,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     const dropped = e.dropItem(sq, sq.a.equip.case);
     sq.ess = 100;
     const stash0 = S.stash.length;
-    e.damageAgent(sq, 9999, 'prueba');
+    e.damageAgent(sq, 9999, 'prueba'); e.damageAgent(sq, 9999, 'prueba'); // fase 23.3: el primero lo deja abatido
     return { turn: e.turn > t0, vault: 2, dropped, stashGain: S.stash.length - stash0, essKept: sq.essKept, rec: sq.recovered };
   });
   ok(ex.turn, 'guardar en el contenedor gasta el turno');
@@ -383,7 +383,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     e.t[e.key(...adj)] = T.UNSTABLE; for (let i = 0; i < 10 && e.tile(...adj) === T.UNSTABLE; i++) e.noise(c.x, c.y, 12); out.collapse = e.tile(...adj);
     return out;
   });
-  ok(tr.cover && tr.cover[1] === tr.cover[0] - 25, `cobertura: ${tr.cover && tr.cover.join('% → ')}%`);
+  ok(tr.cover && tr.cover[1] === tr.cover[0] - 45, `cobertura de los sacos terreros (total, fase 23.1): ${tr.cover && tr.cover.join('% → ')}%`);
   ok(tr.barrel === 8 && tr.fire, 'disparar a un barril lo hace explotar e incendia');
   ok(tr.door && tr.door[0] && tr.door[1] === 5, 'Técnica 7+ abre una puerta blindada');
   ok(tr.lit, 'el interruptor ilumina el sector');
@@ -993,7 +993,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
       ST.addAff(p.a, q.a, 50);
       e.god = false; q.a.stress = 0;
       const lobo = e.spawnEnemy('lobo', 1, ...([[2, 0], [-2, 0], [0, 2], [0, -2]].map(([dx, dy]) => [p.x + dx, p.y + dy]).find(([x, y]) => e.passable(x, y) && !e.entityAt(x, y))), 'dormido');
-      e.damageAgent(p, 9999, 'prueba', lobo);
+      e.damageAgent(p, 9999, 'prueba', lobo); e.damageAgent(p, 9999, 'prueba', lobo); // abatido y rematado (fase 23.3)
       e.god = true;
       out.grief = q.a.stress >= 30; out.epitaph = !!(S.fallen[0] && S.fallen[0].epitaph && S.fallen[0].letter);
       // interceptado
@@ -1503,6 +1503,49 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     ok(dw.down && dw.noControl && dw.tick, `a 0 de salud el agente queda abatido 3 turnos; no actúa ni se le controla${dw.down && dw.noControl && dw.tick ? '' : ' ' + JSON.stringify(dw)}`);
     ok(dw2.rescue && dw2.bare, `levantar al abatido con F: con botiquín (lo gasta) o a mano con 1 de salud${dw2.rescue && dw2.bare ? '' : ' ' + JSON.stringify(dw2)}`);
     ok(dw2.finish && dw2.bleed, 'los enemigos rematan al abatido; si nadie lo levanta, se desangra');
+    // 23.4 munición especial y fuego de supresión
+    const am = await K.evaluate(() => {
+      const e = window.__topolev.exp; const out = {}; window.__clr(); window.__home(); e.god = true;
+      const sq = e.team.find((q) => !q.downed) || e.cur; e.active = e.squad.indexOf(sq);
+      const ak = window.__mk('ak74', 0); ak.ld = 0; sq.a.equip.w1 = ak; sq.cur = 'w1';
+      sq.a.bag = sq.a.bag.filter((it) => !String(it.b).startsWith('a_545'));
+      sq.a.bag.push(window.__mk('a_545', 0, undefined, 30), window.__mk('a_545_ap', 0, undefined, 30));
+      // N elige la perforante; R la carga
+      e.cycleAmmo(sq); e.reload(sq, true);
+      out.loadAp = ak.ammoKind === 'a_545_ap' && ak.ld === 30 && e.ammoFor(sq) === 30;
+      // volver a la normal: lo cargado vuelve a la mochila
+      e.cycleAmmo(sq); e.reload(sq, true);
+      out.back = !ak.ammoKind && ak.ld === 30 && sq.a.bag.filter((it) => it.b === 'a_545_ap').reduce((n, it) => n + it.q, 0) === 30;
+      // efectos contra un objetivo blindado (gólem): perforante > normal > expansiva; de esencia > normal
+      const [gx, gy] = window.__P(4, 0); const g = e.spawnEnemy('golem', 8, gx, gy, 'alerta');
+      const ws = { ...e.weaponStats(sq), dmg: [20, 20], crit: -999 };
+      const hit = (kind) => { ak.ammoKind = kind; return e.rollDmg(ws, e.ast(sq), sq, g, false, 4).dmg; };
+      const n = hit(null), ap = hit('a_545_ap'), hp = hit('a_545_hp'), es = hit('a_545_ess');
+      out.fx = ap > n && hp < n && es > n;
+      // incendiaria: prende fuego
+      ak.ammoKind = 'a_545_inc'; g.burn = 0; g.hp = g.hpMax = 9999; const est = e.est(g); est.ev = -200;
+      e.resolveHit(sq, g, { ...e.weaponStats(sq), acc: 300 }, e.ast(sq), false);
+      out.inc = g.burn >= 3;
+      ak.ammoKind = null; e.dismissActor(g);
+      // fuego de supresión: los que están a 1 casilla del objetivo quedan suprimidos
+      ak.ld = 30;
+      const [ax, ay] = window.__P(6, 0), [bx, by] = window.__P(6, 1), [cx, cy] = window.__P(6, 4);
+      const w1 = e.spawnEnemy('lobo', 3, ax, ay, 'alerta'), w2 = e.spawnEnemy('lobo', 3, bx, by, 'alerta'), w3 = e.spawnEnemy('lobo', 3, cx, cy, 'alerta');
+      for (const w of [w1, w2, w3]) { w.hp = w.hpMax = 999; }
+      const ok2 = e.suppress(sq, w1);
+      out.supp = ok2 && w1.suppressed === 2 && w2.suppressed === 2 && !w3.suppressed && ak.ld <= 24;
+      // un suprimido acierta menos (−30) y pierde turnos
+      const h1 = e.hitChance(sq, w3); sq.suppressed = 2; const h2 = e.hitChance(sq, w3); sq.suppressed = 0;
+      out.penalty = h2 === Math.max(5, h1 - 30);
+      // un arma no automática no puede suprimir
+      sq.a.equip.w1 = window.__mk('makarov', 0); sq.a.equip.w1.ld = 8;
+      out.noPistol = !e.canSuppress(sq);
+      window.__clr();
+      return out;
+    });
+    ok(am.loadAp && am.back, 'munición especial: N elige el tipo, R lo carga y lo cargado vuelve a la mochila al cambiar');
+    ok(am.fx && am.inc, 'perforante, expansiva y de esencia cambian el daño; la incendiaria prende fuego');
+    ok(am.supp && am.penalty && am.noPistol, 'fuego de supresión (Z) con armas automáticas: suprime 2 turnos y −30% de impacto');
     await ctx10.close();
   }
 

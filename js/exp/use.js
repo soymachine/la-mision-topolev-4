@@ -164,17 +164,30 @@ export class UsePart {
     if (!w) return false;
     const ws = itemStats(w);
     if (!ws.mag) { if (!silent) this.say('Esta arma no usa munición.', 'dimt'); return false; }
-    if (w.ld >= ws.mag) { if (!silent) this.say('El cargador ya está lleno.', 'dimt'); return false; }
+    // fase 23.4: cualquier munición del calibre; se carga la elegida (N) y, si se cambia de tipo, lo cargado vuelve a la mochila
+    const cal = ws.ammo;
+    const has = (b) => sq.a.bag.some((it) => it.b === b && it.q > 0);
+    const sel = w.ammoSel || cal;
+    const use = has(sel) ? sel : has(w.ammoKind || cal) ? w.ammoKind || cal : has(cal) ? cal : (sq.a.bag.find((it) => it.q > 0 && ITEMS[it.b].cat === 'ammo' && ITEMS[it.b].base === cal) || {}).b;
+    const loaded = w.ammoKind || cal;
+    if (w.ld >= ws.mag && (!use || use === loaded)) { if (!silent) this.say('El cargador ya está lleno.', 'dimt'); return false; }
+    if (!use) { if (!silent) this.say(`Sin munición de ${ITEMS[cal].name.replace('Munición ', '')} en la mochila.`, 'bad'); return false; }
+    if (w.ld > 0 && use !== loaded) {
+      const back = createItem(loaded, 0, rng, w.ld);
+      if (mergeInto(sq.a.bag, back, bagCapacity(sq.a))) this.addFloor(sq.x, sq.y, back);
+      w.ld = 0;
+    }
     let need = ws.mag - w.ld;
     let got = 0;
     for (const it of sq.a.bag) {
-      if (it.b !== ws.ammo || need <= 0) continue;
+      if (it.b !== use || need <= 0) continue;
       const mv = Math.min(it.q, need);
       it.q -= mv; need -= mv; got += mv;
     }
     sq.a.bag = sq.a.bag.filter((it) => !(it.q !== undefined && it.q <= 0));
-    if (!got) { if (!silent) this.say(`Sin munición de ${ITEMS[ws.ammo].name.replace('Munición ', '')} en la mochila.`, 'bad'); return false; }
+    if (!got) { if (!silent) this.say(`Sin munición de ${ITEMS[cal].name.replace('Munición ', '')} en la mochila.`, 'bad'); return false; }
     w.ld += got;
+    w.ammoKind = use === cal ? null : use;
     this.fx.push({ type: 'reload', x: sq.x, y: sq.y });
     const quick = this.flag(sq, 'quickReload');
     if (!silent || sq === this.cur) this.say(`${this.nm(sq)} recarga (${w.ld}/${ws.mag})${quick ? ' al instante' : ''}.`, 'dimt');
@@ -184,7 +197,7 @@ export class UsePart {
     if (!w) return 0;
     const ws = itemStats(w);
     if (!ws.ammo) return 0;
-    return sq.a.bag.reduce((s, it) => s + (it.b === ws.ammo ? it.q : 0), 0);
+    return sq.a.bag.reduce((s, it) => s + (it.b === ws.ammo || (ITEMS[it.b].cat === 'ammo' && ITEMS[it.b].base === ws.ammo) ? it.q : 0), 0);
   }
   swapWeapon() {
     const sq = this.cur;

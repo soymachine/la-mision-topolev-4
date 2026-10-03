@@ -576,6 +576,7 @@ export class MapRenderer {
         ctx.fillRect(sx + 1, sy + ch - 2, w * f, 2);
       }
       if (en.elite) { ctx.font = `${Math.round(this.fs * 0.55)}px ${FONT}`; ctx.fillStyle = '#ffd23f'; ctx.fillText('★', sx + cw * 0.85, sy + ch * 0.18); ctx.font = font; }
+      if (en.suppressed > 0) { ctx.font = `${Math.round(this.fs * 0.5)}px ${FONT}`; ctx.fillStyle = '#ffe066'; ctx.fillText('∷', sx + cw * 0.5, sy + ch * 0.12); ctx.font = font; } // fase 23.4: suprimido
       if (en.raged) { ctx.font = `${Math.round(this.fs * 0.55)}px ${FONT}`; ctx.fillStyle = '#ff3b30'; ctx.fillText('!', sx + cw * 0.15, sy + ch * 0.18); ctx.font = font; }
       if (en.stun > 0) { ctx.font = `${Math.round(this.fs * 0.6)}px ${FONT}`; ctx.fillStyle = '#ffe9a0'; ctx.fillText(['✶', '*', '·', '*'][Math.floor(T_ * 8) % 4], sx + cw / 2 + Math.sin(T_ * 6) * cw * 0.4, sy - ch * 0.15); ctx.font = font; }
       if (en.state === 'dormido' && Math.sin(T_ * 1.3 + en.x * 2) > 0.985) this.parts.add({ x: en.x + 0.8, y: en.y, vy: -0.8, vx: 0.3, life: 1.4, ch: 'z', color: col, scale: 0.6 });

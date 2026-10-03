@@ -66,6 +66,11 @@ export const RECIPES = [
   { id: 'f_cell', name: 'Celdas de esencia ×10', lvl: 3, research: 'r_essammo', cost: { electronica: 2 }, ess: 15, out: ['a_cell', 10] },
   { id: 'f_leadsuit', name: 'Traje de tela de plomo (L-1)', lvl: 2, research: 'r_blindaje', cost: { plomo: 5, chatarra: 2 }, out: ['l1', 1] },
   { id: 'f_dronebat', name: 'Batería de litio para drones', lvl: 2, research: 'r_drones', cost: { electronica: 3, chatarra: 1 }, out: ['dronebat', 1] },
+  // fase 23.4: munición especial
+  { id: 'f_12_hp', name: 'Cartuchos cal. 12 expansivos ×12', lvl: 1, cost: { chatarra: 3 }, out: ['a_12_hp', 12] },
+  { id: 'f_545_ap', name: 'Munición 5,45×39 mm perforante ×30', lvl: 2, cost: { chatarra: 4, plomo: 1 }, out: ['a_545_ap', 30] },
+  { id: 'f_762_inc', name: 'Munición 7,62×54R incendiaria ×20', lvl: 2, cost: { chatarra: 3, tejido: 2 }, out: ['a_762_inc', 20] },
+  { id: 'f_545_ess', name: 'Munición 5,45×39 mm de esencia ×30', lvl: 3, research: 'r_essammo', cost: { electronica: 1, chatarra: 2 }, ess: 10, out: ['a_545_ess', 30] },
   { id: 'f_caseplate', name: 'Placa de ampliación de contenedor', lvl: 3, cost: { plomo: 3, electronica: 2, parts: 2 }, out: ['caseplate', 1] },
 ];
 
