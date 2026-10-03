@@ -402,7 +402,8 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
   await F.reload(); await F.waitForTimeout(800); await F.click('text=CONTINUAR'); await F.waitForTimeout(900);
   const fl2 = await F.evaluate(() => { const e = window.__topolev.exp; return { floor: e.floor, store: !!e.floorStore[0], view: !!e.floorView(0) }; });
   ok(fl2.floor === 1 && fl2.store && fl2.view, 'el piso y los pisos visitados sobreviven a recargar');
-  await F.keyboard.press('m'); await F.waitForTimeout(250);
+  // (tras recargar, esperar a que la pantalla de expedición esté lista antes de pulsar la tecla)
+  for (let i = 0; i < 3 && !(await F.$('.floor-tabs .filter')); i++) { await F.keyboard.press('m'); await F.waitForSelector('.floor-tabs .filter', { timeout: 1500 }).catch(() => {}); }
   ok((await F.$$('.floor-tabs .filter')).length === 2, 'el mapa grande tiene selector de pisos');
   await F.keyboard.press('Escape');
   const up = await F.evaluate(() => { const e = window.__topolev.exp; window.__topolev.debug.run('god'); e.moveEntity(e.cur, ...e.start); for (const s of e.team) if (s !== e.cur) e.moveEntity(s, e.cur.x + 1, e.cur.y); e.interact(); return { floor: e.floor, exits: e.exits.length }; });
