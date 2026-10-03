@@ -1688,6 +1688,34 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     await ctx11.close();
   }
   {
+    // 24.8 enciclopedia: lo no descubierto, oculto; tras ver un chebylita, aparece; búsqueda y enlaces cruzados
+    const ctx17 = await b.newContext({ viewport: { width: 1440, height: 860 } });
+    const Cx = await ctx17.newPage();
+    Cx.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
+    Cx.on('console', (m) => { if ((m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) || m.type() === 'warning') errs.push(m.text()); });
+    await Cx.goto(URL); await Cx.waitForTimeout(800);
+    await Cx.click('text=NUEVA PARTIDA'); await Cx.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await Cx.click('#screen-intro'); await Cx.click('text=COMENZAR');
+    await Cx.waitForTimeout(300);
+    await Cx.evaluate(() => { const S = window.__topolev.S; S.bestiary = {}; });
+    await Cx.click('.tab:has-text("ARCHIVO")'); await Cx.waitForTimeout(200);
+    await Cx.click('text=ENCICLOPEDIA'); await Cx.waitForTimeout(200);
+    const c0 = await Cx.evaluate(() => { const rows = [...document.querySelectorAll('.modal .cx-entry')]; return { n: rows.length, known: rows.filter((r) => r.dataset.known === '1').length, rata: !!document.querySelector('.modal .cx-entry[data-id="rata"][data-known="0"]') && !document.querySelector('.modal').innerText.includes('Rata espinosa') }; });
+    ok(c0.n >= 40 && c0.known === 0 && c0.rata, `enciclopedia: sin avistar nada, los chebylitas salen como ??? (${c0.n})`);
+    await Cx.keyboard.press('Escape'); await Cx.waitForTimeout(150);
+    await Cx.evaluate(async () => { const st = await import('./js/core/state.js'); st.seeEnemy('rata'); st.seeEnemy('lobo'); st.save(); });
+    await Cx.click('text=ENCICLOPEDIA'); await Cx.waitForTimeout(200);
+    const c1 = await Cx.evaluate(() => ({ rata: !!document.querySelector('.modal .cx-entry[data-id="rata"][data-known="1"]') && document.querySelector('.modal').innerText.includes('Rata espinosa'), items: document.querySelector('.modal .cx-tabs [data-sec="objetos"]').textContent }));
+    ok(c1.rata && /[1-9]\d*\//.test(c1.items), `tras ver un chebylita aparece; los objetos del almacén cuentan como vistos (${c1.items.trim()})`);
+    // búsqueda y enlace cruzado de la rata a su zona
+    await Cx.fill('.modal .cx-search', 'lobo'); await Cx.waitForTimeout(100);
+    const sr = await Cx.evaluate(() => [...document.querySelectorAll('.modal .cx-entry')].map((r) => r.dataset.id).join(','));
+    await Cx.fill('.modal .cx-search', ''); await Cx.waitForTimeout(100);
+    await Cx.click('.modal .cx-entry[data-id="rata"] .cx-link[data-sec="zonas"] >> nth=0'); await Cx.waitForTimeout(150);
+    const lk = await Cx.evaluate(() => ({ sec: document.querySelector('.modal .cx-tabs .tab.active').dataset.sec, focus: !!document.querySelector('.modal .cx-entry.focus[data-known="1"]') }));
+    ok(sr === 'lobo' && lk.sec === 'zonas' && lk.focus, `búsqueda (${sr}) y enlace de un chebylita a su zona`);
+    await ctx17.close();
+  }
+  {
     // 24.7 modos de juego: libre, hierro, desafío semanal y «1987»
     const ctx16 = await b.newContext({ viewport: { width: 1440, height: 860 } });
     const Mo = await ctx16.newPage();

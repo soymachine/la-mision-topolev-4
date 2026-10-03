@@ -7,6 +7,7 @@ export default {
   'menu.help': 'HOW TO PLAY',
   'menu.controls': 'CONTROLS',
   'menu.achievements': 'ACHIEVEMENTS & STATS',
+  'menu.codex': 'ENCYCLOPEDIA',
   'ach.unlocked': '🏆 Achievement: {n}',
   'menu.fullscreen': 'FULL SCREEN',
   'menu.sound': 'SOUND: {v}',

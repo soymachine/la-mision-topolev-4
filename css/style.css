@@ -520,3 +520,13 @@ body.touch .btn { min-height: 34px; }
 /* ---------- modos de juego (fase 24.7) ---------- */
 .mode-pick { border: 1px dashed var(--o5); padding: 6px 1ch; margin-bottom: 1em; }
 .mode-tag { letter-spacing: .08em; }
+
+/* ---------- enciclopedia (fase 24.8) ---------- */
+.cx-tabs { padding: 0; margin-bottom: 4px; flex-wrap: wrap; }
+.cx-search { flex: 1; background: #000; color: var(--o1); border: 1px solid var(--o4); font: inherit; padding: 3px 1ch; }
+.cx-list { max-height: 62vh; }
+.cx-entry { padding: 4px 1ch; border-left: 2px solid var(--o5); margin-bottom: 3px; }
+.cx-entry.unknown { opacity: .5; }
+.cx-entry.focus { border-left-color: var(--warn); background: var(--o6); }
+.cx-lore { font-style: italic; }
+.cx-link { color: var(--cyan); cursor: pointer; text-decoration: underline dotted; }

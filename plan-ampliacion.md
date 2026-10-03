@@ -602,11 +602,11 @@ Resumen original: accesibilidad (modo daltónico con símbolos en las rarezas, r
 - [x] 24.7.5 **Nueva partida+ «1987»**: se desbloquea al ver un final; empieza con un agente veterano o un trofeo de la partida anterior y modificadores acumulables (+1 nivel a los chebylitas, alerta del reactor +1, menos rublos…), elegibles al crearla. *Hecho:* `saveLegacy(ending)` en `endGame` (mejor agente + un trofeo → `topolev_legacy_v1`); `ngUnlocked()` (legado o logro de final); `NG_MODS`: `lvl` (+1 en `zoneWorld().grow`), `alert` (+1 en `reactorAlert`), `poor` (200 ₽); `carry: 'agent' | 'trophy'`.
 - [x] 24.7.6 Pruebas (cada modo crea su estado; Hierro no permite cargar; desafío con la misma semilla genera lo mismo; 1987 aplica sus modificadores). *Hecho:* bloque `ctx16`.
 
-### 24.8 Enciclopedia dentro del juego (M)
-- [ ] 24.8.1 Pestaña o pantalla **ENCICLOPEDIA** (desde ARCHIVO y el menú de pausa) que reutiliza las secciones de `admin.js` (extraer las funciones de render a un módulo común, p. ej. `ui/codex.js`, para no duplicar).
-- [ ] 24.8.2 Solo muestra **lo descubierto**: chebylitas vistos (`S.bestiary`), objetos encontrados (registrar `S.seenItems` al recoger o comprar), zonas abiertas, facciones conocidas, notas leídas, trofeos conseguidos; lo demás aparece como «???».
-- [ ] 24.8.3 Búsqueda y enlaces cruzados (de un enemigo a sus zonas, de una zona a sus enemigos y jefe).
-- [ ] 24.8.4 Pruebas (lo no descubierto aparece oculto; tras ver un chebylita aparece).
+### 24.8 Enciclopedia dentro del juego (M) ✔
+- [x] 24.8.1 Pestaña o pantalla **ENCICLOPEDIA** (desde ARCHIVO y el menú de pausa) que reutiliza las secciones de `admin.js` (extraer las funciones de render a un módulo común, p. ej. `ui/codex.js`, para no duplicar). *Hecho:* `ui/codex.js` (`codexModal`, secciones chebylitas/objetos/zonas/facciones/notas/trofeos) desde ARCHIVO y el menú de pausa; lo compartido con `admin.js` (`ecoLines`, `ZONE_TYPE`, `zonesOf`, `escHTML`) pasó a `util/codexlines.js`, que solo depende de los datos.
+- [x] 24.8.2 Solo muestra **lo descubierto**: chebylitas vistos (`S.bestiary`), objetos encontrados (registrar `S.seenItems` al recoger o comprar), zonas abiertas, facciones conocidas, notas leídas, trofeos conseguidos; lo demás aparece como «???». *Hecho:* `S.seenItems` con `seeItem()` (al recoger en `takeItem` y, en cada `save()`, todo lo del almacén y los agentes); facciones conocidas = `S.met` + chebylitas y KGB; contadores «vistos/total» en cada pestaña.
+- [x] 24.8.3 Búsqueda y enlaces cruzados (de un enemigo a sus zonas, de una zona a sus enemigos y jefe). *Hecho:* buscador (solo entre lo descubierto; no deja pasar las teclas a la expedición) y enlaces `.cx-link` que cambian de sección y resaltan la entrada.
+- [x] 24.8.4 Pruebas (lo no descubierto aparece oculto; tras ver un chebylita aparece). *Hecho:* bloque `ctx17` (y `admin.html` comprobado a mano tras mover las funciones).
 
 ### 24.9 Cierre de la fase
 - [ ] 24.9.1 Revisión general de la ayuda y del Archivo con todo lo nuevo; teclas en la ayuda leídas de la tabla de controles.

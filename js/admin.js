@@ -21,6 +21,9 @@ import { ACTS, SCENES, ENDINGS, STAFF, COMEDOR, LETTERS_FROM, EPITAPHS, LAST_LET
 import { PLOTS, MATERIALS, RESEARCH, RECIPES, SEASONS, HISTORY, ATTACKS, dateOf } from './data/basedata.js';
 import { CONTRACTS, GIVER_NAME } from './core/story.js';
 import { COLLECTIONS, INTERCEPTS } from './data/lore.js';
+import { ecoLines, ZONE_TYPE } from './util/codexlines.js';
+import { ACHIEVEMENTS } from './data/achievements.js';
+import { MODES, NG_MODS, CHALLENGE_DAYS } from './core/modes.js';
 import { ACQUIRED, MEDALS, WOUNDS, WOUND_CHANCE, RETIRE_LEVEL, MAX_INSTRUCTORS, INSTRUCTOR_XP, ROOKIE_LEVEL } from './data/honors.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -30,7 +33,6 @@ const R = RARITIES;
 const ESS = '#5ff7ff';
 
 const WTYPE = { melee: 'Cuerpo a cuerpo', pistol: 'Pistola', smg: 'Subfusil', shotgun: 'Escopeta', rifle: 'Fusil', sniper: 'Tirador', mg: 'Ametralladora', flame: 'Lanzallamas', launcher: 'Lanzador', energy: 'Esencia' };
-const ZONE_TYPE = { industrial: 'Industrial', ruinas: 'Ruinas', caverna: 'Caverna', inundado: 'Inundado', ciudad: 'Ciudad', bosque: 'Bosque', ferroviario: 'Ferroviario', chatarreria: 'Chatarrería', antena: 'Antena', lago: 'Lago', metro: 'Metro', campamento: 'Campamento', base: 'Base militar', laboratorio: 'Laboratorio', organico: 'Orgánico', corium: 'Corium' };
 const SPECIAL_TEXT = {
   tren: 'Tren fantasma: cada 80–140 turnos cruza la vía más cercana; avisa 4 turnos antes y arrolla lo que haya encima.',
   lago: 'Siluros gigantes en el agua profunda; barcas como pasarelas; islotes con alijos.',
@@ -348,6 +350,13 @@ sec('Base', 'ataques', 'Ataques a la base', Object.keys(ATTACKS).length, () => t
 ]), `Desde el día 12, un 5% al día (y siempre que haya una fuga en la celda de contención). Defender: una expedición especial al Puesto con los agentes que estén en la base; rechazarlo da +200 ₽ y +5 de confianza. Ceder (o perder): −25% de rublos, −20% de esencia, hasta 3 objetos del almacén y +15 de estrés para todos. Parcelas: ${PLOTS}, así que no caben todos los edificios.`);
 
 // ------------------------------------------------------------ vistas especiales
+// fase 24: logros y modos de juego
+sec('Calidad', 'logros', 'Logros', ACHIEVEMENTS.length, () => table(ACHIEVEMENTS, [
+  { h: '', v: (a) => esc(a.glyph) }, { h: 'Logro', v: (a) => `<b>${esc(a.name)}</b>${a.secret ? ' ' + tag('secreto', 'b') : ''}`, s: (a) => a.name }, { h: 'Condición', v: (a) => `<span class="desc">${esc(a.desc)}</span>` }, { h: 'id', v: (a) => `<code>${a.id}</code>` },
+]), 'Se guardan fuera de las partidas (localStorage <code>topolev_achievements_v1</code>) y se comprueban al acabar cada expedición, cada día, al abatir un jefe y al ver un final.');
+sec('Calidad', 'modos', 'Modos de juego', Object.keys(MODES).length, () => table(Object.entries(MODES).map(([id, m]) => ({ id, ...m })), [
+  { h: 'Modo', v: (m) => `<b>${esc(m.name)}</b>`, s: (m) => m.name }, { h: 'id', v: (m) => `<code>${m.id}</code>` }, { h: 'Reglas', v: (m) => `<span class="desc">${esc(m.desc)}</span>` },
+]) + `<h3>Modificadores de «1987»</h3>${table(Object.entries(NG_MODS).map(([id, m]) => ({ id, ...m })), [{ h: 'Modificador', v: (m) => esc(m.name) }, { h: 'Efecto', v: (m) => `<span class="desc">${esc(m.desc)}</span>` }])}`, `Desafío semanal: ${CHALLENGE_DAYS} días; puntuación = esencia total + 2 × bajas + 25 × extracciones − 40 × caídos; tabla local <code>topolev_challenge_v1</code>. «1987» se desbloquea con un final (legado en <code>topolev_legacy_v1</code>).`);
 function renderSummary() {
   const items = Object.values(ITEMS);
   const equipBases = items.filter((d) => ['weapon', 'armor', 'helmet', 'gadget', 'backpack'].includes(d.cat)).length;
@@ -399,16 +408,6 @@ function renderItemNames() {
 }
 
 // fase 22: cadena alimentaria, jefe de zona, fases y trofeo
-function ecoLines(d) {
-  const nm = (id) => (ENEMIES[id] ? ENEMIES[id].name : id);
-  const L = [];
-  if (d.diet) L.push(`<div class="desc">🍖 Caza: ${d.diet.map(nm).join(', ')}</div>`);
-  if (d.follows) L.push(`<div class="desc">Sigue a: ${nm(d.follows)}</div>`);
-  if (d.home) L.push(`<div class="desc" style="color:var(--bad)">Jefe de ${esc(MAPS.find((m) => m.id === d.home).name)} (piso más profundo)</div>`);
-  if (d.phases) L.push(`<div class="desc"><b>Fases</b>: ${d.phases.map((p) => `≤${Math.round(p.at * 100)}% → ${[p.summon ? `invoca ${p.summon[1]}× ${nm(p.summon[0])}` : '', p.add ? p.add.map((a) => ABIL_TEXT[a]).join(', ') : '', p.heal ? `se cura un ${Math.round(p.heal * 100)}%` : ''].filter(Boolean).join('; ')}`).join(' · ')}</div>`);
-  if (d.trophy && ITEMS[d.trophy]) L.push(`<div class="desc" style="color:#ffd23f">♛ Trofeo: ${esc(ITEMS[d.trophy].name)}</div>`);
-  return L.join('');
-}
 function renderEnemies() {
   const rows = Object.entries(ENEMIES).map(([id, d]) => ({ id, ...d })).sort((a, b) => (a.boss || 0) - (b.boss || 0) || a.minL - b.minL);
   const cards = rows.map((d) => {

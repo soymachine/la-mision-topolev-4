@@ -545,6 +545,9 @@ ${helpKeysHTML()}
 <h2>MODOS DE JUEGO</h2>
 <p>Se eligen en NUEVA PARTIDA, encima de las ranuras. <b>HISTORIA</b>: la campaña de siempre. <b>LIBRE</b>: todas las zonas abiertas, 2000 ₽, sin cuota, ataques ni actos. <b>HIERRO</b>: guardado en cada turno, sin exportar copias; si os quedáis sin agentes y sin rublos para reclutar, la partida se borra. <b>DESAFÍO SEMANAL</b>: la misma semilla para todos durante la semana (agentes, botín inicial, reclutas y mapas de las 3 primeras zonas); al acabar el día 15 se apunta la puntuación (esencia + 2 por baja + 25 por extracción − 40 por caído) en la tabla de este navegador. <b>«1987»</b>: se desbloquea al ver un final; empezáis con el mejor agente o un trofeo de la partida anterior y podéis añadir modificadores (+1 nivel a los chebylitas, alerta +1, presupuesto recortado).</p>
 
+<h2>ENCICLOPEDIA</h2>
+<p>En el ARCHIVO y en el menú de pausa: chebylitas, objetos, zonas, facciones, notas y trofeos, pero <b>solo lo que habéis descubierto</b> en esta partida (lo demás sale como «???»). Tiene buscador y enlaces: de un chebylita a sus zonas, de una zona a sus chebylitas y a su jefe.</p>
+
 <h2>LOGROS Y ESTADÍSTICAS</h2>
 <p>En el menú principal y en el ARCHIVO: 36 logros (extracciones, jefes, trofeos, rachas sin bajas, rescates, finales secretos…) que se guardan aparte de las partidas, así que no se pierden al borrar una ranura; y las estadísticas de la partida: por zona, bajas por especie y por arma, abatidos levantados, granadas devueltas, ataques por la espalda, día récord de esencia.</p>
 

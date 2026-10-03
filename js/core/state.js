@@ -193,6 +193,7 @@ export function save() {
   if (!S) return false;
   try {
     if (expSerializer) S.exp = expSerializer();
+    scanSeen();
     S.v = SAVE_VERSION;
     writeSlot(slot, S);
     lastSaveError = null;
@@ -239,6 +240,12 @@ export function addMessage(text) {
   if (S.messages.length > 30) S.messages.length = 30;
 }
 
+// fase 24.8: objetos vistos (para la enciclopedia): al recogerlos y, al guardar, todo lo que hay en el almacén y en los agentes
+export function seeItem(b) { if (S && b) (S.seenItems = S.seenItems || {})[b] = 1; }
+function scanSeen() {
+  const add = (l) => { for (const it of l || []) if (it && it.b) seeItem(it.b); };
+  add(S.stash); for (const a of S.agents || []) { add(a.bag); add(Object.values(a.equip || {})); }
+}
 export function seeEnemy(id) {
   if (!S.bestiary[id]) S.bestiary[id] = { seen: 1, kills: 0 };
 }

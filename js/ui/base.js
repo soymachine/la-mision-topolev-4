@@ -34,6 +34,7 @@ import * as ECO from '../core/ecosys.js';
 import { a11yButtons } from './a11y.js';
 import { t } from '../i18n/index.js';
 import { achievementsModal } from './achievements.js';
+import { codexModal } from './codex.js';
 import { modeTag, challengeScore } from '../core/modes.js';
 import { controlsModal, keyName } from './keys.js';
 
@@ -1145,6 +1146,7 @@ export class BaseUI {
       el('button', { class: 'btn primary', onclick: () => this.hooks.onHelp() }, 'INSTRUCCIONES'),
       el('button', { class: 'btn', onclick: () => this.openChronicle() }, 'CRÓNICA DEL DIRECTOR'),
       el('button', { class: 'btn', onclick: () => achievementsModal() }, t('menu.achievements')),
+      el('button', { class: 'btn', onclick: () => codexModal() }, t('menu.codex')),
     );
     g.append(L, M, R);
     return g;

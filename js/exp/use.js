@@ -10,7 +10,7 @@ import { computeFOV, hasLOS } from './fov.js';
 import { astar, dijkstra } from './path.js';
 import { itemStats, itemName, createItem, rollLoot, mergeInto, rarityColor, gadgetExtras, caseRefusal, caseUsed } from '../core/items.js';
 import { agentStats, agentName, giveXp, bagCapacity } from '../core/agents.js';
-import { S, seeEnemy, killEnemy as bestiaryKill } from '../core/state.js';
+import { S, seeEnemy, seeItem, killEnemy as bestiaryKill } from '../core/state.js';
 import { esc } from '../util/dom.js';
 import { RADIO } from '../data/lore.js';
 import { D8, FISTS, BLOCKING_OBJ, ESSENCE_COLOR } from './shared.js';
@@ -136,6 +136,7 @@ export class UsePart {
     if (rest) { this.say('Mochila llena.', 'bad'); return false; }
     list.splice(i, 1);
     this.tally.items++;
+    seeItem(it.b); // fase 24.8
     this.say(`${this.nm(sq)} coge <span style="color:${rarityColor(it.r)}">${esc(itemName(it))}${it.q > 1 ? ' ×' + it.q : ''}</span>.`);
     this.fx.push({ type: 'pickup', x: sq.x, y: sq.y, color: rarityColor(it.r) });
     this.trigger('pickup', { item: it.b, rarity: it.r }, sq);

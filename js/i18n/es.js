@@ -9,6 +9,7 @@ export default {
   'menu.help': 'INSTRUCCIONES',
   'menu.controls': 'CONTROLES',
   'menu.achievements': 'LOGROS Y ESTADÍSTICAS',
+  'menu.codex': 'ENCICLOPEDIA',
   'ach.unlocked': '🏆 Logro: {n}',
   'menu.fullscreen': 'PANTALLA COMPLETA',
   'menu.sound': 'SONIDO: {v}',

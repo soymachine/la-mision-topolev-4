@@ -26,6 +26,7 @@ import { a11yButtons } from './a11y.js';
 import { actionForKey, dirOf, controlsModal, keyName, keyify } from './keys.js';
 import { buildTouchBar, mapGestures, minimapDrag } from './touch.js';
 import { t } from '../i18n/index.js';
+import { codexModal } from './codex.js';
 const SOCIAL_TIP = { trader: 'Compra y venta.', medic: 'Curas y tratamiento de la radiación.', board: 'Rumores y trabajos.', archive: 'Expedientes del KGB.' };
 export function toggleFullscreen() {
   try {
@@ -1188,6 +1189,7 @@ export class ExpeditionUI {
     body.append(
       btn(t('menu.continue'), () => close()),
       btn(t('menu.help'), () => { close(); this.hooks.onHelp(); }),
+      btn(t('menu.codex'), () => { close(); codexModal(); }),
       btn(t('menu.sound', { v: t(settings.sound ? 'yes' : 'no') }), () => { settings.sound = !settings.sound; saveSettings(); music.sync(); close(); this.openMenu(); }),
       btn(t('menu.crt', { v: t(settings.crt ? 'yes' : 'no') }), () => { settings.crt = !settings.crt; document.body.classList.toggle('no-crt', !settings.crt); saveSettings(); close(); this.openMenu(); }),
       btn(t('menu.zoomIn'), () => this.zoom(1)), btn(t('menu.zoomOut'), () => this.zoom(-1)),
