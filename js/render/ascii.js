@@ -599,7 +599,10 @@ export class MapRenderer {
       ctx.shadowColor = sq.a.color; ctx.shadowBlur = active ? 10 : 4;
       ctx.fillStyle = hurt ? '#ff3b30' : sq.a.color;
       ctx.font = fontB;
-      ctx.fillText('@', sx + cw / 2, sy + ch / 2 + 1);
+      // fase 23.3: abatido: tumbado, gris y parpadeando, con los turnos que le quedan
+      if (sq.downed) { ctx.shadowBlur = 0; ctx.globalAlpha = 0.55 + 0.35 * Math.sin(T_ * 5); ctx.fillStyle = '#b0b0b0'; ctx.fillText('_', sx + cw / 2, sy + ch / 2); ctx.fillText('@', sx + cw / 2, sy + ch / 2 + 1); ctx.globalAlpha = 1;
+        ctx.font = `${Math.round(this.fs * 0.6)}px ${FONT}`; ctx.fillStyle = '#ff3b30'; ctx.fillText(String(sq.downed), sx + cw * 0.85, sy + ch * 0.2); ctx.font = fontB; }
+      else ctx.fillText('@', sx + cw / 2, sy + ch / 2 + 1);
       ctx.shadowBlur = 0; ctx.font = font;
       // fase 23.1: a cubierto frente al enemigo visible más peligroso (▄ media, █ total)
       let cvl = 0;

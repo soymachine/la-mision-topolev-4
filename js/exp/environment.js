@@ -21,6 +21,8 @@ export class EnvironmentPart {
   // ---------------------------------------------------------------- entorno
   environment() {
     const N = this.w * this.h;
+    this.downedTick(); // fase 23.3: los abatidos se desangran
+    if (this.ended) return;
     // respiraderos de gas
     for (const v of this.vents) {
       if (rng.chance(0.5)) {
@@ -177,7 +179,7 @@ export class EnvironmentPart {
       if (this.evac.left <= 0) {
         const ev = this.evac;
         this.evac = null;
-        const inZone = this.team.filter((sq) => cheb(sq.x, sq.y, ev.x, ev.y) <= 1);
+        const inZone = this.team.filter((sq) => !sq.downed && cheb(sq.x, sq.y, ev.x, ev.y) <= 1); // un abatido no sube solo
         if (!inZone.length) this.say('La evacuación llega... pero no hay nadie en la zona. Se retira.', 'bad');
         for (const sq of inZone) this.extract(sq);
         this.checkActive();

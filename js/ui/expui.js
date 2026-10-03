@@ -280,7 +280,7 @@ export class ExpeditionUI {
       const st = e.inMap(sq) ? e.ast(sq) : agentStats(a);
       const w = a.equip[sq.cur];
       const ws = w ? itemStats(w) : null;
-      const status = !sq.alive ? '<span class="bad">✝ CAÍDO</span>' : sq.out ? '<span class="cyan">⇑ EXTRAÍDO</span>' : '';
+      const status = !sq.alive ? '<span class="bad">✝ CAÍDO</span>' : sq.out ? '<span class="cyan">⇑ EXTRAÍDO</span>' : sq.downed ? `<span class="bad pulse-red">✚ ABATIDO (${sq.downed})</span> <span class="dimt">F a su lado para levantarlo</span>` : '';
       const chips = [];
       if (sq.poison) chips.push(`<span class="status-chip good">VEN ${sq.poison}</span>`);
       if (sq.burn) chips.push('<span class="status-chip bad">FUEGO</span>');
@@ -299,7 +299,7 @@ export class ExpeditionUI {
         <div class="ln2"><span>RAD ${bar(Math.min(100, a.rad), 100, 14, 'rad')}</span><span>${Math.round(a.rad)}</span></div>
         <div class="ln2"><span style="color:${w ? rarityColor(w.r) : 'inherit'};overflow:hidden;text-overflow:ellipsis">${w ? esc(ITEMS[w.b].name) : 'Puños'}</span><span>${ws && ws.mag ? `${w.ld}/${ws.mag} <span class="dimt">+${e.ammoFor(sq)}</span>` : ''} <span class="cyan">✦${sq.ess}</span></span></div>
         ${chips.length ? `<div>${chips.join('')}</div>` : ''}`}`;
-      if (e.inMap(sq)) card.addEventListener('click', () => { e.switchActive(i); sfx.click(); });
+      if (e.inMap(sq) && !sq.downed) card.addEventListener('click', () => { e.switchActive(i); sfx.click(); });
       // soltar objetos sobre un compañero adyacente para dárselos
       dropzone(card, {
         accepts: (d) => d && d.kind === 'inv' && e.inMap(sq) && sq !== e.cur && cheb(sq.x, sq.y, e.cur.x, e.cur.y) <= 1,
@@ -766,6 +766,7 @@ export class ExpeditionUI {
     const obj = e.objAt(x, y);
     if (obj && cheb(x, y, c.x, c.y) <= 1) { if (this.canAct()) e.act((sq) => e.interactObj(sq, obj)); return; }
     const ag = e.agentAt(x, y);
+    if (ag && e.canRescue(c, ag)) { if (this.canAct()) e.act((sq) => e.rescue(sq, ag)); return; } // fase 23.3: levantar al abatido
     if (ag && cheb(x, y, c.x, c.y) > 1) { e.switchActive(e.squad.indexOf(ag)); return; }
     this.startTravel(x, y);
   }

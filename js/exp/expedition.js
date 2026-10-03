@@ -557,7 +557,7 @@ export class Expedition {
   act(fn) {
     if (this.ended) return false;
     const sq = this.cur;
-    if (!sq || !this.inMap(sq)) return false;
+    if (!sq || !this.inMap(sq) || sq.downed) return false; // fase 23.3: un abatido no actúa
     this.extraTurn = 0;
     // pánico: el agente huye en lugar de obedecer
     if (this.hasAffliction(sq, 'panico') && this.panicStep(sq)) { this.endTurn(); return true; }
@@ -724,10 +724,12 @@ export class Expedition {
     if (!team.length) return;
     let idx = i;
     if (idx == null) {
-      const cur = team.indexOf(this.cur);
-      idx = this.squad.indexOf(team[(cur + 1) % team.length]);
+      const up = team.filter((q) => !q.downed);
+      if (!up.length) return;
+      const cur = up.indexOf(this.cur);
+      idx = this.squad.indexOf(up[(cur + 1) % up.length]);
     }
-    if (!this.inMap(this.squad[idx])) return;
+    if (!this.inMap(this.squad[idx]) || this.squad[idx].downed) return; // a un abatido no se le controla
     this.active = idx;
     this.emit('switch');
   }

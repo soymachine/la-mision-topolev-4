@@ -271,9 +271,11 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     // juntar a la víctima con el sanitario
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) { const x = med.x + dx, y = med.y + dy; if (e.passable(x, y) && !e.entityAt(x, y)) { e.moveEntity(vic, x, y); break; } }
     e.damageAgent(vic, vic.a.hp + 50, 'prueba');
-    return { alive: e.inMap(vic), hp: vic.a.hp, saves: med.a.saves || 0 };
+    const down = vic.downed; // fase 23.3: cae abatido (4 turnos con Rescate en el grupo)
+    const ok2 = e.rescue(med, vic);
+    return { alive: e.inMap(vic), down, hp: vic.a.hp, quarter: vic.a.hp >= Math.round(e.ast(vic).hpMaxEff * 0.25), up: !vic.downed && ok2, saves: med.a.saves || 0 };
   });
-  ok(resc.alive && resc.hp === 1 && resc.saves === 1, 'Rescate: el sanitario salva a un compañero adyacente');
+  ok(resc.alive && resc.down === 4 && resc.up && resc.quarter && resc.saves === 1, 'Rescate: el sanitario levanta a un abatido con al menos un 25% de salud (y le da un turno más de margen)');
   const wound = await R.evaluate(() => {
     const e = window.__topolev.exp; const sq = e.cur;
     for (let i = 0; i < 60 && !(sq.a.wounds || []).length; i++) { sq.woundRoll = false; sq.a.hp = 1; e.markHurt(sq, null); }
@@ -892,9 +894,11 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
       e.god = false;
       const [a, b2] = e.team;
       a.a.equip.g1 = window.__mk('defib', 0);
-      if (cheb2(a, b2) > 2) { const c = window.__adj(e, a, 1); e.moveEntity(b2, c[0], c[1]); }
+      { const c = window.__adj(e, a, 2) || window.__adj(e, a, 1); e.moveEntity(b2, c[0], c[1]); }
       e.damageAgent(b2, b2.a.hp + 5, 'prueba');
-      const alive = b2.alive && b2.a.hp > 0;
+      // fase 23.3: cae abatido y el desfibrilador lo levanta a 2 casillas
+      const down = !!b2.downed; e.rescue(a, b2);
+      const alive = down && b2.alive && b2.a.hp > 0 && !b2.downed;
       // el perro cae: queda su chasis
       const dog = e.enemies.find((x) => x.type === 'laika');
       e.damageEnemy(dog, 999, null);
@@ -903,7 +907,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
       return { alive, used: e.defibUsed, chassis: !!(ch && ch.broken), slot: e.squad[0].a.equip.comp };
       function cheb2(p, q) { return Math.max(Math.abs(p.x - q.x), Math.abs(p.y - q.y)); }
     });
-    ok(df.alive && df.used === 1, 'el desfibrilador reanima a un agente caído cerca del portador');
+    ok(df.alive && df.used === 1, 'el desfibrilador levanta a un agente abatido a 2 casillas del portador');
     ok(df.chassis && df.slot === null, 'si el perro cae deja un chasis destrozado que se puede recuperar');
     await ctx7.close();
   }
@@ -1456,6 +1460,49 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     ok(sg.hiddenState && sg.seenState, 'indicador de detección: oculto / visto');
     ok(sg.backstab, 'ataque por la espalda: crítico seguro contra un enemigo que no sabe que estás ahí');
     ok(sg.ambush && sg.enemyAmbush, `emboscadas: la orden EMBOSCADA del compañero y el primer golpe del liquidador hueco${sg.ambush && sg.enemyAmbush ? '' : ' ' + JSON.stringify(sg)}`);
+    // 23.3 abatidos y rescate
+    const dw = await K.evaluate(() => {
+      const e = window.__topolev.exp; const out = {}; window.__clr(); window.__home();
+      const [a, b2] = e.team; e.god = false;
+      for (const q of e.team) { q.a.hp = e.ast(q).hpMaxEff; q.downed = 0; }
+      // cae abatido en vez de morir; un abatido no actúa y no se le puede controlar
+      e.active = e.squad.indexOf(b2);
+      e.damageAgent(b2, b2.a.hp + 10, 'prueba');
+      out.down = b2.downed === 3 && b2.alive && e.inMap(b2) && b2.a.hp === 0 && e.cur === a;
+      e.switchActive(e.squad.indexOf(b2)); out.noControl = e.cur === a;
+      // se desangra: cuenta atrás
+      e.downedTick(); out.tick = b2.downed === 2;
+      // levantarlo con un botiquín
+      e.moveEntity(b2, ...window.__P(1, 0)); e.moveEntity(a, ...window.__P(0, 0));
+      return out;
+    });
+    await K.evaluate(async () => { const { createItem } = await import('./js/core/items.js'); const { ITEMS } = await import('./js/data/items.js'); window.__mk = createItem; window.__heal = (it) => ITEMS[it.b].use === 'heal'; });
+    const dw2 = await K.evaluate(() => {
+      const e = window.__topolev.exp; const out = {}; const [a, b2] = e.team;
+      a.a.bag = a.a.bag.filter(Boolean); if (!a.a.bag.some((it) => it.b === 'ai2')) a.a.bag.push(window.__mk('ai2', 0));
+      // gasta la curación más pequeña que lleve
+      const heals = () => a.a.bag.filter((it) => window.__heal(it)).reduce((n, it) => n + (it.q || 1), 0);
+      const kits = heals();
+      out.rescue = e.canRescue(a, b2) && e.rescue(a, b2) && !b2.downed && b2.a.hp > 1 && heals() === kits - 1;
+      // sin botiquín: 1 de salud y un turno de más
+      e.damageAgent(b2, b2.a.hp + 10, 'prueba');
+      const bag0 = a.a.bag; a.a.bag = [];
+      e.extraTurn = 0; e.rescue(a, b2);
+      out.bare = !b2.downed && b2.a.hp === 1 && e.extraTurn === 1;
+      a.a.bag = bag0; e.extraTurn = 0;
+      // el enemigo prefiere rematar al abatido que tiene al lado
+      e.damageAgent(b2, b2.a.hp + 10, 'prueba');
+      const [wx, wy] = window.__P(1, 1); const w = e.spawnEnemy('lobo', 3, wx, wy, 'alerta');
+      const [t] = e.pickTarget(w, 11); out.finish = t === b2;
+      // si nadie lo levanta, muere al acabarse los turnos
+      for (let i = 0; i < 4; i++) e.downedTick();
+      out.bleed = !b2.alive && window.__topolev.S.fallen[0] && /desangr/.test(window.__topolev.S.fallen[0].cause);
+      e.dismissActor(w); e.god = true;
+      return out;
+    });
+    ok(dw.down && dw.noControl && dw.tick, `a 0 de salud el agente queda abatido 3 turnos; no actúa ni se le controla${dw.down && dw.noControl && dw.tick ? '' : ' ' + JSON.stringify(dw)}`);
+    ok(dw2.rescue && dw2.bare, `levantar al abatido con F: con botiquín (lo gasta) o a mano con 1 de salud${dw2.rescue && dw2.bare ? '' : ' ' + JSON.stringify(dw2)}`);
+    ok(dw2.finish && dw2.bleed, 'los enemigos rematan al abatido; si nadie lo levanta, se desangra');
     await ctx10.close();
   }
 

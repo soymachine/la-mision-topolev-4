@@ -25,6 +25,9 @@ export class UsePart {
   interact() {
     return this.act((sq) => {
       // 1. extracción
+      // fase 23.3: levantar a un compañero abatido
+      const dn = this.downedNear(sq);
+      if (dn) return this.rescue(sq, dn);
       const ex = this.exitAt(sq.x, sq.y);
       if (ex) return this.requestEvac(sq, ex);
       // 2. contenedor / veta adyacentes o en la casilla

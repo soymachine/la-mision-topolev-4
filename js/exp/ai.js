@@ -21,7 +21,15 @@ export class AIPart {
   // ---------------------------------------------------------------- IA de compañeros
   companionAct(sq) {
     const a = sq.a;
+    if (sq.downed) return;
     const st = this.ast(sq);
+    // fase 23.3: levantar a un compañero abatido (acudir si está lejos)
+    const dn = this.team.find((o) => o.downed && o !== sq);
+    if (dn && sq.order !== 'pasivo') {
+      if (this.canRescue(sq, dn)) { this.rescue(sq, dn); return; }
+      const path = astar(this.w, this.h, sq.x, sq.y, dn.x, dn.y, (x, y) => (this.passable(x, y) && !this.enemyAt(x, y) ? 1 : Infinity), 2500);
+      if (path && path.length > 1 && !this.entityAt(path[0][0], path[0][1])) { this.moveEntity(sq, path[0][0], path[0][1]); this.onAgentEnter(sq); return; }
+    }
     // curarse si está mal
     if (a.hp < st.hpMaxEff * 0.35) {
       const heal = a.bag.filter((it) => ITEMS[it.b].use === 'heal').sort((x, y) => ITEMS[x.b].heal - ITEMS[y.b].heal)[0];
@@ -102,7 +110,8 @@ export class AIPart {
     let tgt = null, td = 1e9;
     for (const c of this.combatants()) {
       if (c === e) continue;
-      const d = Math.hypot(c.x - e.x, c.y - e.y);
+      let d = Math.hypot(c.x - e.x, c.y - e.y);
+      if (c.downed && d <= 1.5) d = 0; // fase 23.3: rematar al abatido que tienen al lado
       if (d > sight + 3 || d >= td) continue;
       if (!this.hostile(e, c)) continue;
       if (c.a && d > 1.5 && this.flag(c, 'vanish')) continue; // Desaparecer (Explorador)

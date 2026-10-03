@@ -334,31 +334,10 @@ export class CombatPart {
         this.fx.push({ type: 'heal', x: sq.x, y: sq.y });
       }
     }
-    // Rescate (Sanitario): un compañero adyacente (o él mismo) evita la muerte una vez por expedición
-    if (sq.a.hp <= 0) {
-      const medic = this.team.find((o) => !o.rescueUsed && this.flag(o, 'rescue') && cheb(o.x, o.y, sq.x, sq.y) <= 1);
-      if (medic) {
-        medic.rescueUsed = true;
-        sq.a.hp = 1;
-        if (medic !== sq) addAff(medic.a, sq.a, 15);
-        if (medic !== sq) medic.a.saves = (medic.a.saves || 0) + 1;
-        this.fx.push({ type: 'heal', x: sq.x, y: sq.y });
-        this.say(`✚ ¡${this.nm(medic)} ${medic === sq ? 'se aferra a la vida' : 'salva in extremis a ' + this.nm(sq)}! (1 de salud)`, 'good');
-      }
-    }
-    // desfibrilador: una vez por expedición, a 2 casillas del portador
-    if (sq.a.hp <= 0 && !this.defibUsed) {
-      const doc = this.team.find((o) => this.flag(o, 'defib') && cheb(o.x, o.y, sq.x, sq.y) <= 2);
-      if (doc) {
-        this.defibUsed = 1;
-        if (doc !== sq) addAff(doc.a, sq.a, 15);
-        sq.a.hp = Math.max(1, Math.round(this.ast(sq).hpMaxEff * 0.25));
-        this.fx.push({ type: 'zap', x: sq.x, y: sq.y });
-        this.say(`ϟ ¡${this.nm(doc)} aplica el desfibrilador! ${this.nm(sq)} vuelve a respirar (${sq.a.hp} de salud).`, 'good');
-      }
-    }
-    if (sq.a.hp <= 0) this.agentDies(sq, cause, srcE);
-    else { this.markHurt(sq, srcE); this.trigger('agentHurt', { dmg }, sq); }
+    // fase 23.3: a 0 de salud, abatido (3 turnos para levantarlo); si ya lo estaba, muere.
+    // (Rescate y el desfibrilador ya no salvan solos: sirven para levantar al abatido, ver tactics.js)
+    if (sq.a.hp <= 0) { if (sq.downed) this.agentDies(sq, cause, srcE); else this.knockDown(sq, cause); return; }
+    this.markHurt(sq, srcE); this.trigger('agentHurt', { dmg }, sq);
   }
 
   agentDies(sq, cause, killer = null) {
@@ -392,8 +371,17 @@ export class CombatPart {
 
   checkActive() {
     if (!this.team.length) { this.finish(); return; }
-    if (!this.inMap(this.cur)) {
-      this.active = this.squad.indexOf(this.team[0]);
+    // fase 23.3: si solo quedan abatidos, nadie puede levantarlos
+    if (this.team.every((q) => q.downed)) {
+      if (this._wiping) return;
+      this._wiping = true;
+      for (const q of [...this.team]) this.agentDies(q, `se desangró (${q.downCause || 'herido'}); no quedaba nadie en pie`);
+      this._wiping = false;
+      if (!this.team.length) this.finish();
+      return;
+    }
+    if (!this.inMap(this.cur) || this.cur.downed) {
+      this.active = this.squad.indexOf(this.team.find((q) => !q.downed));
       this.emit('switch');
     }
   }

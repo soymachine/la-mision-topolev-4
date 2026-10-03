@@ -222,6 +222,13 @@ sec('Sistemas', 'sigilo', 'Detección y sigilo', 6, () => table([
   { m: 'Ataque por la espalda', v: 'crítico seguro', n: 'Cuerpo a cuerpo a un enemigo dormido o errante sin memoria de ti (no jefes).' },
   { m: 'Emboscada (orden EMBOSCADA)', v: '+20% impacto', n: 'Una vez; luego el compañero pasa a MANTENER.' },
 ], [{ h: 'Situación', v: (r) => esc(r.m) }, { h: 'Efecto', v: (r) => esc(r.v) }, { h: 'Notas', v: (r) => `<span class="desc">${esc(r.n)}</span>` }]), 'Fase 23.2. Los modificadores de distancia de detección solo cuentan para los enemigos que aún no están en alerta (dormidos o errantes). Los chebylitas sigilosos (fase 22) emboscan: su primer golpe hace ×1,5.');
+sec('Sistemas', 'abatidos', 'Abatidos y rescate', 5, () => table([
+  { m: 'Caer abatido', v: 'A 0 de salud: 3 turnos en el suelo (4 si alguien del grupo tiene el talento Rescate). No actúa ni se le controla. Se le quitan veneno y quemaduras.' },
+  { m: 'Levantar (F a su lado o clic)', v: 'Con la curación más pequeña de la mochila: se levanta con esa salud. Sin nada: 1 de salud y un turno más.' },
+  { m: 'Desfibrilador', v: 'Levanta a 2 casillas con un 25% de salud, una vez por expedición.' },
+  { m: 'Talento Rescate (Sanitario)', v: '+1 turno de margen y levanta con al menos un 25% de salud.' },
+  { m: 'Muere si…', v: 'recibe otro golpe, se acaban los turnos, la radiación lo mata o todo el grupo está abatido. Los enemigos que lo tienen al lado lo prefieren como objetivo. No puede subir solo a la evacuación.' },
+], [{ h: 'Situación', v: (r) => `<b>${esc(r.m)}</b>` }, { h: 'Regla', v: (r) => esc(r.v) }]), 'Fase 23.3. Levantar a alguien da +15 de afinidad entre los dos, −10 de estrés al levantado y cuenta como «salvar a un compañero» para las condecoraciones. Los compañeros con orden distinta de NO DISPARAR acuden solos a levantarlo.');
 sec('Sistemas', 'nombres', 'Nombres de objetos', MYTHIC_NAMES.length + EPITHETS.length + UNCOMMON_SUFFIX.length + RARE_SUFFIX.length, renderItemNames);
 
 // ----- MUNDO -----
