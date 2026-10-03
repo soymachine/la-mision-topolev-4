@@ -35,25 +35,59 @@ export class Particles {
     this.list = out;
   }
 
-  draw(ctx, toScreen, cw, ch, fontFamily) {
-    if (!this.list.length) return;
-    ctx.save();
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    let lastFont = '';
+  // Capa ASCII (revisión): la simulación de arriba es la capa lógica (posiciones con decimales, escala, halo) y no
+  // se dibuja tal cual. Cada partícula se ajusta a una casilla de la rejilla de caracteres: una sola letra por casilla
+  // (gana la más intensa; los textos, siempre), todas del mismo tamaño, con fondo de casilla que tapa lo de debajo.
+  // La escala grande pasa a negrita y el halo a un tinte del fondo de la casilla. Los proyectiles dejan una estela
+  // de casillas entre donde estaban hace un instante y donde están.
+  // snap(x, y) → [col, fila] de la casilla · cell(col, fila) → [px, py] de su esquina · fs: tamaño de letra fijo
+  raster(snap) {
+    const cells = new Map();
+    const put = (cx, cy, c, col, a, w, p) => {
+      const k = cx * 8192 + cy;
+      const o = cells.get(k);
+      if (o && o.w >= w) return;
+      cells.set(k, { cx, cy, c, col, a, w, bold: !!(p.bold || p.scale > 1.15), glow: !!p.glow });
+    };
     for (const p of this.list) {
       const k = p.t / p.life;
       const a = p.fadeIn ? Math.min(1, k * 5) * (1 - k) : p.noFade ? 1 : 1 - k * k;
-      if (a <= 0.01) continue;
-      const [sx, sy] = toScreen(p.x, p.y);
-      const size = Math.round(ch * 0.8 * p.scale * (p.grow ? 1 + k * p.grow : 1));
-      const f = `${p.bold ? '700 ' : ''}${size}px ${fontFamily}`;
+      if (a * p.alpha <= 0.04) continue;
+      const col = typeof p.color === 'function' ? p.color(k) : p.color;
+      const chs = [...String(typeof p.ch === 'function' ? p.ch(k) : p.ch)];
+      const [cx, cy] = snap(p.x, p.y);
+      const al = a * p.alpha;
+      if (chs.length === 1) put(cx, cy, chs[0], col, al, al * (p.bold ? 1.3 : 1) * (p.scale || 1), p);
+      else { const x0 = cx - Math.floor((chs.length - 1) / 2); chs.forEach((g, i) => { if (g !== ' ') put(x0 + i, cy, g, col, al, 10 + al, p); }); }
+      if (p.trail && p.tx != null) {
+        // estela: la línea de casillas desde la posición de hace ~40 ms
+        const [qx, qy] = posAt(p, Math.max(0, k - Math.min(0.4, 0.04 / p.life)));
+        const [tx, ty] = snap(qx, qy);
+        line(tx, ty, cx, cy, (x, y, i, n) => { if (i < n) put(x, y, chs[0], col, al * (0.3 + 0.4 * (i / n)), al * 0.4, p); });
+      }
+    }
+    return cells;
+  }
+  draw(ctx, cell, cw, ch, fontFamily, { snap = (x, y) => [Math.floor(x), Math.floor(y)], fs = Math.round(ch / 1.18), mask = '#000', maskA = 1 } = {}) {
+    if (!this.list.length) return;
+    const cells = this.raster(snap);
+    if (!cells.size) return;
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowBlur = 0;
+    const fN = `${fs}px ${fontFamily}`, fB = `700 ${fs}px ${fontFamily}`;
+    let lastFont = '';
+    for (const o of cells.values()) {
+      const [sx, sy] = cell(o.cx, o.cy);
+      // fondo de la casilla: tapa el carácter de debajo (se desvanece con la partícula)
+      if (mask) { ctx.globalAlpha = Math.min(1, o.a * 1.2) * maskA; ctx.fillStyle = mask; ctx.fillRect(sx, sy, cw, ch); }
+      if (o.glow) { ctx.globalAlpha = 0.3 * o.a; ctx.fillStyle = o.col; ctx.fillRect(sx, sy, cw, ch); }
+      const f = o.bold ? fB : fN;
       if (f !== lastFont) { ctx.font = f; lastFont = f; }
-      ctx.globalAlpha = a * p.alpha;
-      if (p.glow) { ctx.shadowColor = p.color; ctx.shadowBlur = p.glow; } else ctx.shadowBlur = 0;
-      ctx.fillStyle = typeof p.color === 'function' ? p.color(k) : p.color;
-      const chs = typeof p.ch === 'function' ? p.ch(k) : p.ch;
-      ctx.fillText(chs, sx + cw / 2, sy + ch / 2);
+      ctx.globalAlpha = o.a;
+      ctx.fillStyle = o.col;
+      ctx.fillText(o.c, sx + cw / 2, sy + ch / 2 + 1);
     }
     ctx.restore();
   }
@@ -80,6 +114,24 @@ export class Particles {
     const a = ((ang * 180) / Math.PI + 360) % 180;
     const ch = opt.ch || (a < 22.5 || a >= 157.5 ? '─' : a < 67.5 ? '\\' : a < 112.5 ? '│' : '/');
     const d = Math.hypot(x1 - x0, y1 - y0);
-    return this.add({ x: x0, y: y0, x0, y0, tx: x1, ty: y1, life: opt.life ?? Math.max(0.06, d * (opt.speed ?? 0.018)), ch, color: opt.color || '#ffe9a0', glow: opt.glow ?? 8, noFade: true, delay: opt.delay || 0, scale: opt.scale ?? 1, onEnd: opt.onEnd, arc: opt.arc || 0, bold: true });
+    return this.add({ x: x0, y: y0, x0, y0, tx: x1, ty: y1, life: opt.life ?? Math.max(0.06, d * (opt.speed ?? 0.018)), ch, color: opt.color || '#ffe9a0', glow: opt.glow ?? 8, noFade: true, delay: opt.delay || 0, scale: opt.scale ?? 1, onEnd: opt.onEnd, arc: opt.arc || 0, bold: true, trail: true });
+  }
+}
+
+// posición de una partícula dirigida en el instante k (0–1) de su vida (la misma fórmula que update)
+function posAt(p, k) {
+  const e = p.ease ? p.ease(k) : k;
+  return [p.x0 + (p.tx - p.x0) * e, p.y0 + (p.ty - p.y0) * e - (p.arc ? Math.sin(k * Math.PI) * p.arc : 0)];
+}
+// casillas de una línea (Bresenham): fn(x, y, i, n)
+export function line(x0, y0, x1, y1, fn) {
+  const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  const n = Math.max(dx, -dy);
+  let err = dx + dy, x = x0, y = y0;
+  for (let i = 0; i <= n; i++) {
+    fn(x, y, i, n);
+    const e2 = 2 * err;
+    if (e2 >= dy) { err += dy; x += sx; }
+    if (e2 <= dx) { err += dx; y += sy; }
   }
 }

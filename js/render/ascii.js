@@ -1,11 +1,16 @@
 // Renderer ASCII en canvas: capa estática cacheada (terreno) + capa dinámica (entidades, efectos)
+// Revisión (capa ASCII): todo lo que se dibuja cae en la rejilla de caracteres. La cámara, el temblor, el movimiento
+// interpolado de las entidades y las partículas siguen calculándose con decimales (capa lógica), pero se pintan en la
+// casilla entera más cercana, con una sola letra por casilla (lo de encima tapa lo de debajo con el fondo de la casilla).
+// Los halos y brillos son tintes del fondo de las casillas; los destellos de pantalla, viñetas de casillas tintadas;
+// el cursor, vídeo inverso; la línea de tiro, una línea de casillas.
 import { TILES, T } from '../data/tiles.js';
 import { exitKnown } from '../exp/intel.js';
 import { ENEMIES, enemyColor } from '../data/enemies.js';
 import { ACTORS, actorColor, actorFaction, isHuman } from '../data/actors.js';
 import { FACTIONS } from '../data/factions.js';
 import { hexToRgb, rng, clamp } from '../util/rng.js';
-import { Particles } from './particles.js';
+import { Particles, line } from './particles.js';
 import { rarityColor, itemGlyph } from '../core/items.js';
 import { ESSENCE_COLOR } from '../exp/shared.js';
 
@@ -25,6 +30,8 @@ export class MapRenderer {
     this.ctx = this.canvas.getContext('2d');
     this.parts = new Particles();
     this.cam = { x: 0, y: 0 };
+    this.camR = { x: 0, y: 0 }; // cámara en casillas enteras (lo que se dibuja)
+    this.shC = [0, 0]; // temblor en casillas enteras
     this.shake = 0;
     this.pos = new Map(); // posiciones interpoladas
     this.flashes = new Map(); // destellos de entidades
@@ -151,11 +158,11 @@ export class MapRenderer {
     if (e.w <= cols) tx = (e.w - cols) / 2; else tx = clamp(tx, -2, e.w - cols + 2);
     if (e.h <= rows) ty = (e.h - rows) / 2; else ty = clamp(ty, -2, e.h - rows + 2);
     this.camT = { x: tx, y: ty };
-    if (snap) { this.cam.x = tx; this.cam.y = ty; }
+    if (snap) { this.cam.x = tx; this.cam.y = ty; this.camR = { x: Math.round(tx), y: Math.round(ty) }; }
   }
-  toScreen = (x, y) => [(x - this.cam.x) * this.cw + this.sx, (y - this.cam.y) * this.ch + this.sy];
+  toScreen = (x, y) => [(x - this.camR.x) * this.cw + this.sx, (y - this.camR.y) * this.ch + this.sy];
   screenToCell(px, py) {
-    return [Math.floor(px / this.cw + this.cam.x), Math.floor(py / this.ch + this.cam.y)];
+    return [Math.floor(px / this.cw + this.camR.x), Math.floor(py / this.ch + this.camR.y)];
   }
 
   // interpolación de entidades
@@ -310,14 +317,16 @@ export class MapRenderer {
       this.cam.y += (this.camT.y - this.cam.y) * k;
     }
     this.shake *= Math.exp(-dt * 10);
-    this.sx = this.shake > 0.3 ? rng.float(-this.shake, this.shake) * 0.5 : 0;
-    this.sy = this.shake > 0.3 ? rng.float(-this.shake, this.shake) * 0.5 : 0;
+    // capa ASCII: la cámara se pinta en casillas enteras y el temblor salta casillas enteras (unas 20 veces por segundo)
+    this.camR = { x: Math.round(this.cam.x), y: Math.round(this.cam.y) };
+    if (this.shake > 4) { if (!this.shT || now - this.shT > 50) { this.shT = now; this.shC = [rng.int(-1, 1), this.shake > 9 ? rng.int(-1, 1) : 0]; } } else this.shC = [0, 0];
+    this.sx = this.shC[0] * cw; this.sy = this.shC[1] * ch;
 
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, this.vw, this.vh);
     // blit de la capa estática
-    const ox = -this.cam.x * cw + this.sx, oy = -this.cam.y * ch + this.sy;
+    const ox = -this.camR.x * cw + this.sx, oy = -this.camR.y * ch + this.sy;
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(this.st, 0, 0, this.st.width, this.st.height, Math.round(ox * this.dpr) / this.dpr, Math.round(oy * this.dpr) / this.dpr, e.w * cw, e.h * ch);
 
@@ -326,18 +335,33 @@ export class MapRenderer {
     const font = `${this.fs}px ${FONT}`;
     const fontB = `700 ${this.fs}px ${FONT}`;
     ctx.font = font;
-    const x0 = Math.max(0, Math.floor(this.cam.x) - 1), y0 = Math.max(0, Math.floor(this.cam.y) - 1);
-    const x1 = Math.min(e.w - 1, Math.ceil(this.cam.x + this.vw / cw) + 1), y1 = Math.min(e.h - 1, Math.ceil(this.cam.y + this.vh / ch) + 1);
+    const x0 = Math.max(0, this.camR.x - 2), y0 = Math.max(0, this.camR.y - 2);
+    const x1 = Math.min(e.w - 1, Math.ceil(this.camR.x + this.vw / cw) + 2), y1 = Math.min(e.h - 1, Math.ceil(this.camR.y + this.vh / ch) + 2);
     const T_ = now / 1000;
     const S = this.toScreen;
-    const glyph = (x, y, g, color, bg = null, scale = 1, bold = false) => {
-      const [sx, sy] = S(x, y);
-      if (bg) { ctx.fillStyle = bg; ctx.fillRect(sx, sy, cw, ch); }
-      ctx.fillStyle = color;
-      if (scale !== 1 || bold) ctx.font = `${bold ? '700 ' : ''}${Math.round(this.fs * scale)}px ${FONT}`;
-      ctx.fillText(g, sx + cw / 2, sy + ch / 2 + 1);
-      if (scale !== 1 || bold) ctx.font = font;
+    // fondo de una casilla según su terreno (el mismo que la capa estática): tapa el carácter de debajo
+    const cellBg = (x, y) => {
+      if (x < 0 || y < 0 || x >= e.w || y >= e.h) return '#000';
+      const k = y * e.w + x, td = TILES[e.t[k]];
+      if (!td.bg || !e.explored[k] || (e.t[k] === T.ROCK && !this.exposed[k])) return '#000';
+      const v = e.visible[k];
+      return this.tileColor(td.bg, v ? 1 + Math.min(6, Math.floor(((v - 40) / 216) * 7)) : 0);
     };
+    const tint = (x, y, color, a) => { if (a <= 0.005) return; const [sx, sy] = S(x, y); const g = ctx.globalAlpha; ctx.globalAlpha = g * Math.min(1, a); ctx.fillStyle = color; ctx.fillRect(sx, sy, cw, ch); ctx.globalAlpha = g; };
+    // una letra en una casilla: fondo del terreno, fondo propio (bg), brillo (glow: tinte del fondo) y la letra.
+    // Todas al mismo tamaño (el antiguo «scale» ya no cambia el tamaño: solo la negrita destaca)
+    const glyph = (x, y, g, color, bg = null, _scale = 1, bold = false, glow = null, glowA = 0.25) => {
+      const [sx, sy] = S(x, y);
+      ctx.fillStyle = cellBg(x, y); ctx.fillRect(sx, sy, cw, ch);
+      if (bg) { ctx.fillStyle = bg; ctx.fillRect(sx, sy, cw, ch); }
+      if (glow) tint(x, y, glow, glowA);
+      ctx.fillStyle = color;
+      if (bold) ctx.font = fontB;
+      ctx.fillText(g, sx + cw / 2, sy + ch / 2 + 1);
+      if (bold) ctx.font = font;
+    };
+    // texto en la rejilla, centrado en la casilla (x, y)
+    const textCells = (x, y, str, color, bg = '#000') => { const cs = [...str]; const xs = x - Math.floor((cs.length - 1) / 2); cs.forEach((c, i) => glyph(xs + i, y, c, color, bg, 1, true)); };
 
     // ---- celdas animadas: agua, campos ----
     for (let y = y0; y <= y1; y++) {
@@ -355,11 +379,7 @@ export class MapRenderer {
           const col = tt === T.DEEP ? `rgba(${42 + w * 10},${111 + w * 16},${154 + w * 18},${b})` : `rgba(${46 + w * 14},${140 + w * 22},${126 + w * 18},${b})`;
           glyph(x, y, w > 0.6 ? '≈' : w < -0.8 ? '-' : '~', col, tt === T.DEEP ? '#020a12' : '#03110f');
         }
-        if (e.rad[k] > 1.2 && Math.sin(T_ * 3 + hashf(x, y) * 40) > 0.93) {
-          const [sx, sy] = S(x, y);
-          ctx.fillStyle = `rgba(184,245,61,${Math.min(0.7, e.rad[k] / 8)})`;
-          ctx.fillText('·', sx + cw / 2 + Math.sin(T_ * 5 + x) * cw * 0.3, sy + ch / 2);
-        }
+        if (e.rad[k] > 1.2 && Math.sin(T_ * 3 + hashf(x, y) * 40) > 0.93) glyph(x, y, '·', `rgba(184,245,61,${Math.min(0.7, e.rad[k] / 8)})`);
         if (e.rad[k] > 0.8) {
           const [sx, sy] = S(x, y);
           ctx.fillStyle = `rgba(150,255,40,${Math.min(0.13, e.rad[k] / 50) * (0.7 + 0.3 * Math.sin(T_ * 2 + x * 0.3))})`;
@@ -405,10 +425,14 @@ export class MapRenderer {
         } else if (an === 'lava') {
           const w = Math.sin(T_ * 1.1 + x * 0.6 + y * 0.4) + Math.sin(T_ * 2.3 - x * 0.35);
           const [sx, sy] = S(x, y);
-          ctx.fillStyle = `rgba(255,${90 + w * 25 | 0},20,${0.12 + 0.05 * w})`; ctx.fillRect(sx - cw * 0.5, sy - ch * 0.5, cw * 2, ch * 2);
+          ctx.fillStyle = `rgba(255,${90 + w * 25 | 0},20,${0.06 + 0.025 * w})`; ctx.fillRect(sx - cw, sy - ch, cw * 3, ch * 3); // resplandor: las 8 casillas de alrededor
           glyph(x, y, w > 0.8 ? '≋' : w > -0.5 ? '≈' : '~', `rgb(255,${130 + w * 40 | 0},${30 + w * 15 | 0})`, `rgb(${50 + w * 10 | 0},10,0)`, 1, w > 1.2);
         } else if (tt === T.CHASM && Math.sin(T_ * 1.3 + x * 2.1 + y * 0.7) > 0.95) glyph(x, y, '.', 'rgba(120,80,40,.5)', '#000');
-        else if (tt === T.PIPE_BROKEN) { const [sx, sy] = S(x, y); ctx.fillStyle = 'rgba(220,220,220,.5)'; ctx.fillText(rng.pick(['°', '˚', '·', '∘']), sx + cw / 2 + rng.float(-cw, cw), sy + ch / 2 + rng.float(-ch, ch * 0.2)); }
+        else if (tt === T.PIPE_BROKEN) {
+          // vapor: salta a una casilla vecina (de arriba o de los lados) unas 8 veces por segundo
+          const h = hash(x * 31 + Math.floor(T_ * 8), y);
+          if (h % 3) { const vx = x + (h % 3) - 1, vy = y - ((h >>> 3) % 2); if (!e.entityAt || !e.entityAt(vx, vy)) glyph(vx, vy, ['°', '˚', '·', '∘'][(h >>> 5) % 4], 'rgba(220,220,220,.55)'); }
+        }
         if (e.fire[k]) {
           const f = Math.sin(T_ * 17 + x * 5 + y * 3);
           glyph(x, y, f > 0.3 ? '▲' : f > -0.4 ? '^' : '*', f > 0.3 ? '#ffd23f' : f > -0.4 ? '#ff8a1f' : '#ff3b1f', 'rgba(80,10,0,.6)');
@@ -427,9 +451,7 @@ export class MapRenderer {
       if (o.kind === 'vein' || o.kind === 'shard') {
         if (o.amount <= 0) col = '#2a5a5a';
         else { const p = 0.6 + 0.4 * Math.sin(T_ * 3 + o.x); col = vis ? `rgba(95,247,255,${p})` : 'rgba(95,247,255,.35)'; }
-        if (vis && o.amount > 0) { ctx.shadowColor = ESSENCE_COLOR; ctx.shadowBlur = 10; }
-        glyph(o.x, o.y, g, col, vis ? '#021416' : null, 1.1, true);
-        ctx.shadowBlur = 0;
+        glyph(o.x, o.y, g, col, vis ? '#021416' : null, 1.1, true, vis && o.amount > 0 ? ESSENCE_COLOR : null, 0.2 + 0.08 * Math.sin(T_ * 3 + o.x));
         continue;
       }
       if (o.kind === 'note') { glyph(o.x, o.y, '?', o.opened ? (vis ? '#7a6a4a' : '#3a3020') : vis ? `rgba(240,225,170,${0.7 + 0.3 * Math.sin(T_ * 3 + o.x)})` : '#5a5030', null, 1, !o.opened); continue; }
@@ -447,9 +469,7 @@ export class MapRenderer {
       const x = k % e.w, y = (k / e.w) | 0;
       if (x < x0 || x > x1 || y < y0 || y > y1 || !e.visible[k]) continue;
       const p = 0.65 + 0.35 * Math.sin(T_ * 5 + x * 2);
-      ctx.shadowColor = ESSENCE_COLOR; ctx.shadowBlur = 8;
-      glyph(x, y, n >= 20 ? '✦' : '*', `rgba(95,247,255,${p})`, null, 1, true);
-      ctx.shadowBlur = 0;
+      glyph(x, y, n >= 20 ? '✦' : '*', `rgba(95,247,255,${p})`, null, 1, true, ESSENCE_COLOR, 0.18 * p);
     }
     // ---- objetos en el suelo ----
     for (const [k, list] of e.floorItems) {
@@ -470,23 +490,13 @@ export class MapRenderer {
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         const x = ex.x + dx, y = ex.y + dy;
         if (x < x0 || x > x1 || y < y0 || y > y1) continue;
-        if (dx || dy) {
-          const [sx, sy] = S(x, y);
-          ctx.fillStyle = `rgba(95,247,255,${(evacHere ? 0.25 : 0.1) * p})`;
-          ctx.fillRect(sx, sy, cw, ch);
-          glyph(x, y, '░', `rgba(95,247,255,${0.25 + 0.3 * p * ((Math.sin(T_ * 6 - (Math.abs(dx) + Math.abs(dy))) + 1) / 2)})`);
-        }
+        if (dx || dy) glyph(x, y, '░', `rgba(95,247,255,${0.25 + 0.3 * p * ((Math.sin(T_ * 6 - (Math.abs(dx) + Math.abs(dy))) + 1) / 2)})`, `rgba(95,247,255,${(evacHere ? 0.25 : 0.1) * p})`);
       }
       if (ex.x >= x0 && ex.x <= x1 && ex.y >= y0 && ex.y <= y1) {
-        ctx.shadowColor = '#5ff7ff'; ctx.shadowBlur = 12 * p;
-        glyph(ex.x, ex.y, '⌂', temp && left < 6 && Math.sin(T_ * 12) > 0 ? '#ff3b30' : '#5ff7ff', '#001416', 1.1, true);
-        ctx.shadowBlur = 0;
-        const [sx, sy] = S(ex.x, ex.y - 1);
-        ctx.font = `700 ${Math.round(this.fs * 0.62)}px ${FONT}`;
-        ctx.fillStyle = '#5ff7ff';
+        glyph(ex.x, ex.y, '⌂', temp && left < 6 && Math.sin(T_ * 12) > 0 ? '#ff3b30' : '#5ff7ff', '#001416', 1.1, true, '#5ff7ff', 0.3 * p);
+        // etiqueta en la fila de encima del anillo, en la rejilla
         const lbl = evacHere ? `EVAC ${e.evac.left}` : temp ? `${left}t` : 'SALIDA';
-        ctx.fillText(lbl, sx + cw / 2, sy + ch / 2 - ch * 0.6);
-        ctx.font = font;
+        textCells(ex.x, ex.y - 2, lbl, '#5ff7ff', '#001416');
       }
     }
     for (const p of e.pending) {
@@ -547,38 +557,42 @@ export class MapRenderer {
         continue;
       }
       const p = this.rpos(en.uid, en.x, en.y, dt);
-      let rx = p.x, ry = p.y;
+      // capa ASCII: la posición interpolada (lógica) se pinta en la casilla entera más cercana
+      const rx = Math.round(p.x), ry = Math.round(p.y);
+      // embestida (mordisco): vídeo inverso durante un instante en lugar de desplazar la letra media casilla
+      let lunging = false;
       if (lunge) {
         const l = lunge.get(en.x + ',' + en.y);
-        if (l) { const t = (now - l.t) / 160; if (t < 1) { const s = Math.sin(t * Math.PI); rx += l.dx * s; ry += l.dy * s; } else lunge.delete(en.x + ',' + en.y); }
+        if (l) { if ((now - l.t) / 160 < 1) lunging = true; else lunge.delete(en.x + ',' + en.y); }
       }
       const col = actorColor(en);
       const fl = this.flashes.get('c' + en.x + ',' + en.y);
       const flashing = fl && fl > now;
       const [sx, sy] = S(rx, ry);
-      // personas: fondo con el color de su facción y marca de actitud
+      ctx.fillStyle = cellBg(rx, ry); ctx.fillRect(sx, sy, cw, ch);
+      // personas: fondo con el color de su facción y su actitud como tinte del fondo (antes, un recuadro)
       if (isHuman(en)) {
         const fd = FACTIONS[actorFaction(en)];
         if (fd.bg) { ctx.fillStyle = fd.bg; ctx.fillRect(sx, sy, cw, ch); }
         const att = en.surrendered ? 'surr' : e.attitudeToSquad(en);
-        ctx.strokeStyle = att === 'surr' ? 'rgba(255,255,255,.75)' : att === 'hostile' ? 'rgba(255,59,48,.8)' : att === 'allied' ? 'rgba(61,220,107,.7)' : 'rgba(255,210,63,.6)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(sx + 0.5, sy + 0.5, cw - 1, ch - 1);
+        tint(rx, ry, att === 'surr' ? '#ffffff' : att === 'hostile' ? '#ff3b30' : att === 'allied' ? '#3ddc6b' : '#ffd23f', att === 'hostile' ? 0.3 : 0.22);
         // fase 24.1: modo daltónico: la actitud también con un signo (! hostil, ? neutral, + aliado)
         if (this.cbMode && !en.surrendered && !(en.escort > 0)) { ctx.font = `${Math.round(this.fs * 0.55)}px ${FONT}`; ctx.fillStyle = '#ffffff'; ctx.fillText(att === 'hostile' ? '!' : att === 'allied' ? '+' : '?', sx + cw * 0.85, sy + ch * 0.2); ctx.font = font; }
         // bandera blanca (rendido) o escolta (os acompaña)
         if (en.surrendered || en.escort > 0) { ctx.font = `${Math.round(this.fs * 0.6)}px ${FONT}`; ctx.fillStyle = en.surrendered ? '#ffffff' : '#3ddc6b'; ctx.fillText(en.surrendered ? '⚑' : '+', sx + cw * 0.85, sy + ch * 0.2); ctx.font = font; }
-        if (en.charmed) { ctx.strokeStyle = 'rgba(192,108,255,.8)'; ctx.strokeRect(sx + 1.5, sy + 1.5, cw - 3, ch - 3); }
-      } else if (en.charmed) { ctx.strokeStyle = 'rgba(192,108,255,.8)'; ctx.lineWidth = 1; ctx.strokeRect(sx + 0.5, sy + 0.5, cw - 1, ch - 1); }
+      }
+      if (en.charmed) tint(rx, ry, '#c06cff', 0.3);
       const breathe = en.state === 'dormido' ? 0.55 + 0.15 * Math.sin(T_ * 2 + en.x) : 1;
-      if (def.boss) { ctx.shadowColor = col; ctx.shadowBlur = 14 + 6 * Math.sin(T_ * 3); }
-      else if (en.elite) { ctx.shadowColor = '#ffd23f'; ctx.shadowBlur = 8 + 4 * Math.sin(T_ * 4 + en.x); }
-      else if (en.lvl >= 7) { ctx.shadowColor = col; ctx.shadowBlur = 6; }
+      // brillo de jefes, élites y chebylitas fuertes: tinte del fondo de su casilla
+      if (def.boss) tint(rx, ry, col, 0.28 + 0.1 * Math.sin(T_ * 3));
+      else if (en.elite) tint(rx, ry, '#ffd23f', 0.16 + 0.06 * Math.sin(T_ * 4 + en.x));
+      else if (en.lvl >= 7) tint(rx, ry, col, 0.12);
+      if (lunging) { ctx.fillStyle = col; ctx.fillRect(sx, sy, cw, ch); }
       ctx.globalAlpha = breathe;
-      ctx.fillStyle = flashing ? '#ffffff' : col;
-      ctx.font = def.boss ? `800 ${Math.round(this.fs * 1.25)}px ${FONT}` : fontB;
+      ctx.fillStyle = lunging ? '#000' : flashing ? '#ffffff' : col;
+      ctx.font = def.boss ? `800 ${this.fs}px ${FONT}` : fontB;
       ctx.fillText(def.glyph, sx + cw / 2, sy + ch / 2 + 1);
-      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.font = font;
+      ctx.globalAlpha = 1; ctx.font = font;
       // barra de vida
       if (en.hp < en.hpMax) {
         const w = cw - 2, f = Math.max(0, en.hp / en.hpMax);
@@ -589,33 +603,30 @@ export class MapRenderer {
       if (en.elite) { ctx.font = `${Math.round(this.fs * 0.55)}px ${FONT}`; ctx.fillStyle = '#ffd23f'; ctx.fillText('★', sx + cw * 0.85, sy + ch * 0.18); ctx.font = font; }
       if (en.suppressed > 0) { ctx.font = `${Math.round(this.fs * 0.5)}px ${FONT}`; ctx.fillStyle = '#ffe066'; ctx.fillText('∷', sx + cw * 0.5, sy + ch * 0.12); ctx.font = font; } // fase 23.4: suprimido
       if (en.raged) { ctx.font = `${Math.round(this.fs * 0.55)}px ${FONT}`; ctx.fillStyle = '#ff3b30'; ctx.fillText('!', sx + cw * 0.15, sy + ch * 0.18); ctx.font = font; }
-      if (en.stun > 0) { ctx.font = `${Math.round(this.fs * 0.6)}px ${FONT}`; ctx.fillStyle = '#ffe9a0'; ctx.fillText(['✶', '*', '·', '*'][Math.floor(T_ * 8) % 4], sx + cw / 2 + Math.sin(T_ * 6) * cw * 0.4, sy - ch * 0.15); ctx.font = font; }
+      // aturdido: las estrellas giran en la casilla de encima (si está libre)
+      if (en.stun > 0 && !e.entityAt(rx, ry - 1)) glyph(rx, ry - 1, ['✶', '*', '·', '*'][Math.floor(T_ * 8) % 4], '#ffe9a0');
       if (en.state === 'dormido' && Math.sin(T_ * 1.3 + en.x * 2) > 0.985) this.parts.add({ x: en.x + 0.8, y: en.y, vy: -0.8, vx: 0.3, life: 1.4, ch: 'z', color: col, scale: 0.6 });
     }
     // ---- agentes ----
     for (const sq of e.squad) {
       if (!e.inMap(sq)) { this.pos.delete(sq.id); continue; }
       const p = this.rpos(sq.id, sq.x, sq.y, dt);
-      const [sx, sy] = S(p.x, p.y);
+      const ax = Math.round(p.x), ay = Math.round(p.y);
+      const [sx, sy] = S(ax, ay);
       const active = sq === e.cur;
       const fl = this.flashes.get('h' + sq.x + ',' + sq.y);
       const hurt = fl && fl > now;
-      if (active) {
-        const a = 0.35 + 0.25 * Math.sin(T_ * 4);
-        ctx.strokeStyle = `rgba(255,138,31,${a + 0.2})`;
-        ctx.lineWidth = 1;
-        ctx.strokeRect(sx + 0.5, sy + 0.5, cw - 1, ch - 1);
-        ctx.fillStyle = `rgba(255,138,31,${a * 0.25})`;
-        ctx.fillRect(sx, sy, cw, ch);
-      }
-      ctx.shadowColor = sq.a.color; ctx.shadowBlur = active ? 10 : 4;
+      ctx.fillStyle = cellBg(ax, ay); ctx.fillRect(sx, sy, cw, ch);
+      // agente activo: fondo naranja que late (antes, además, un recuadro); el resto, un tinte suave de su color
+      if (active) tint(ax, ay, '#ff8a1f', 0.22 + 0.16 * Math.sin(T_ * 4));
+      else tint(ax, ay, sq.a.color, 0.1);
       ctx.fillStyle = hurt ? '#ff3b30' : sq.a.color;
       ctx.font = fontB;
-      // fase 23.3: abatido: tumbado, gris y parpadeando, con los turnos que le quedan
-      if (sq.downed) { ctx.shadowBlur = 0; ctx.globalAlpha = 0.55 + 0.35 * Math.sin(T_ * 5); ctx.fillStyle = '#b0b0b0'; ctx.fillText('_', sx + cw / 2, sy + ch / 2); ctx.fillText('@', sx + cw / 2, sy + ch / 2 + 1); ctx.globalAlpha = 1;
+      // fase 23.3: abatido: gris y parpadeando sobre fondo rojo, con los turnos que le quedan
+      if (sq.downed) { tint(ax, ay, '#ff3b30', 0.18 + 0.12 * Math.sin(T_ * 5)); ctx.globalAlpha = 0.55 + 0.35 * Math.sin(T_ * 5); ctx.fillStyle = '#b0b0b0'; ctx.fillText('@', sx + cw / 2, sy + ch / 2 + 1); ctx.globalAlpha = 1;
         ctx.font = `${Math.round(this.fs * 0.6)}px ${FONT}`; ctx.fillStyle = '#ff3b30'; ctx.fillText(String(sq.downed), sx + cw * 0.85, sy + ch * 0.2); ctx.font = fontB; }
       else ctx.fillText('@', sx + cw / 2, sy + ch / 2 + 1);
-      ctx.shadowBlur = 0; ctx.font = font;
+      ctx.font = font;
       // fase 23.1: a cubierto frente al enemigo visible más peligroso (▄ media, █ total)
       let cvl = 0;
       for (const o of e.enemies) { if (cvl === 2 || !e.visible[o.y * e.w + o.x] || !e.hostile(sq, o)) continue; cvl = Math.max(cvl, e.coverLvlOf(...(e.coverCell(o.x, o.y, sq.x, sq.y) || [-1, -1]))); }
@@ -629,78 +640,77 @@ export class MapRenderer {
       }
     }
 
-    // ---- superposiciones: hover, ruta, objetivo ----
+    // ---- superposiciones: ruta, línea de tiro, área de explosión y cursor (todo por casillas) ----
     const ov = this.overlay;
     if (ov && ov.path) {
-      ctx.fillStyle = 'rgba(255,179,92,.55)';
+      // la ruta tiñe el fondo de sus casillas; la última lleva una ×
       for (let i = 0; i < ov.path.length; i++) {
         const [x, y] = ov.path[i];
-        const [sx, sy] = S(x, y);
-        ctx.fillText(i === ov.path.length - 1 ? '×' : '·', sx + cw / 2, sy + ch / 2);
+        if (i === ov.path.length - 1) glyph(x, y, '×', '#ffb35c', 'rgba(255,179,92,.18)', 1, true);
+        else tint(x, y, '#ffb35c', 0.16);
       }
     }
     if (ov && ov.line) {
+      // línea de tiro: casillas tintadas con un tramo más brillante que avanza hacia el objetivo
       const [lx0, ly0, lx1, ly1, ok] = ov.line;
-      const [ax, ay] = S(lx0 + 0.5, ly0 + 0.5), [bx, by] = S(lx1 + 0.5, ly1 + 0.5);
-      ctx.save();
-      ctx.setLineDash([3, 4]);
-      ctx.lineDashOffset = -T_ * 20;
-      ctx.strokeStyle = ok ? 'rgba(255,210,63,.75)' : 'rgba(255,59,48,.75)';
-      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
-      ctx.restore();
+      const c = ok ? '#ffd23f' : '#ff3b30', step = Math.floor(T_ * 12);
+      line(lx0, ly0, lx1, ly1, (x, y, i, n) => { if (i > 0 && i < n) tint(x, y, c, (i - step) % 4 === 0 ? 0.42 : 0.16); });
     }
     if (ov && ov.blast) {
       const { x, y, r } = ov.blast;
-      ctx.fillStyle = 'rgba(255,90,40,.18)';
-      for (let yy = y - r; yy <= y + r; yy++) for (let xx = x - r; xx <= x + r; xx++) {
-        if (Math.hypot(xx - x, yy - y) > r + 0.5) continue;
-        const [sx, sy] = S(xx, yy); ctx.fillRect(sx, sy, cw, ch);
-      }
+      for (let yy = y - r; yy <= y + r; yy++) for (let xx = x - r; xx <= x + r; xx++) if (Math.hypot(xx - x, yy - y) <= r + 0.5) tint(xx, yy, '#ff5a28', 0.18);
     }
     if (this.hover) {
       const [hx, hy] = this.hover;
       const [sx, sy] = S(hx, hy);
       const tgt = ov && ov.targetMode;
-      ctx.strokeStyle = tgt ? '#ff3b30' : 'rgba(255,179,92,.9)';
-      ctx.lineWidth = 1;
-      const c = 3;
-      ctx.beginPath();
-      ctx.moveTo(sx, sy + c); ctx.lineTo(sx, sy); ctx.lineTo(sx + c, sy);
-      ctx.moveTo(sx + cw - c, sy); ctx.lineTo(sx + cw, sy); ctx.lineTo(sx + cw, sy + c);
-      ctx.moveTo(sx + cw, sy + ch - c); ctx.lineTo(sx + cw, sy + ch); ctx.lineTo(sx + cw - c, sy + ch);
-      ctx.moveTo(sx + c, sy + ch); ctx.lineTo(sx, sy + ch); ctx.lineTo(sx, sy + ch - c);
-      ctx.stroke();
+      // cursor en vídeo inverso (como el de un terminal)
+      ctx.globalCompositeOperation = 'difference';
+      ctx.fillStyle = tgt ? '#e04030' : `rgb(${200 + 40 * Math.sin(T_ * 5) | 0},140,70)`;
+      ctx.fillRect(sx, sy, cw, ch);
+      ctx.globalCompositeOperation = 'source-over';
+      // % de impacto: en las casillas junto al cursor (derecha, izquierda, encima o debajo), sin tapar a nadie
       if (ov && ov.hit != null) {
-        ctx.font = `700 ${Math.round(this.fs * 0.75)}px ${FONT}`;
-        ctx.fillStyle = '#000'; ctx.fillRect(sx + cw + 2, sy - 2, cw * 3.6, ch * 0.8);
-        ctx.fillStyle = ov.hit >= 60 ? '#3ddc6b' : ov.hit >= 35 ? '#ffd23f' : '#ff3b30';
-        ctx.textAlign = 'left';
-        ctx.fillText(ov.hit + '%', sx + cw + 4, sy + ch * 0.3);
-        ctx.textAlign = 'center';
-        ctx.font = font;
+        const lbl = [...` ${ov.hit}% `], n = lbl.length;
+        const spots = [[hx + 1, hy], [hx - n, hy], [hx - (n >> 1), hy - 1], [hx - (n >> 1), hy + 1]];
+        const free = ([lx, ly]) => { for (let i = 0; i < n; i++) if (e.entityAt(lx + i, ly)) return false; return true; };
+        const [lx, ly] = spots.find(free) || spots[2];
+        lbl.forEach((c, i) => glyph(lx + i, ly, c, ov.hit >= 60 ? '#3ddc6b' : ov.hit >= 35 ? '#ffd23f' : '#ff3b30', '#000', 1, true));
       }
     }
 
-    // ---- partículas ----
+    // ---- partículas: capa lógica con decimales, dibujada en la rejilla ----
     this.parts.update(dt, now);
-    this.parts.draw(ctx, S, cw, ch, FONT);
+    this.parts.draw(ctx, S, cw, ch, FONT, { fs: this.fs, mask: '#000' });
 
-    // ---- destellos de pantalla ----
+    // ---- destellos de pantalla: viñeta de casillas tintadas (antes, un degradado) ----
+    const cols = Math.ceil(this.vw / cw) + 1, rows = Math.ceil(this.vh / ch) + 1;
+    const cellPx = (i, j) => [i * cw + (((this.sx % cw) + cw) % cw) - cw, j * ch + (((this.sy % ch) + ch) % ch) - ch];
     const fsc = this.flashScreen;
     if (fsc) {
       const t = (now - fsc.t) / fsc.dur;
       if (t >= 1) this.flashScreen = null;
       else if (t >= 0) {
-        const g = ctx.createRadialGradient(this.vw / 2, this.vh / 2, Math.min(this.vw, this.vh) * 0.3, this.vw / 2, this.vh / 2, Math.max(this.vw, this.vh) * 0.7);
-        g.addColorStop(0, fsc.color + '0)');
-        g.addColorStop(1, fsc.color + (0.45 * (1 - t)) + ')');
-        ctx.fillStyle = g; ctx.fillRect(0, 0, this.vw, this.vh);
+        const r0 = Math.min(this.vw, this.vh) * 0.3, r1 = Math.max(this.vw, this.vh) * 0.7, top = 0.45 * (1 - t);
+        for (let j = 0; j <= rows; j++) for (let i = 0; i <= cols; i++) {
+          const [px, py] = cellPx(i, j);
+          const d = Math.hypot(px + cw / 2 - this.vw / 2, py + ch / 2 - this.vh / 2);
+          const a = Math.round(Math.max(0, Math.min(1, (d - r0) / (r1 - r0))) * top * 12) / 12; // por escalones
+          if (a <= 0) continue;
+          ctx.fillStyle = fsc.color + a + ')'; ctx.fillRect(px, py, cw, ch);
+        }
       }
     }
     if (this.alertPulse) {
+      // alerta: el borde de la vista se llena de casillas rojas (dos anillos)
       const t = (now - this.alertPulse) / 600;
       if (t > 1) this.alertPulse = null;
-      else { ctx.strokeStyle = `rgba(255,59,48,${0.6 * (1 - t)})`; ctx.lineWidth = 3; ctx.strokeRect(1.5, 1.5, this.vw - 3, this.vh - 3); ctx.lineWidth = 1; }
+      else for (let j = 0; j <= rows; j++) for (let i = 0; i <= cols; i++) {
+        const [px, py] = cellPx(i, j);
+        const ring = Math.min(Math.floor(px / cw), Math.floor(py / ch), Math.floor((this.vw - px - 1) / cw), Math.floor((this.vh - py - 1) / ch));
+        if (ring > 1) continue;
+        ctx.fillStyle = `rgba(255,59,48,${(ring <= 0 ? 0.5 : 0.22) * (1 - t)})`; ctx.fillRect(px, py, cw, ch);
+      }
     }
   }
 }

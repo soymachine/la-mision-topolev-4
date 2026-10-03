@@ -399,7 +399,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     const t0 = e.turn; e.interact();
     return { floor: e.floor, exits: e.exits.length, store: !!e.floorStore[0], onLift: e.tile(e.cur.x, e.cur.y) === 35 || Math.hypot(e.cur.x - e.start[0], e.cur.y - e.start[1]) < 3, turn: e.turn > t0 };
   });
-  ok(fl.floor === 1 && fl.exits === 0 && fl.store && fl.onLift, 'el montacargas baja al escuadrón al piso −1 (sin extracciones permanentes)');
+  ok(fl.floor === 1 && fl.exits === 0 && fl.store && fl.onLift, `el montacargas baja al escuadrón al piso −1 (sin extracciones permanentes)${fl.floor === 1 && fl.exits === 0 && fl.store && fl.onLift ? '' : ' ' + JSON.stringify(fl)}`);
   await F.evaluate(async () => { (await import('./js/core/state.js')).save(); });
   await F.reload(); await F.waitForTimeout(800); await F.click('text=CONTINUAR'); await F.waitForTimeout(900);
   const fl2 = await F.evaluate(() => { const e = window.__topolev.exp; return { floor: e.floor, store: !!e.floorStore[0], view: !!e.floorView(0) }; });
@@ -2137,6 +2137,16 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     const z2 = await Q.evaluate(() => { const v = window.__topolev.expUI.big; return v ? { z: v.view.zoom, p: [...v.view.pan] } : null; });
     ok(z1.z > 1 && z2 && Math.hypot(z2.p[0] - z1.p[0], z2.p[1] - z1.p[1]) > 1, `mapa grande: zoom con la rueda (×${z1.z.toFixed(2)}) y arrastre sin cerrarlo`);
     await Q.keyboard.press('Escape'); await Q.waitForTimeout(150);
+    // capa ASCII: las partículas (capa lógica con decimales) se dibujan una por casilla, en casillas enteras
+    const asc = await Q.evaluate(async () => {
+      const { Particles } = await import('./js/render/particles.js');
+      const P = new Particles(); P.burst(3.3, 4.7, 40, {}); P.text(5.2, 6.1, '¡NIVEL!', '#fff'); P.tracer(0.5, 0.5, 12.5, 4.5); P.update(0.03, performance.now());
+      const cells = [...P.raster((x, y) => [Math.floor(x), Math.floor(y)]).values()];
+      const r = window.__topolev.expUI.r, mm = window.__topolev.expUI.mm;
+      return { n: cells.length, uniq: new Set(cells.map((c) => c.cx + ',' + c.cy)).size === cells.length, ints: cells.every((c) => Number.isInteger(c.cx) && Number.isInteger(c.cy) && [...c.c].length === 1),
+        text: cells.filter((c) => '¡NIVEL!'.includes(c.c) && c.cy === 5).length >= 6, cam: Number.isInteger(r.camR.x) && Number.isInteger(r.camR.y), mmGrid: mm.cw > 0 && mm.chh > 0 };
+    });
+    ok(asc.n > 5 && asc.uniq && asc.ints && asc.text && asc.cam && asc.mmGrid, `capa ASCII: partículas y textos en casillas enteras, una letra por casilla; cámara y radar en rejilla (${JSON.stringify(asc)})`);
     const lr = await Q.evaluate(async () => {
       const I = await import('./js/core/items.js'); const e = window.__topolev.exp; const ui = window.__topolev.expUI;
       const obj = { kind: 'crate', x: e.cur.x, y: e.cur.y, items: [I.createItem('bandage', 0), I.createItem('makarov', 2), I.createItem('makarov', 4)], opened: true };

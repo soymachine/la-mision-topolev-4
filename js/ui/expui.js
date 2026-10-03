@@ -1024,7 +1024,7 @@ export class ExpeditionUI {
     const label = el('span', { class: 'dimt', text: `×${view.zoom.toFixed(1)}` });
     zoomBar.append(el('button', { class: 'btn small', 'data-bz': 'out', onclick: () => zoomBy(1 / 1.5) }, '−'), label, el('button', { class: 'btn small', 'data-bz': 'in', onclick: () => zoomBy(1.5) }, '+'),
       el('button', { class: 'btn small', 'data-bz': 'reset', onclick: () => { view.zoom = 1; view.pan = [e.w / 2, e.h / 2]; this.bigZoom = 1; label.textContent = '×1.0'; redraw(); } }, '⟲'),
-      el('button', { class: 'btn small', 'data-bz': 'me', onclick: () => { if (ex.cur && !e.readonly) { view.pan = [ex.cur.x + 0.5, ex.cur.y + 0.5]; if (view.zoom < 2) zoomBy(2 / view.zoom); else redraw(); } } }, '@'));
+      el('button', { class: 'btn small', 'data-bz': 'me', onclick: () => { if (ex.cur && !e.readonly) { if (view.zoom < 2) { view.zoom = 2; this.bigZoom = 2; label.textContent = '×2.0'; } view.pan = [ex.cur.x + 0.5, ex.cur.y + 0.5]; redraw(); } } }, '@'));
     redraw();
     this.big = { wrap, mm, view };
     const local = (ev) => { const rc = cv.getBoundingClientRect(); return [ev.clientX - rc.left, ev.clientY - rc.top]; };

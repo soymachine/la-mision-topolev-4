@@ -1,4 +1,5 @@
-// Partículas de interfaz sobre toda la pantalla (overlay)
+// Partículas de interfaz sobre toda la pantalla (overlay). Se simulan en px (capa lógica) y se dibujan ajustadas a
+// una rejilla de caracteres (capa ASCII, ver Particles.draw).
 import { Particles } from '../render/particles.js';
 import { FONT } from '../render/ascii.js';
 
@@ -6,7 +7,14 @@ const canvas = document.getElementById('fx-overlay');
 const ctx = canvas.getContext('2d');
 const parts = new Particles();
 let dpr = 1, running = false, last = 0;
-const CELL = 12;
+const CELL = 12; // unidad de la capa lógica (px por unidad); no se dibuja así
+// capa ASCII: rejilla fija de caracteres sobre toda la pantalla
+const UI_FS = 14;
+const m = document.createElement('canvas').getContext('2d');
+m.font = `${UI_FS}px ${FONT}`;
+const GW = Math.ceil(m.measureText('M').width), GH = Math.round(UI_FS * 1.25);
+const snap = (x, y) => [Math.floor(((x + 0.5) * CELL) / GW), Math.floor(((y + 0.5) * CELL) / GH)];
+const cellPx = (cx, cy) => [cx * GW, cy * GH];
 
 function resize() {
   dpr = Math.min(2, devicePixelRatio || 1);
@@ -21,7 +29,7 @@ function loop(now) {
   parts.update(dt, now);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, innerWidth, innerHeight);
-  parts.draw(ctx, (x, y) => [x * CELL, y * CELL], CELL, CELL * 1.3, FONT);
+  parts.draw(ctx, cellPx, GW, GH, FONT, { snap, fs: UI_FS, mask: '#000', maskA: 0.85 });
   if (parts.list.length || parts.pending.length) requestAnimationFrame(loop);
   else { running = false; ctx.clearRect(0, 0, innerWidth, innerHeight); }
 }
