@@ -350,7 +350,12 @@ export class UsePart {
     if (d.lure) {
       if (d.light) this.flares.push({ x: tx, y: ty, t: 20 });
       let n = 0;
-      for (const e of this.enemies) if (Math.hypot(e.x - tx, e.y - ty) <= d.lure && !ACTORS[e.type].abil.includes('stationary')) { e.lure = { x: tx, y: ty, t: 10 }; if (e.state === 'dormido') e.state = 'errante'; n++; }
+      // fase 22: la carne atrae a los carnívoros desde mucho más lejos y se quedan a comer
+      for (const e of this.enemies) {
+        const carn = d.meat && ACTORS[e.type].diet;
+        if (Math.hypot(e.x - tx, e.y - ty) > d.lure * (carn ? 1.8 : 1) || ACTORS[e.type].abil.includes('stationary') || ACTORS[e.type].boss) continue;
+        e.lure = { x: tx, y: ty, t: carn ? 22 : 10 }; if (e.state === 'dormido') e.state = 'errante'; n++;
+      }
       this.say(`${this.nm(sq)} lanza ${d.name}. ${n ? 'Algo se mueve hacia allí...' : 'Nada parece reaccionar.'}`, 'o1');
       if (d.light) { this.fx.push({ type: 'flare', x: tx, y: ty, delay: 250 }); this.computeVisibility(); }
       return true;

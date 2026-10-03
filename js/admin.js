@@ -15,6 +15,7 @@ import { ATTRS, ATTR_MAX, TALENTS, TALENT_EVERY } from './data/talents.js';
 import { SPECS, SPEC_TALENTS, SPEC_LEVEL, rerollCost } from './data/specs.js';
 import { BACKGROUNDS } from './data/backgrounds.js';
 import { MODIFIERS, WEATHER } from './data/modifiers.js';
+import { ELITES, ALERT_LEVELS, ALERT_EVERY, CALM_DAYS, GROW_DAYS, BOSS_RETURN } from './data/ecosystem.js';
 import { ACTS, SCENES, ENDINGS, STAFF, COMEDOR, LETTERS_FROM, EPITAPHS, LAST_LETTERS } from './data/story.js';
 import { PLOTS, MATERIALS, RESEARCH, RECIPES, SEASONS, HISTORY, ATTACKS, dateOf } from './data/basedata.js';
 import { CONTRACTS, GIVER_NAME } from './core/story.js';
@@ -41,6 +42,8 @@ const SPECIAL_TEXT = {
 const SHOP_MODULE = { weapon: 'Armería', mod: 'Armería', armor: 'Blindaje', helmet: 'Blindaje', gadget: 'Taller', backpack: 'Taller' };
 const minZone = (tier) => Math.max(1, tier * 2 - 1);
 function shopText(d, id) {
+  if (d.trophy) return '<span style="color:#ffd23f">♛ trofeo de jefe</span>';
+  if (d.noLoot) return '<span class="desc">no se encuentra</span>';
   if (d.cat === 'valuable') return '<span class="desc">solo botín</span>';
   if (d.cat === 'ammo') return id === 'a_cell' ? 'Laboratorio ≥ 3' : d.tier <= 1 ? 'siempre' : `Armería ≥ ${d.tier}`;
   if (d.cat === 'consumable') return `${d.use === 'throw' || d.use === 'beacon' ? 'Taller' : 'Enfermería'} ≥ ${d.tier}`;
@@ -214,7 +217,17 @@ sec('Sistemas', 'afijos', 'Propiedades (afijos)', AFFIXES.length, renderAffixes)
 sec('Sistemas', 'nombres', 'Nombres de objetos', MYTHIC_NAMES.length + EPITHETS.length + UNCOMMON_SUFFIX.length + RARE_SUFFIX.length, renderItemNames);
 
 // ----- MUNDO -----
-sec('Mundo', 'enemigos', 'Chebylitas', Object.keys(ENEMIES).length, renderEnemies);
+sec('Mundo', 'enemigos', 'Chebylitas', Object.keys(ENEMIES).length, renderEnemies, 'Fase 22: los acuáticos (medusa, sanguijuela, siluros) viven en el agua. Cadena alimentaria: los carnívoros cazan a sus presas cuando no tienen a nadie mejor (y la carne de cebo los atrae desde el doble de lejos); los carroñeros siguen a su depredador. Cada zona nueva tiene su jefe en el piso más profundo; al bajar de cada umbral de salud cambia de fase. Su trofeo (gadget único) cae solo si no lo tenéis.');
+sec('Mundo', 'elites', 'Élites', Object.keys(ELITES).length, () => table(Object.entries(ELITES).map(([id, x]) => ({ id, ...x })), [
+  { h: 'Afijo', v: (x) => `<span class="nm" style="color:${x.color}">★ ${esc(x.name)}</span> <span class="desc">${x.id}</span>`, s: (x) => x.name },
+  { h: 'Efecto', v: (x) => esc(x.desc) },
+]), 'Cualquier chebylita (no jefe) puede salir élite: 3% + 0,8% por nivel de la zona y piso + 1,2% por nivel de alerta del reactor. Uno o dos afijos (dos a partir del nivel 6). Un élite tiene +50% de salud, el doble de esencia y XP, botín asegurado y a veces un cristal. Se marcan con ★ dorada.');
+sec('Mundo', 'alerta', 'Alerta del reactor y mundo persistente', ALERT_LEVELS.length, () => table(ALERT_LEVELS.map((x, i) => ({ i, ...x })), [
+  { h: 'Nivel', v: (x) => x.i, s: (x) => x.i, num: 1 },
+  { h: 'Alerta', v: (x) => `<b style="color:${x.color}">☢ ${esc(x.name)}</b>` },
+  { h: 'Desde el día', v: (x) => 1 + x.i * ALERT_EVERY, s: (x) => x.i, num: 1 },
+  { h: 'Efecto', v: (x) => esc(x.desc) },
+]), `La alerta sube un nivel cada ${ALERT_EVERY} días (se ve en la cabecera de la base). Mundo persistente: si despejáis el 60% de los nidos de una zona, durante ${CALM_DAYS} días tendrá menos nidos (del 40% al 100% poco a poco). Una zona ya visitada y luego olvidada crece +1 nivel cada ${GROW_DAYS} días (máx. +2): nidos de más nivel y más grandes. Un jefe abatido tarda ${BOSS_RETURN} días en volver a su zona.`);
 sec('Mundo', 'facciones', 'Facciones', Object.keys(FACTIONS).length, renderFactions, 'Actitud inicial de cada facción hacia las demás. Durante la expedición cambia: atacar a un neutral o a un aliado vuelve hostil a toda su facción (−25 de reputación).');
 sec('Mundo', 'personas', 'Personas', Object.keys(HUMANS).length, renderHumans, 'Miembros de otras expediciones. Usan armas reales del catálogo, recargan, huyen heridos y sueltan su equipo al morir. Patrullan las zonas según su región y peligrosidad (ver «Zonas»): buscan cobertura, lanzan granadas, avisan por radio, se rinden malheridos (prisioneros) y se puede hablar con los no hostiles (F). También se pueden generar con la consola de depuración (tecla º → spawn).');
 sec('Mundo', 'zonas', 'Zonas', MAPS.length, renderMaps);
@@ -363,6 +376,17 @@ function renderItemNames() {
   return list('Sufijos de no común', UNCOMMON_SUFFIX, R[1].color) + list('Sufijos de raro', RARE_SUFFIX, R[2].color) + list('Epítetos de épico y legendario', EPITHETS, R[3].color) + list('Nombres míticos', MYTHIC_NAMES, R[5].color);
 }
 
+// fase 22: cadena alimentaria, jefe de zona, fases y trofeo
+function ecoLines(d) {
+  const nm = (id) => (ENEMIES[id] ? ENEMIES[id].name : id);
+  const L = [];
+  if (d.diet) L.push(`<div class="desc">🍖 Caza: ${d.diet.map(nm).join(', ')}</div>`);
+  if (d.follows) L.push(`<div class="desc">Sigue a: ${nm(d.follows)}</div>`);
+  if (d.home) L.push(`<div class="desc" style="color:var(--bad)">Jefe de ${esc(MAPS.find((m) => m.id === d.home).name)} (piso más profundo)</div>`);
+  if (d.phases) L.push(`<div class="desc"><b>Fases</b>: ${d.phases.map((p) => `≤${Math.round(p.at * 100)}% → ${[p.summon ? `invoca ${p.summon[1]}× ${nm(p.summon[0])}` : '', p.add ? p.add.map((a) => ABIL_TEXT[a]).join(', ') : '', p.heal ? `se cura un ${Math.round(p.heal * 100)}%` : ''].filter(Boolean).join('; ')}`).join(' · ')}</div>`);
+  if (d.trophy && ITEMS[d.trophy]) L.push(`<div class="desc" style="color:#ffd23f">♛ Trofeo: ${esc(ITEMS[d.trophy].name)}</div>`);
+  return L.join('');
+}
 function renderEnemies() {
   const rows = Object.entries(ENEMIES).map(([id, d]) => ({ id, ...d })).sort((a, b) => (a.boss || 0) - (b.boss || 0) || a.minL - b.minL);
   const cards = rows.map((d) => {
@@ -378,7 +402,7 @@ function renderEnemies() {
       <div class="lvls" style="white-space:nowrap;margin:.4em 0">color por nivel: ${strip}</div>
       <table style="width:auto;margin:.3em 0"><tr><th style="position:static">Nivel</th>${lv.map((l) => `<th style="position:static;color:${enemyColor(d.hue, l)};text-align:right">${l}</th>`).join('')}</tr>
         ${line('Salud', (x) => x.hp)}${line('Daño', (x) => (d.dmg[1] ? `${x.dmg[0]}–${x.dmg[1]}` : '—'))}${line('Precisión', (x) => x.acc)}${line('Blindaje', (x) => x.armor)}${line('Esquiva', (x) => x.ev)}${line('Esencia', (x) => `<span style="color:${ESS}">${x.ess[0]}–${x.ess[1]} ✦</span>`)}${line('XP', (x) => x.xp)}</table>
-      <div>${d.abil.map((a) => tag(ABIL_TEXT[a], a === 'stationary' ? '' : 'b')).join('') || '<span class="desc">sin habilidades especiales</span>'}</div>${extra}
+      <div>${d.abil.map((a) => tag(ABIL_TEXT[a], a === 'stationary' ? '' : 'b')).join('') || '<span class="desc">sin habilidades especiales</span>'}</div>${extra}${ecoLines(d)}
       <div class="desc" style="margin-top:.4em;font-style:italic">${esc(d.lore)}</div>
     </div>`;
   }).join('');

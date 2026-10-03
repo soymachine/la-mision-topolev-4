@@ -164,7 +164,8 @@ O órdenes del escuadrón · I inventario · M mapa · Espacio esperar · ? ayud
 - Fase 19 completada: ranura COMPAÑERO y Garaje, perro robot Laika-M con órdenes y módulos, 5 drones (tecla D) y 12 gadgets creativos (torreta, jaula, cámara, desfibrilador, gancho, soldadura, ruido blanco, centelleo, grabadora, sonda sísmica, camuflaje, paraguas).
 - Fase 20 completada: arco en tres actos con escenas ASCII y 4 finales, confianza del Dr. Topolev y personal de la base con voz propia, comedor, cartas y epitafios, afinidad entre agentes, estrés con aflicciones y virtudes, 9 encargos, 80 notas en 8 colecciones, radio interceptada y crónica exportable.
 - Fase 21 completada: plano de 16 parcelas con 17 edificios, investigación (16 proyectos) y celda de contención, materiales y taller de fabricación (16 recetas, desmontar), cuota del Comité, mercado negro y precios por demanda, calendario con estaciones e historia, defensa de la base y operaciones simultáneas.
-- **Siguiente sesión:** seguir [`plan-ampliacion.md`](plan-ampliacion.md) por la fase 22 según el orden recomendado al final de ese archivo. Marcar allí las tareas al completarlas.
+- Fase 22 completada: 20 chebylitas nuevos con habilidades propias, élites con afijos, cadena alimentaria y cebo, 10 jefes de zona con fases y trofeos únicos, mundo persistente (nidos que vuelven, zonas que crecen) y alerta del reactor.
+- **Siguiente sesión:** seguir [`plan-ampliacion.md`](plan-ampliacion.md) por la fase 23 según el orden recomendado al final de ese archivo. Marcar allí las tareas al completarlas.
 
 ## FASE 12 — Ampliación del arsenal (petición del usuario)
 - [x] 12.1 69 armas (×4) en `js/data/weapons.js`, cada una con dibujo ASCII visible en su tooltip; nuevos tipos lanzador (explosión) y 5 municiones nuevas

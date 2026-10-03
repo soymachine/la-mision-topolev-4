@@ -1,6 +1,7 @@
 // Prueba de generación (sin navegador): todas las zonas, pisos y combinaciones de modificadores.
 // Comprueba que la inserción, las extracciones, el montacargas, los objetos y los enemigos son alcanzables.
 // Uso: node tests/mapgen.mjs
+import { ENEMIES } from '../js/data/enemies.js';
 import { generateMap } from '../js/exp/mapgen.js';
 import { MAPS, floorDef, EVENT_ZONES, eventDef, mapIndex } from '../js/data/world.js';
 import { TILES } from '../js/data/tiles.js';
@@ -38,7 +39,7 @@ for (const { label, def, mi, f, nf, si, seed } of jobs) {
     if (!m.exits.every((e) => seen[e.y * W + e.x])) errs.push('extracción inalcanzable');
     if (m.lift && !seen[m.lift[1] * W + m.lift[0]]) errs.push('montacargas inalcanzable');
     if (!m.objects.filter((o) => !o.vault && o.kind !== 'cart').every((o) => near(o.x, o.y))) errs.push('objeto inalcanzable');
-    if (!m.spawns.filter((sp) => !sp.caged && sp.type !== 'siluro').every((sp) => seen[sp.y * W + sp.x])) errs.push('enemigo inalcanzable');
+    if (!m.spawns.filter((sp) => !sp.caged && !(ENEMIES[sp.type] && ENEMIES[sp.type].abil.includes('aquatic'))).every((sp) => seen[sp.y * W + sp.x])) errs.push('enemigo inalcanzable');
     if (errs.length) { fails++; console.log(`✗ ${label} piso ${f} mods ${Object.keys(modSets[si]).join(',') || '—'}: ${errs.join(', ')}`); }
   }
 }

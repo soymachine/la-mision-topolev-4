@@ -30,6 +30,7 @@ import { MODIFIERS } from '../data/modifiers.js';
 import { FACTIONS, REP_LEVELS, repLevel, repOf, squadAttitude, ATTITUDE_TEXT, ATTITUDE_CLASS, COMBAT_FACTIONS } from '../data/factions.js';
 import { SQUADS, HUMANS } from '../data/humans.js';
 import { floorsFor } from '../exp/expedition.js';
+import * as ECO from '../core/ecosys.js';
 
 const TABS = [
   { id: 'cuartel', label: 'CUARTEL' },
@@ -152,7 +153,7 @@ export class BaseUI {
     // cabecera
     const top = el('div', { class: 'base-top' },
       el('span', { class: 'logo', html: '☢ LA MISIÓN TOPOLEV' }),
-      el('span', { class: 'dimt', html: `PUESTO PRIPYAT-7 · DÍA <b>${S.day}</b> · ${B21.dateStr()} · <span title="${esc(B21.seasonInfo().desc)}">${B21.seasonInfo().glyph} ${B21.seasonInfo().name}</span> · cuota: <span class="${S.ess >= S.quota.ess ? 'good' : 'warn'}" title="Cuota del Comité: esencia a entregar">${S.quota.ess} ✦ en ${Math.max(0, S.quota.due - S.day)} d</span>` }),
+      el('span', { class: 'dimt', html: `PUESTO PRIPYAT-7 · DÍA <b>${S.day}</b> · ${B21.dateStr()} · <span title="${esc(B21.seasonInfo().desc)}">${B21.seasonInfo().glyph} ${B21.seasonInfo().name}</span> · cuota: <span class="${S.ess >= S.quota.ess ? 'good' : 'warn'}" title="Cuota del Comité: esencia a entregar">${S.quota.ess} ✦ en ${Math.max(0, S.quota.due - S.day)} d</span> · <span title="Alerta del reactor: ${esc(ECO.alertInfo().desc)}" style="color:${ECO.alertInfo().color}">☢ ${ECO.alertInfo().name}</span>` }),
       el('div', { class: 'res' },
         this.resEl('ess', '✦', 'Esencia', S.ess, 'cyan'),
         this.resEl('rub', '₽', 'Rublos', S.rub, 'o0'),
@@ -571,6 +572,12 @@ export class BaseUI {
       const M = MODIFIERS[id];
       box.append(el('div', { class: 'mod-row', html: `<span style="color:${M.color}"><b>${esc(M.glyph)} ${esc(M.name)}</b></span> <span class="bad">▼ ${esc(M.risk)}</span> <span class="good">▲ ${esc(M.reward)}</span>` }));
     }
+    // fase 22: nidos que vuelven, zona que crece, jefe de la zona
+    const zw = ECO.zoneWorld(MAPS[i].id);
+    const hb = ECO.homeBossOf(MAPS[i].id);
+    if (zw.calmLeft) box.append(el('div', { class: 'good', text: `✓ Nidos diezmados: la zona se repuebla en ${zw.calmLeft} día(s).` }));
+    if (zw.grow) box.append(el('div', { class: 'bad', text: `▲ Sin visitar desde hace días: los nidos han crecido (+${zw.grow} nivel${zw.grow > 1 ? 'es' : ''}).` }));
+    if (hb) box.append(el('div', { html: zw.bossAway ? `<span class="dimt">☠ ${esc(ENEMIES[hb].name)}: abatido hace poco; aún no ha vuelto.</span>` : `<span class="bad">☠ Jefe de la zona: <b>${esc(ENEMIES[hb].name)}</b></span> <span class="dimt">(en el piso más profundo)</span>` }));
     const sp = S.contracts.active.find((c) => c.special && c.zone === MAPS[i].id && c.day === S.day);
     if (sp) box.append(el('div', { html: `<span style="color:#ffd23f">◎ Encargo especial: <b>${esc(ST.CONTRACTS[sp.id].name)}</b></span> <span class="dimt">· solo hoy</span>` }));
     box.append(el('div', { class: 'dimt', text: 'Cambian cada día (cada expedición).' }));

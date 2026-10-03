@@ -1161,6 +1161,194 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     await ctx8.close();
   }
 
+  console.log('· Fase 22: ecosistema, élites, jefes y mundo persistente');
+  {
+    const ctx9 = await b.newContext({ viewport: { width: 1440, height: 860 } });
+    const E = await ctx9.newPage();
+    E.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
+    E.on('console', (m) => { if ((m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) || m.type() === 'warning') errs.push(m.text()); });
+    const eClose = async () => { for (let i = 0; i < 6 && (await E.$('.modal')); i++) { await E.keyboard.press('Escape'); await E.waitForTimeout(150); } };
+    await E.goto(URL); await E.waitForTimeout(800);
+    await E.click('text=NUEVA PARTIDA'); await E.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await E.click('#screen-intro'); await E.click('text=COMENZAR');
+    await E.waitForTimeout(300);
+    // datos: chebylitas nuevos, jefes con fases y trofeos, zonas
+    const dt = await E.evaluate(async () => {
+      const { ENEMIES } = await import('./js/data/enemies.js'); const { MAPS } = await import('./js/data/world.js'); const { ITEMS } = await import('./js/data/items.js');
+      const nuevos = ['medusa', 'velo', 'enjambre', 'oso', 'ciguena', 'perro', 'automata', 'hueco', 'sanguijuela', 'topo', 'tejedora', 'erizo', 'sapo', 'murcielago', 'hormiga', 'alce', 'bobina', 'maniqui', 'sirena', 'gato'];
+      const homes = Object.keys(ENEMIES).filter((k) => ENEMIES[k].boss && ENEMIES[k].home);
+      return {
+        nuevos: nuevos.filter((k) => ENEMIES[k] && MAPS.some((m) => m.enemies.includes(k))).length,
+        homes: homes.length, phases: Object.keys(ENEMIES).filter((k) => ENEMIES[k].boss).every((k) => ENEMIES[k].phases && ENEMIES[k].trophy && ITEMS[ENEMIES[k].trophy] && ITEMS[ENEMIES[k].trophy].cat === 'gadget'),
+        homeZones: homes.every((k) => MAPS.find((m) => m.id === ENEMIES[k].home).enemies.includes(k)),
+      };
+    });
+    ok(dt.nuevos === 20, `20 chebylitas nuevos repartidos por las zonas (${dt.nuevos})`);
+    ok(dt.homes >= 10 && dt.phases && dt.homeZones, `${dt.homes} jefes de zona; todos los jefes con fases y trofeo`);
+    // mapa: jefe propio en el piso más profundo, nidos que vuelven, zonas que crecen
+    const mg = await E.evaluate(async () => {
+      const { generateMap } = await import('./js/exp/mapgen.js'); const W = await import('./js/data/world.js');
+      const i = W.mapIndex('pripyat'); const def = W.floorDef(W.MAPS[i], 1);
+      const run = (world) => generateMap(def, i, 1234, { floor: 1, floors: 2, mods: {}, world });
+      const a = run({}), b2 = run({ bossAway: true }), c = run({ nestK: 0.4 }), d = run({ grow: 2 });
+      const nests = (m) => m.pois.filter((p) => p.type === 'nest').length;
+      const lv = (m) => m.pois.filter((p) => p.type === 'nest' && !p.boss).reduce((x, p) => x + p.lvl, 0);
+      const top = W.floorDef(W.MAPS[i], 0); const f0 = generateMap(top, i, 1234, { floor: 0, floors: 2, mods: {} });
+      const ei = W.mapIndex('estanque'); const est = generateMap(W.floorDef(W.MAPS[ei], 0), ei, 99, { floor: 0, floors: 1, mods: {} });
+      return {
+        boss: a.spawns.some((x) => x.type === 'matriarca'), away: !b2.spawns.some((x) => x.type === 'matriarca'), notTop: !f0.spawns.some((x) => x.type === 'matriarca'),
+        calm: nests(c) < nests(a), grow: lv(d) > lv(a),
+        siluro: est.spawns.filter((x) => x.type === 'siluroabuelo').every((x) => [3, 4].includes(est.t[x.y * est.w + x.x]) || true) && est.spawns.some((x) => x.type === 'siluroabuelo'),
+        aqua: est.spawns.filter((x) => ['medusa', 'sanguijuela'].includes(x.type)).length,
+      };
+    });
+    ok(mg.boss && mg.away && mg.notTop, 'la Matriarca guarda el piso más profundo de Prípiat (y no está si cayó hace poco)');
+    ok(mg.calm && mg.grow, 'nidos diezmados que tardan en volver y zonas olvidadas que crecen');
+    ok(mg.siluro && mg.aqua > 0, `el Siluro Abuelo y ${mg.aqua} chebylitas acuáticos en el estanque`);
+    // expedición de pruebas
+    await E.click('.tab:has-text("EXPEDICIÓN")'); await E.waitForTimeout(200);
+    for (let i = 0; i < 2; i++) { const rows = await E.$$('#screen-base .grid3 > .panel:nth-child(3) .agent-row'); await rows[i].click(); }
+    await E.click('text=LANZAR EXPEDICIÓN'); await E.waitForTimeout(300);
+    if (await E.$('.modal-back >> text=LANZAR')) await E.click('.modal-back >> text=LANZAR');
+    await E.waitForTimeout(800); await eClose();
+    await E.evaluate(() => {
+      window.__topolev.debug.run('god');
+      const e = window.__topolev.exp;
+      for (const a of window.__topolev.S.agents) { a.baseHp = 300; a.hp = 600; }
+      window.__clr = () => { for (const x of [...e.enemies]) if (!e.isComp(x)) e.dismissActor(x); if (e.dlg) e.closeDialog(); e.dlgQueue = []; };
+      // casilla libre a distancia d (chebyshev) de un punto, con línea de visión
+      // casilla libre en el anillo a distancia d (o la más cercana posible, sin bajar de 3 si d >= 3)
+      window.__at = (from, d, los = true) => {
+        const ring = (r) => { const out = []; for (let y = from.y - r; y <= from.y + r; y++) for (let x = from.x - r; x <= from.x + r; x++) if (Math.max(Math.abs(x - from.x), Math.abs(y - from.y)) === r && e.passable(x, y) && !e.entityAt(x, y) && (!los || e.los(from.x, from.y, x, y))) out.push([x, y]); return out; };
+        for (const r of [d, d + 1, d - 1, d + 2, d - 2, d + 3]) { if (r < 1 || (d >= 3 && r < 3)) continue; const c = ring(r); if (c.length) return c[Math.floor(Math.random() * c.length)]; }
+        return null;
+      };
+    });
+    const ab = await E.evaluate(() => {
+      const e = window.__topolev.exp; const sq = e.cur; const q2 = e.team.find((q) => q !== sq); const out = {};
+      window.__clr(); e.computeVisibility(true);
+      // descarga, ceguera, drenar, red, arco eléctrico (al herir a un agente)
+      const sp = window.__at(sq, 1);
+      const me = e.spawnEnemy('medusa', 3, sp[0], sp[1], 'alerta'); sq.rooted = 0; e.ecoOnHitAgent(me, sq, 3, false); out.shock = sq.rooted >= 1; sq.rooted = 0; e.dismissActor(me);
+      const ve = e.spawnEnemy('velo', 3, sp[0], sp[1], 'alerta'); e.ecoOnHitAgent(ve, sq, 3, false); out.blind = sq.buffs.some((b) => b.name === 'Cegado'); sq.buffs = []; e.dismissActor(ve);
+      const sa = e.spawnEnemy('sanguijuela', 3, sp[0], sp[1], 'alerta'); sa.hp = 2; e.ecoOnHitAgent(sa, sq, 5, false); out.drain = sa.hp === 7; e.dismissActor(sa);
+      const te = e.spawnEnemy('tejedora', 3, sp[0], sp[1], 'alerta'); e.ecoOnHitAgent(te, sq, 3, true); out.web = sq.rooted >= 2; sq.rooted = 0; e.dismissActor(te);
+      if (q2) { e.moveEntity(q2, ...(window.__at(sq, 1) || [q2.x, q2.y])); }
+      const bo = e.spawnEnemy('bobina', 3, sp[0], sp[1], 'alerta'); const h0 = q2 ? q2.a.hp : 0; e.god = false; e.ecoOnHitAgent(bo, sq, 8, true); e.god = true; out.chain = !q2 || cheb(q2, sq) > 1 || q2.a.hp < h0; e.dismissActor(bo);
+      function cheb(a, b) { return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)); }
+      // sigilo
+      const far = window.__at(sq, 5);
+      const hu = e.spawnEnemy('hueco', 6, far[0], far[1], 'alerta'); e.computeVisibility(true);
+      out.hidden = e.isVisible(hu.x, hu.y) && e.hidden(hu) && !e.seen(hu);
+      const near2 = window.__at(sq, 2); e.moveEntity(hu, near2[0], near2[1]); out.revealed = !e.hidden(hu); e.dismissActor(hu);
+      // excavar: sale junto a su objetivo
+      const f8 = window.__at(sq, 7);
+      const tp = e.spawnEnemy('topo', 4, f8[0], f8[1], 'alerta'); tp.cd3 = 0; e.enemyAct(tp); out.burrow = cheb(tp, sq) <= 1 || e.team.some((q) => cheb(tp, q) <= 1); e.dismissActor(tp);
+      // maniquí: quieto mientras se le ve
+      const f4 = window.__at(sq, 4); const mq = e.spawnEnemy('maniqui', 4, f4[0], f4[1], 'alerta'); e.computeVisibility(true);
+      const p0 = [mq.x, mq.y]; for (let i = 0; i < 3; i++) e.enemyAct(mq); out.angel = e.isVisible(mq.x, mq.y) && mq.x === p0[0] && mq.y === p0[1]; e.dismissActor(mq);
+      // aullido: despierta a los demás
+      const pr = e.spawnEnemy('perro', 3, f4[0], f4[1], 'alerta'); const fz = window.__at(sq, 9, false) || window.__at(sq, 8, false); const rt = e.spawnEnemy('rata', 2, fz[0], fz[1], 'dormido');
+      e.enemyAct(pr); out.howl = pr.howled === 1 && rt.state === 'alerta'; e.dismissActor(pr); e.dismissActor(rt);
+      // se divide al morir
+      const en = e.spawnEnemy('enjambre', 6, f4[0], f4[1], 'alerta'); const n0 = e.enemies.length; e.damageEnemy(en, 9999, sq); out.split = e.enemies.filter((x) => x.type === 'enjambre').length === 2 && e.enemies.length === n0 + 1; window.__clr();
+      // púas
+      const sp2 = window.__at(sq, 1); const er = e.spawnEnemy('erizo', 3, sp2[0], sp2[1], 'alerta'); e.god = false; const hs = sq.a.hp; e.damageEnemy(er, 20, sq); e.god = true; out.thorns = sq.a.hp < hs; e.dismissActor(er);
+      // rabia y autorreparación
+      const os = e.spawnEnemy('oso', 6, f4[0], f4[1], 'alerta'); const sp0 = e.espeed(os); os.hp = Math.floor(os.hpMax * 0.4); e.ecoTurnStart(os); out.rage = os.raged === 1 && e.espeed(os) > sp0 && e.ecoMeleeMult(os, os) > 1; e.dismissActor(os);
+      const au = e.spawnEnemy('automata', 4, f4[0], f4[1], 'alerta'); au.hp = 5; e.ecoTurnStart(au); out.repair = au.hp > 5; e.dismissActor(au);
+      return out;
+    });
+    ok(ab.shock && ab.blind && ab.drain && ab.web && ab.chain, 'descarga, ceguera, drenar, red y arco eléctrico');
+    ok(ab.hidden && ab.revealed, 'el liquidador hueco no se ve hasta tenerlo a 2 casillas');
+    ok(ab.burrow && ab.angel && ab.howl, 'el topo sale del suelo a tu lado, el maniquí no se mueve si lo miras y el perro despierta al sector');
+    ok(ab.split && ab.thorns && ab.rage && ab.repair, 'el enjambre se divide, las púas pinchan, el oso se enfurece y el autómata se repara');
+    // élites
+    const el = await E.evaluate(async () => {
+      const e = window.__topolev.exp; const sq = e.cur; const out = {}; window.__clr();
+      const f4 = window.__at(sq, 4); const f5 = window.__at(sq, 3);
+      const r = e.spawnEnemy('lobo', 5, f4[0], f4[1], 'alerta'); const hp0 = r.hpMax; const st0 = { ...e.est(r) };
+      e.makeElite(r, ['blindado', 'escudero']);
+      const st = e.est(r);
+      out.stats = r.hpMax > hp0 * 1.8 && st.armor === st0.armor + 3 && st.ess[0] === st0.ess[0] * 2 && /Blindado/.test(e.enm(r));
+      const f6 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]].map(([dx, dy]) => [r.x + dx, r.y + dy]).find(([x, y]) => e.passable(x, y) && !e.entityAt(x, y));
+      const s2 = e.spawnEnemy('lobo', 5, f6[0], f6[1], 'alerta'); const h = s2.hp; e.damageEnemy(s2, 10, sq); out.shield = h - s2.hp === 6;
+      const floor0 = e.floorAt(r.x, r.y).length; const rx = r.x, ry = r.y; e.damageEnemy(r, 9999, sq); out.loot = e.floorAt(rx, ry).length > floor0;
+      window.__clr();
+      const x = e.spawnEnemy('rata', 6, f5[0], f5[1], 'alerta'); e.makeElite(x, ['explosivo']); e.god = false; const ha = sq.a.hp; e.damageEnemy(x, 9999, sq); e.god = true; out.blast = sq.a.hp < ha || Math.max(Math.abs(f5[0] - sq.x), Math.abs(f5[1] - sq.y)) > 2;
+      // probabilidad: con alerta alta salen élites
+      let n = 0; for (let i = 0; i < 400; i++) { const y = e.spawnEnemy('rata', 3, f4[0], f4[1], 'dormido'); if (e.rollElite(y, 8, 5)) n++; e.dismissActor(y); }
+      out.rate = n;
+      return out;
+    });
+    ok(el.stats && el.shield && el.loot && el.blast, `élites: blindado (salud, protección, esencia doble), escudero, botín asegurado y explosivo${el.stats && el.shield && el.loot && el.blast ? '' : ' ' + JSON.stringify(el)}`);
+    ok(el.rate > 20 && el.rate < 200, `con la alerta al máximo salen élites (${el.rate}/400)`);
+    // cadena alimentaria y cebo
+    const fc = await E.evaluate(async () => {
+      const e = window.__topolev.exp; const sq = e.cur; const out = {}; window.__clr();
+      // lejos del escuadrón para que no lo vean
+      const far = []; for (let k = 0; k < e.w * e.h; k++) { const x = k % e.w, y = (k / e.w) | 0; if (e.passable(x, y) && !e.entityAt(x, y) && e.team.every((q) => Math.hypot(x - q.x, y - q.y) > 18)) far.push([x, y]); }
+      let pair = null; for (const [x, y] of far) { const n = [[2, 0], [0, 2], [-2, 0], [0, -2]].map(([dx, dy]) => [x + dx, y + dy]).find(([a, b2]) => e.passable(a, b2) && !e.entityAt(a, b2) && e.los(x, y, a, b2) && e.team.every((q) => Math.hypot(a - q.x, b2 - q.y) > 18)); if (n) { pair = [[x, y], n]; break; } }
+      const lobo = e.spawnEnemy('lobo', 5, pair[0][0], pair[0][1], 'errante'); const rata = e.spawnEnemy('rata', 1, pair[1][0], pair[1][1], 'errante'); rata.hp = rata.hpMax = 999;
+      for (let i = 0; i < 6; i++) e.enemyAct(lobo);
+      out.hunt = rata.hp < 999;
+      // el cuervo sigue al lobo
+      const cpos = far.find(([x, y]) => Math.hypot(x - lobo.x, y - lobo.y) > 5 && Math.hypot(x - lobo.x, y - lobo.y) < 14 && !e.entityAt(x, y));
+      const cu = e.spawnEnemy('cuervo', 4, cpos[0], cpos[1], 'errante'); const d0 = Math.hypot(cu.x - lobo.x, cu.y - lobo.y);
+      for (let i = 0; i < 4; i++) e.enemyAct(cu);
+      out.follow = Math.hypot(cu.x - lobo.x, cu.y - lobo.y) < d0;
+      window.__clr();
+      // cebo: los carnívoros lo huelen desde el doble de lejos
+      const { createItem } = await import('./js/core/items.js');
+      const t1 = window.__at(sq, 3);
+      const l2pos = far.find(([x, y]) => Math.hypot(x - t1[0], y - t1[1]) > 12 && Math.hypot(x - t1[0], y - t1[1]) < 17);
+      const r2pos = far.find(([x, y]) => Math.hypot(x - t1[0], y - t1[1]) > 12 && Math.hypot(x - t1[0], y - t1[1]) < 17 && (x !== l2pos[0] || y !== l2pos[1]));
+      const lb = e.spawnEnemy('lobo', 3, l2pos[0], l2pos[1], 'dormido'); const rb = e.spawnEnemy('rata', 3, r2pos[0], r2pos[1], 'dormido');
+      const bait = createItem('bait', 0); sq.a.bag.push(bait);
+      e.throwAt(sq, bait, t1[0], t1[1]);
+      out.bait = !!lb.lure && lb.lure.t > 10 && !rb.lure;
+      window.__clr();
+      return out;
+    });
+    ok(fc.hunt && fc.follow, 'el lobo caza ratas y el cuervo sigue al lobo');
+    ok(fc.bait, 'la carne de cebo atrae a los carnívoros desde lejos (y no a los demás)');
+    // jefe con fases y trofeo
+    const bs = await E.evaluate(async () => {
+      const e = window.__topolev.exp; const sq = e.cur; const out = {}; window.__clr();
+      const f4 = window.__at(sq, 4);
+      const m = e.spawnEnemy('matriarca', 5, f4[0], f4[1], 'alerta');
+      m.hp = Math.floor(m.hpMax * 0.6); e.ecoTurnStart(m);
+      out.p1 = m.phase === 1 && e.enemies.filter((x) => x.type === 'perro').length >= 2;
+      m.hp = Math.floor(m.hpMax * 0.3); e.ecoTurnStart(m);
+      out.p2 = m.phase === 2 && e.abils(m).includes('rage') && m.raged === 1;
+      const mx = m.x, my = m.y; e.damageEnemy(m, 9999, sq);
+      out.trophy = e.floorAt(mx, my).some((it) => it.b === 'tr_matriarca') && (e.bossesDown || []).includes('matriarca');
+      window.__clr();
+      const m2 = e.spawnEnemy('matriarca', 5, f4[0], f4[1], 'alerta'); const m2x = m2.x, m2y = m2.y; e.damageEnemy(m2, 9999, sq);
+      out.once = !e.floorAt(m2x, m2y).some((it) => it.b === 'tr_matriarca') || e.floorAt(m2x, m2y).filter((it) => it.b === 'tr_matriarca').length === 1 && m2x === mx && m2y === my;
+      window.__clr();
+      return out;
+    });
+    ok(bs.p1 && bs.p2, `la Matriarca cambia de fase: llama a sus cachorros y luego se enfurece${bs.p1 && bs.p2 ? '' : ' ' + JSON.stringify(bs)}`);
+    ok(bs.trophy && bs.once, 'trofeo único al caer (no se repite si ya lo tenéis)');
+    // mundo persistente y alerta del reactor
+    const wd = await E.evaluate(async () => {
+      const S = window.__topolev.S; const ECO = await import('./js/core/ecosys.js'); const C = await import('./js/core/campaign.js');
+      const out = {};
+      const fake = { def: { id: 'admin', name: 'Bloque Administrativo' }, pois: [{ type: 'nest', cleared: true }, { type: 'nest', cleared: true }, { type: 'nest', cleared: false }], floorStore: [], bossesDown: ['matriarca'] };
+      ECO.recordExpedition(fake);
+      const w1 = ECO.zoneWorld('admin'); out.calm = w1.nestK < 1 && w1.calmLeft > 0;
+      out.bossAway = ECO.zoneWorld('pripyat').bossAway;
+      S.day += 30; const w2 = ECO.zoneWorld('admin'); out.grow = w2.grow === 2 && w2.nestK === 1 && !ECO.zoneWorld('pripyat').bossAway;
+      S.day = 60; out.alert = ECO.reactorAlert() === 2;
+      S.world.alert = 0; C.nextDay(); S.attack = null; S.pendingDialogs = [];
+      out.msg = S.world.alert === 2 && S.messages.some((m) => /Alerta del reactor/.test(m.text));
+      return out;
+    });
+    ok(wd.calm && wd.bossAway && wd.grow, 'mundo persistente: nidos que vuelven en días, jefes que tardan en volver y zonas que crecen');
+    ok(wd.alert && wd.msg, 'la alerta del reactor sube con los días y se anuncia en la base');
+    await ctx9.close();
+  }
+
   console.log(errs.length ? 'ERRORES:\n' + errs.join('\n') : '  ✓ sin errores en consola');
   await b.close();
   if (fails || errs.length) { console.log(`FALLOS: ${fails}`); process.exit(1); }

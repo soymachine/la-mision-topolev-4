@@ -750,8 +750,11 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
     }
     return out;
   }
-  const enemyPool = def.enemies.filter((e) => !ENEMIES[e].boss);
-  const bossPool = def.enemies.filter((e) => ENEMIES[e].boss);
+  const enemyPool = def.enemies.filter((e) => !ENEMIES[e].boss && !ENEMIES[e].abil.includes('aquatic'));
+  // fase 22: el jefe propio de la zona (home) va aparte, en el piso más profundo
+  const homeBoss = def.enemies.find((e) => ENEMIES[e].boss && ENEMIES[e].home === def.id) || null;
+  const bossPool = def.enemies.filter((e) => ENEMIES[e].boss && e !== homeBoss);
+  const W22 = opts.world || {}; // mundo persistente: { nestK, grow, alert, bossAway }
   function pickTypes(lvl) {
     let c = enemyPool.filter((e) => ENEMIES[e].minL <= lvl && ENEMIES[e].maxL >= lvl);
     if (!c.length) c = enemyPool;
@@ -764,20 +767,20 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
   }
 
   // Nidos
-  const nestCount = g.int(def.nests[0], def.nests[1]);
+  const nestCount = Math.max(1, Math.round(g.int(def.nests[0], def.nests[1]) * (W22.nestK || 1)));
   const sectorOrder = g.shuffle(sectors.map((s) => s.id));
   for (let n = 0; n < nestCount; n++) {
     const spot = findSpot({ minDist: 20, poiGap: 14, open: 16, openR: 2, sectorId: n < sectorOrder.length ? sectorOrder[n] : null }) || findSpot({ minDist: 16, poiGap: 10, open: 12 });
     if (!spot) continue;
     const [x, y] = spot;
-    const lvl = levelAt(I(x, y));
+    const lvl = Math.min(10, levelAt(I(x, y)) + (W22.grow || 0));
     const types = pickTypes(lvl);
     const main = g.pick(types);
     const md = ENEMIES[main];
     const p = { type: 'nest', x, y, lvl, name: `Nido · ${md.name}`, enemy: main, sector: sec[I(x, y)], cleared: false, members: 0 };
     pois.push(p);
     const pi = pois.length - 1;
-    let count = g.int(md.group[0], md.group[1]) + Math.floor(lvl / 4);
+    let count = g.int(md.group[0], md.group[1]) + Math.floor(lvl / 4) + (W22.grow || 0) + (W22.alert >= 2 ? 1 : 0);
     p.members += spawnGroup(main, lvl, x, y, count, nestState, pi);
     if (g.chance(0.45)) {
       const second = g.pick(types);
@@ -802,6 +805,29 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
       const pi = pois.indexOf(nest);
       nest.members += spawnGroup(boss, lvl, nest.x, nest.y, 1, nestState, pi);
       for (const sp of spawns) if (sp.poi === pi) sp.lvl = lvl;
+    }
+  }
+
+  // jefe propio de la zona (fase 22): siempre en el piso más profundo, salvo si lo abatisteis hace poco
+  if (homeBoss && fl === nFloors - 1 && !W22.bossAway) {
+    const bd = ENEMIES[homeBoss];
+    const lvl = Math.min(10, lvMax + 1 + (W22.grow || 0));
+    if (bd.abil.includes('aquatic')) {
+      // en el agua más lejana
+      let best = -1;
+      for (let k = 0; k < N; k++) if ((t[k] === T.DEEP || t[k] === T.WATER) && !blocked[k] && (best < 0 || (dist[k] > dist[best] && dist[k] < 32767) || (t[k] === T.DEEP && t[best] !== T.DEEP))) best = k;
+      if (best >= 0) {
+        blocked[best] = 2;
+        pois.push({ type: 'nest', x: best % W, y: (best / W) | 0, lvl, name: `Guarida · ${bd.name}`, enemy: homeBoss, boss: homeBoss, sector: sec[best], cleared: false, members: 1 });
+        spawns.push({ type: homeBoss, lvl, x: best % W, y: (best / W) | 0, state: 'dormido', poi: pois.length - 1 });
+      }
+    } else {
+      const nest = pois.filter((p) => p.type === 'nest' && !p.boss).sort((a, b) => dist[I(b.x, b.y)] - dist[I(a.x, a.y)])[0];
+      if (nest) {
+        const pi = pois.indexOf(nest);
+        nest.lvl = lvl; nest.boss = homeBoss; nest.name = `Guarida · ${bd.name}`;
+        nest.members += spawnGroup(homeBoss, lvl, nest.x, nest.y, 1, nestState, pi);
+      }
     }
   }
 
@@ -1030,6 +1056,29 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
     const deep = [];
     for (let k = 0; k < N; k++) if (t[k] === T.DEEP) deep.push(k);
     for (let n = 0; n < Math.min(deep.length, g.int(3, 6)); n++) { const k = g.pick(deep); spawns.push({ type: 'siluro', lvl: Math.min(10, lvMax), x: k % W, y: (k / W) | 0, state: 'dormido', poi: null }); }
+  }
+  // fase 22: chebylitas acuáticos (medusas, sanguijuelas) en el agua de la zona, nunca en tierra
+  const aqua = def.enemies.filter((e) => ENEMIES[e] && ENEMIES[e].abil.includes('aquatic') && !ENEMIES[e].boss);
+  if (aqua.length) {
+    const wet = [];
+    for (let k = 0; k < N; k++) if ((t[k] === T.WATER || t[k] === T.DEEP) && !blocked[k] && !(dist[k] < 12)) wet.push(k);
+    if (wet.length >= 12) {
+      const used = new Set();
+      const groups = Math.min(4, 1 + Math.floor(wet.length / 150));
+      for (let gi = 0; gi < groups; gi++) {
+        const k0 = g.pick(wet), x0 = k0 % W, y0 = (k0 / W) | 0;
+        const lvl = levelAt(k0);
+        const fit = aqua.filter((e) => ENEMIES[e].minL <= lvl);
+        const tp = g.pick(fit.length ? fit : aqua);
+        const n = g.int(ENEMIES[tp].group[0], ENEMIES[tp].group[1]);
+        const near = wet.filter((k) => !used.has(k) && Math.abs((k % W) - x0) <= 4 && Math.abs(((k / W) | 0) - y0) <= 4);
+        for (let i = 0; i < n && near.length; i++) {
+          const k = near.splice(g.int(0, near.length - 1), 1)[0];
+          used.add(k); blocked[k] = 2;
+          spawns.push({ type: tp, lvl, x: k % W, y: (k / W) | 0, state: 'dormido', poi: null });
+        }
+      }
+    }
   }
   // Prípiat, sótano del hospital: la ropa de los bomberos de la primera noche
   if (def.id === 'pripyat' && fl > 0) {

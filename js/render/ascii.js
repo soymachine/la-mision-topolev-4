@@ -531,6 +531,12 @@ export class MapRenderer {
       const k = en.y * e.w + en.x;
       if (!e.visible[k]) { this.pos.delete(en.uid); continue; }
       const def = ACTORS[en.type];
+      // fase 22: sigilo (liquidador hueco, gato, élite invisible): solo una distorsión de vez en cuando
+      if (e.hidden(en)) {
+        this.pos.delete(en.uid);
+        if (Math.sin(T_ * 2.3 + en.x * 1.7 + en.y) > 0.93) { ctx.globalAlpha = 0.12; glyph(en.x, en.y, def.glyph, '#c8e0ff', null, 1, false); ctx.globalAlpha = 1; }
+        continue;
+      }
       const p = this.rpos(en.uid, en.x, en.y, dt);
       let rx = p.x, ry = p.y;
       if (lunge) {
@@ -555,6 +561,7 @@ export class MapRenderer {
       } else if (en.charmed) { ctx.strokeStyle = 'rgba(192,108,255,.8)'; ctx.lineWidth = 1; ctx.strokeRect(sx + 0.5, sy + 0.5, cw - 1, ch - 1); }
       const breathe = en.state === 'dormido' ? 0.55 + 0.15 * Math.sin(T_ * 2 + en.x) : 1;
       if (def.boss) { ctx.shadowColor = col; ctx.shadowBlur = 14 + 6 * Math.sin(T_ * 3); }
+      else if (en.elite) { ctx.shadowColor = '#ffd23f'; ctx.shadowBlur = 8 + 4 * Math.sin(T_ * 4 + en.x); }
       else if (en.lvl >= 7) { ctx.shadowColor = col; ctx.shadowBlur = 6; }
       ctx.globalAlpha = breathe;
       ctx.fillStyle = flashing ? '#ffffff' : col;
@@ -568,6 +575,8 @@ export class MapRenderer {
         ctx.fillStyle = f > 0.5 ? '#3ddc6b' : f > 0.25 ? '#ffd23f' : '#ff3b30';
         ctx.fillRect(sx + 1, sy + ch - 2, w * f, 2);
       }
+      if (en.elite) { ctx.font = `${Math.round(this.fs * 0.55)}px ${FONT}`; ctx.fillStyle = '#ffd23f'; ctx.fillText('★', sx + cw * 0.85, sy + ch * 0.18); ctx.font = font; }
+      if (en.raged) { ctx.font = `${Math.round(this.fs * 0.55)}px ${FONT}`; ctx.fillStyle = '#ff3b30'; ctx.fillText('!', sx + cw * 0.15, sy + ch * 0.18); ctx.font = font; }
       if (en.stun > 0) { ctx.font = `${Math.round(this.fs * 0.6)}px ${FONT}`; ctx.fillStyle = '#ffe9a0'; ctx.fillText(['✶', '*', '·', '*'][Math.floor(T_ * 8) % 4], sx + cw / 2 + Math.sin(T_ * 6) * cw * 0.4, sy - ch * 0.15); ctx.font = font; }
       if (en.state === 'dormido' && Math.sin(T_ * 1.3 + en.x * 2) > 0.985) this.parts.add({ x: en.x + 0.8, y: en.y, vy: -0.8, vx: 0.3, life: 1.4, ch: 'z', color: col, scale: 0.6 });
     }

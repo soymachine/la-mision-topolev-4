@@ -4,6 +4,7 @@
 import { WEAPONS, NEW_AMMO } from './weapons.js';
 import { COMPANION_ITEMS } from './companions.js';
 import { MATERIALS } from './basedata.js';
+import { TROPHIES } from './ecosystem.js';
 import { MODS } from './mods.js';
 
 export const CAT_INFO = {
@@ -34,6 +35,7 @@ export const ITEMS = {
   ...NEW_AMMO,
   ...COMPANION_ITEMS,
   ...MATERIALS,
+  ...TROPHIES,
 
   // ---------- MUNICIÓN ----------
   a_9x18: { cat: 'ammo', name: 'Munición 9×18 mm', glyph: '"', tier: 0, stack: 120, value: 1, pack: 24, desc: 'Para Makarov y Stechkin.' },
@@ -152,7 +154,7 @@ export const ITEMS = {
   soplete: { cat: 'consumable', name: 'Soplete de acetileno', glyph: '!', tier: 2, stack: 3, use: 'tool', value: 95, desc: 'Corta las bisagras de una puerta blindada. Ruidoso.' },
   rope: { cat: 'consumable', name: 'Cuerda de escalada', glyph: '&', tier: 0, stack: 3, use: 'tool', value: 30, desc: 'Permite bajar por una sima sin hacerse daño (se gasta una por agente).' },
   flare: { cat: 'consumable', name: 'Bengala', glyph: '•', tier: 0, stack: 6, use: 'throw', lure: 14, light: 1, range: 8, value: 20, desc: 'Ilumina la zona y atrae a los chebylitas cercanos.' },
-  bait: { cat: 'consumable', name: 'Carne de cebo', glyph: '•', tier: 0, stack: 5, use: 'throw', lure: 10, range: 6, value: 15, desc: 'Atrae a los chebylitas en silencio, sin iluminar.' },
+  bait: { cat: 'consumable', name: 'Carne de cebo', glyph: '•', tier: 0, stack: 5, use: 'throw', lure: 10, meat: 1, range: 6, value: 15, desc: 'Atrae a los chebylitas en silencio, sin iluminar. Los carnívoros (lobos, osos, perros, cigüeñas…) la huelen desde el doble de lejos y se quedan a comer.' },
   rgd5: { cat: 'consumable', name: 'Granada RGD-5', glyph: '•', tier: 1, stack: 6, use: 'throw', blast: 1, dmg: [10, 18], range: 6, value: 45, desc: 'Explosión en radio 1. Alcance 6.' },
   smoke: { cat: 'consumable', name: 'Granada de humo RDG-2', glyph: '•', tier: 1, stack: 5, use: 'throw', smoke: 2, range: 7, value: 35, desc: 'Cortina de humo de radio 2 durante 10 turnos: bloquea la visión de todos.' },
   dynamite: { cat: 'consumable', name: 'Cartucho de dinamita', glyph: '•', tier: 1, stack: 5, use: 'throw', blast: 2, dmg: [14, 26], range: 5, noise: 22, value: 60, desc: 'Radio 2. Se oye en toda la central.' },

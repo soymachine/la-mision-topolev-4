@@ -50,7 +50,7 @@ export class MoralePart {
   hasAffliction(sq, id) { return (sq.buffs || []).some((b) => b.aff === id); }
   // pánico: el agente huye del hostil más cercano en lugar de actuar
   panicStep(sq) {
-    const foe = this.enemies.filter((e) => this.hostile(sq, e) && this.isVisible(e.x, e.y)).sort((p, q) => Math.hypot(p.x - sq.x, p.y - sq.y) - Math.hypot(q.x - sq.x, q.y - sq.y))[0];
+    const foe = this.enemies.filter((e) => this.hostile(sq, e) && this.seen(e)).sort((p, q) => Math.hypot(p.x - sq.x, p.y - sq.y) - Math.hypot(q.x - sq.x, q.y - sq.y))[0];
     if (!foe) return false;
     let best = null, bd = Math.hypot(foe.x - sq.x, foe.y - sq.y);
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {

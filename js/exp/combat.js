@@ -209,10 +209,11 @@ export class CombatPart {
     this.fire[k] = Math.max(this.fire[k], n);
   }
 
-  enm(e) { return `<span style="color:${actorColor(e)}">${ACTORS[e.type].name}</span>`; }
+  enm(e) { return `<span style="color:${actorColor(e)}">${e.elite ? '★ ' : ''}${ACTORS[e.type].name}</span>${e.elite ? ` <span style="color:#ffd23f">«${this.eliteName(e)}»</span>` : ''}`; }
 
   damageEnemy(e, dmg, src, crit = false, delay = 0) {
     if (e.hp <= 0) return;
+    dmg = this.ecoOnDamaged(e, dmg, src); // fase 22: escudero y púas
     if (src && this.isSquad(src) && !this.hostile(src, e)) this.provoke(actorFaction(e));
     if (src && src.type && src !== e) { e.lastAttacker = src.uid; }
     e.hp -= dmg;
@@ -262,6 +263,7 @@ export class CombatPart {
       for (let i = 0; i < n; i++) this.addFloor(e.x, e.y, rollLoot(e.lvl, rng, { rarityBonus: def.boss ? 0.8 : 0 }));
     }
     if (def.boss) this.addFloor(e.x, e.y, createItem('crystal', rng.int(2, 4), rng));
+    this.ecoOnDeath(e, src); // fase 22: se divide, explota, botín de élite, trofeo
     const bySquad = !src || this.isSquad(src);
     if (bySquad) { this.tally.kills++; S.stats.kills++; }
     if (src && src.id) { this.trigger('kill', { type: e.type, faction: actorFaction(e), lvl: e.lvl }, src); this.moraleOnKill(src, e); }

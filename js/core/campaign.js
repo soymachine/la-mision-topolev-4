@@ -8,6 +8,7 @@ import { createAgent, starterKit, agentStats, recruitCost, agentName, bagCapacit
 import { ACQUIRED, MEDALS, woundCost, RETIRE_LEVEL, MAX_INSTRUCTORS, INSTRUCTOR_XP, ROOKIE_LEVEL } from '../data/honors.js';
 import { SPECS } from '../data/specs.js';
 import { rollZoneMods } from '../data/modifiers.js';
+import { recordExpedition, worldDayTick } from './ecosys.js';
 import { FACTIONS, repOf, addRep, foreignTrade as foreignTradeS } from '../data/factions.js';
 import { addStress, addAff, trust, chronicle, comedorScene, completeContracts, checkActs, familyLetter, expireSpecials } from './story.js';
 import { baseDayTick, placeBuilding, demandK, noteSale, attackResult, defenseDef } from './basecore.js';
@@ -56,7 +57,7 @@ export function sellPrice(it) {
 export function ensureShop() {
   if (S.shop && S.shop.day === S.day) return S.shop;
   const g = new RNG((S.created + S.day * 7919) >>> 0);
-  const pool = Object.keys(ITEMS).filter((b) => ITEMS[b].cat !== 'valuable' && ITEMS[b].cat !== 'ammo' && ITEMS[b].cat !== 'case' && !ITEMS[b].west && !ITEMS[b].garage && ITEMS[b].cat !== 'companion' && ITEMS[b].cat !== 'dogmod' && shopAvailable(b) && !['bandage', 'ai2', 'antirad', 'molotov', 'flare'].includes(b));
+  const pool = Object.keys(ITEMS).filter((b) => ITEMS[b].cat !== 'valuable' && ITEMS[b].cat !== 'ammo' && ITEMS[b].cat !== 'case' && !ITEMS[b].west && !ITEMS[b].garage && ITEMS[b].cat !== 'companion' && ITEMS[b].cat !== 'dogmod' && !ITEMS[b].noLoot && shopAvailable(b) && !['bandage', 'ai2', 'antirad', 'molotov', 'flare'].includes(b));
   const stock = [];
   const level = 1 + Math.floor(Object.values(S.modules).reduce((a, b) => a + b, 0) / 3);
   const n = 10 + Math.min(6, Math.floor(S.day / 3));
@@ -370,6 +371,9 @@ export function finalizeExpedition(exp) {
     chronicle(`${exp.fac.rescued.name}, rescatado con vida.`);
   }
   rep.contracts = completeContracts();
+  // fase 22: mundo persistente (nidos limpios que tardan en volver, jefes abatidos)
+  const calm = recordExpedition(exp);
+  if (calm && anyOut) addMessage(calm);
   chronicle(`Expedición a ${def.name}: ${{ success: 'éxito', partial: 'éxito parcial', fail: 'fracaso' }[rep.result]}. ${rep.ess} ✦, ${rep.kills} bajas.${deaths ? ` Caídos: ${rep.agents.filter((r) => r.status !== 'extraído').map((r) => r.name).join(', ')}.` : ''}`);
   if (rep.unlocked) chronicle(`Nueva zona accesible: ${rep.unlocked}.`);
   comedorScene(rep);
@@ -387,6 +391,7 @@ export function nextDay() {
   baseDayEvents();
   tickEventZones();
   const enf = S.modules.enfermeria;
+  worldDayTick(); // fase 22: alerta del reactor
   expireSpecials(); // fase 16.4: los encargos especiales solo valen un día
   baseDayTick(); // fase 21: investigación, celdas, edificios, cuotas, estaciones, historia, operaciones, ataques
   // fase 20: descanso (y banya), cartas de casa, adicciones

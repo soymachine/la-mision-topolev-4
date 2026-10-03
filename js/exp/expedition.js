@@ -29,6 +29,8 @@ import { TerrainPart } from './terrain.js';
 import { FactionPart } from './factions.js';
 import { CompanionPart } from './companions.js';
 import { MoralePart } from './morale.js';
+import { EcologyPart } from './ecology.js';
+import { zoneWorld, reactorAlert } from '../core/ecosys.js';
 import { unreadNote } from '../core/story.js';
 import { seasonOf } from '../data/basedata.js';
 import { MODIFIERS, modEss, modRad, WEATHER } from '../data/modifiers.js';
@@ -69,7 +71,8 @@ export class Expedition {
     e.sense = 0; e.senseR = 0;
     e.tally = { kills: 0, essence: 0, items: 0, dmgDealt: 0, dmgTaken: 0 };
     const g = new RNG(seed ^ 0x5bd1e995);
-    e.surgeAt = 300 + (def.tier || 0) * 20 + g.int(0, 60) - (mods.includes('pulso') ? 150 : 0);
+    // fase 22: con la alerta del reactor alta, el pulso llega antes
+    e.surgeAt = 300 + (def.tier || 0) * 20 + g.int(0, 60) - (mods.includes('pulso') ? 150 : 0) - reactorAlert() * 10;
     e.nextTemp = 40 + g.int(10, 50) - S.modules.radar * 5;
     e.nextRadio = 25 + g.int(0, 40);
     e.squad = [];
@@ -119,7 +122,9 @@ export class Expedition {
     const base = this.zone();
     const def = floorDef(base, f);
     const modSet = Object.fromEntries((this.mods || []).map((m) => [m, true]));
-    const m = generateMap(def, this.mapIdx, (this.seed + f * 7919) >>> 0, { radar: S.modules.radar, floor: f, floors: this.nFloors, mods: modSet });
+    // fase 22: mundo persistente (nidos que vuelven, zonas que crecen, jefes ausentes); las zonas de evento no lo tienen
+    const world = this.zoneDef ? { alert: reactorAlert() } : zoneWorld(base.id);
+    const m = generateMap(def, this.mapIdx, (this.seed + f * 7919) >>> 0, { radar: S.modules.radar, floor: f, floors: this.nFloors, mods: modSet, world });
     this.floor = f;
     this.w = m.w; this.h = m.h; this.t = m.t; this.sec = m.sec; this.sectors = m.sectors;
     this.exits = m.exits; this.pois = m.pois; this.objects = m.objects; this.vents = m.vents;
@@ -138,7 +143,13 @@ export class Expedition {
     this.explored = new Uint8Array(this.w * this.h);
     this.enemies = [];
     this.occ = new Map();
-    for (const sp of m.spawns) { const en = this.spawnEnemy(sp.type, sp.lvl, sp.x, sp.y, sp.state, sp.poi, sp.faction); if (sp.attacker) en.attacker = 1; if (sp.caged) en.caged = 1; }
+    const crit = world.alert >= 4 ? 1 : 0; // alerta crítica: los chebylitas suben un nivel
+    for (const sp of m.spawns) {
+      const lvl = !HUMANS[sp.type] && !sp.attacker ? Math.min(10, sp.lvl + crit) : sp.lvl;
+      const en = this.spawnEnemy(sp.type, lvl, sp.x, sp.y, sp.state, sp.poi, sp.faction);
+      if (sp.attacker) en.attacker = 1; if (sp.caged) en.caged = 1;
+      this.rollElite(en, (def.tier || 0) + f, world.alert || 0);
+    }
     this.fans = null; this.roots = null; this.lightDirty = true;
   }
 
@@ -439,6 +450,7 @@ export class Expedition {
       const def = ACTORS[e.type];
       e._st = { l: e.lvl, ...(HUMANS[e.type] ? scaleHuman(def, e.lvl) : scaleEnemy(def, e.lvl)) };
       if (HUMANS[e.type] && e.w) e._st.dmg = itemStats(e.w).dmg;
+      this.eliteStats(e, e._st);
     }
     return e._st;
   }
@@ -742,7 +754,7 @@ export class Expedition {
     for (const e of [...this.enemies]) {
       if (e.hp <= 0) continue;
       if (e.stun > 0) { e.stun--; e.energy = 0; continue; }
-      e.energy += ACTORS[e.type].speed;
+      e.energy += this.espeed(e);
       while (e.energy >= 100 && e.hp > 0 && !this.ended) {
         e.energy -= 100;
         this.enemyAct(e);
@@ -770,7 +782,7 @@ export class Expedition {
 }
 
 // Mezcla de los módulos parciales en la clase principal
-for (const Part of [CombatPart, UsePart, ExtractionPart, AIPart, EnvironmentPart, StoryPart, AbilityPart, TerrainPart, FactionPart, CompanionPart, MoralePart]) {
+for (const Part of [CombatPart, UsePart, ExtractionPart, AIPart, EnvironmentPart, StoryPart, AbilityPart, TerrainPart, FactionPart, CompanionPart, MoralePart, EcologyPart]) {
   for (const k of Object.getOwnPropertyNames(Part.prototype)) {
     if (k === 'constructor') continue;
     if (Object.prototype.hasOwnProperty.call(Expedition.prototype, k)) throw new Error('Método duplicado en Expedition: ' + k);

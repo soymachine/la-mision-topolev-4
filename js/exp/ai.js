@@ -33,7 +33,7 @@ export class AIPart {
     if (sq.order !== 'pasivo') {
       let best = null, bd = 1e9;
       for (const e of this.enemies) {
-        if (!this.isVisible(e.x, e.y) || !(this.hostile(sq, e) || (this.flag(sq, 'paranoia') && HUMANS[e.type] && !e.surrendered && this.attitudeToSquad(e) === 'neutral'))) continue;
+        if (!this.seen(e) || !(this.hostile(sq, e) || (this.flag(sq, 'paranoia') && HUMANS[e.type] && !e.surrendered && this.attitudeToSquad(e) === 'neutral'))) continue;
         const d = Math.hypot(e.x - sq.x, e.y - sq.y);
         if (d < bd && this.canShoot(sq, e) === 'ok' && (ws.wtype !== 'melee' ? d <= ws.range * 1.5 : true)) { best = e; bd = d; }
       }
@@ -126,7 +126,10 @@ export class AIPart {
     if (ACTORS[e.type].companion) { this.mechAct(e); return; }
     if (HUMANS[e.type]) { this.humanAct(e); return; }
     const def = ACTORS[e.type];
-    const abil = def.abil;
+    // fase 22: reparación, rabia, fases de jefe y aura de élite
+    this.ecoTurnStart(e);
+    if (e.hp <= 0 || !this.enemies.includes(e)) return;
+    const abil = this.abils(e);
     const st = this.est(e);
     // grabadora: un depredador más fuerte les asusta
     if (e.fear > 0) { e.fear--; this.stepAway(e, { x: e.fearX, y: e.fearY }); return; }
@@ -134,6 +137,7 @@ export class AIPart {
     const [tgt, td] = this.pickTarget(e, sight, e.state === 'dormido');
     if (e.state === 'dormido') {
       if (tgt) { e.state = 'alerta'; e.mem = 15; this.alertNest(e); this.fx.push({ type: 'wake', x: e.x, y: e.y }); }
+      else this.ecoDormant(e); // un depredador con hambre se despierta si ve una presa
       return;
     }
     if (tgt) { e.state = 'alerta'; e.mem = 15; e.lure = null; }
@@ -143,6 +147,8 @@ export class AIPart {
       this.greedyStep(e, e.lure.x, e.lure.y);
       return;
     }
+    // cadena alimentaria: cazar, seguir al depredador o huir de él
+    if (!tgt && this.ecoIdle(e)) return;
     if (e.state === 'errante' && !tgt) { this.wander(e); return; }
     if (!tgt) {
       e.mem--;
@@ -152,6 +158,7 @@ export class AIPart {
     }
     // habilidades
     const adj = cheb(e.x, e.y, tgt.x, tgt.y) <= 1;
+    if (this.ecoPreAct(e, tgt, td)) return; // fase 22: aullar, excavar, engendrar, maniquí…
     if (abil.includes('explode') && adj) { this.sporeBurst(e); return; }
     if (abil.includes('spawn')) {
       e.cd = (e.cd || 0) - 1;
@@ -257,6 +264,7 @@ export class AIPart {
     const hc = clamp(st.acc - dfn.ev, 5, 95);
     this.fx.push({ type: 'bite', x0: e.x, y0: e.y, x1: t.x, y1: t.y, color: actorColor(e) });
     if (rng.int(1, 100) > hc) { this.fx.push({ type: 'miss', x: t.x, y: t.y, delay: 80 }); return; }
+    mult *= this.ecoMeleeMult(e, t);
     let dmg = Math.round(rng.int(st.dmg[0], st.dmg[1]) * mult);
     dmg = Math.max(1, dmg - dfn.prot);
     if (!this.isSquad(t)) { this.damageEnemy(t, dmg, e, false, 80); return; }
@@ -267,9 +275,10 @@ export class AIPart {
     if (!this.inMap(sq)) return;
     const th = this.flag(sq, 'thorns');
     if (th && e.hp > 0) this.damageEnemy(e, th, sq, false, 120);
-    if (def.abil.includes('poison')) this.addPoison(sq, 2 + Math.floor(e.lvl / 3));
-    if (def.abil.includes('radbite')) sq.a.rad += (2 + e.lvl) * (1 - ast.rad / 100);
-    if (def.abil.includes('grab')) { sq.rooted = Math.max(sq.rooted || 0, 2); if (sq === this.cur) this.say(`¡${this.enm(e)} se enrosca en las piernas de ${this.nm(sq)}! No puede moverse.`, 'warn'); }
+    if (this.has(e, 'poison')) this.addPoison(sq, 2 + Math.floor(e.lvl / 3));
+    if (this.has(e, 'radbite')) sq.a.rad += (2 + e.lvl) * (1 - ast.rad / 100);
+    this.ecoOnHitAgent(e, sq, dmg, false);
+    if (this.has(e, 'grab')) { sq.rooted = Math.max(sq.rooted || 0, 2); if (sq === this.cur) this.say(`¡${this.enm(e)} se enrosca en las piernas de ${this.nm(sq)}! No puede moverse.`, 'warn'); }
   }
   enemyRanged(e, t) {
     const def = ACTORS[e.type];
@@ -285,7 +294,8 @@ export class AIPart {
     const sq = t;
     this.say(`${this.enm(e)} alcanza a ${this.nm(sq)}: <span class="bad">−${dmg}</span>.`);
     this.damageAgent(sq, dmg, `${def.name} Nv ${e.lvl}`, e, 140);
-    if (this.inMap(sq) && def.abil.includes('radbite')) sq.a.rad += (2 + e.lvl * 0.8) * (1 - this.ast(sq).rad / 100);
+    if (this.inMap(sq) && this.has(e, 'radbite')) sq.a.rad += (2 + e.lvl * 0.8) * (1 - this.ast(sq).rad / 100);
+    this.ecoOnHitAgent(e, sq, dmg, true);
   }
 
   // ---------------------------------------------------------------- IA humana (otras expediciones)

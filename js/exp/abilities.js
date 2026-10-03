@@ -44,7 +44,7 @@ export class AbilityPart {
   abilityTargets(sq) {
     const ab = this.abilityOf(sq);
     if (!ab || !ab.target) return [];
-    return this.enemies.filter((e) => this.isVisible(e.x, e.y) && this.hostile(sq, e) && this.los(sq.x, sq.y, e.x, e.y));
+    return this.enemies.filter((e) => this.seen(e) && this.hostile(sq, e) && this.los(sq.x, sq.y, e.x, e.y));
   }
 
   // usar la habilidad del agente; devuelve true si gasta el turno

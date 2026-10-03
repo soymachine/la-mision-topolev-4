@@ -414,13 +414,18 @@ Homenaje a Laika: chasis de cuatro patas de la Academia de Ciencias.
 
 ---
 
-## FASE 22 — Ecosistema y nuevos chebylitas
+## FASE 22 — Ecosistema y nuevos chebylitas ✔
 
-- [ ] **20+ chebylitas nuevos** por bioma: Liana de pino rojo, Siluro de Prípiat, Medusa de refrigeración, Velo de moho, Enjambre de cuarzo, Oso de grafito, Cigüeña de hierro, Perro de las fosas, **autómatas de chatarra** (robots de limpieza reactivados por la esencia: guiño a los robots reales usados en la limpieza) y Liquidador hueco (un traje vacío que camina).
-- [ ] **Élites con afijos** al estilo de Diablo: Blindado, Veloz, Radiactivo, Vampírico, Engendrador, Explosivo al morir, Invisible, Escudero (protege a otros). Mayor botín.
-- [ ] **Cadena alimentaria:** los lobos cazan ratas, los cuervos siguen a los lobos, la Raíz-madre atrae polillas. Se puede usar a favor (cebo).
-- [ ] **Jefes con fases y patrones** (uno por zona nueva) y **trofeos** únicos.
-- [ ] **Mundo persistente:** los nidos destruidos tardan días en volver; los no limpiados **crecen** y suben de nivel. «Nivel de alerta del reactor» global que sube con los días.
+- [x] **20+ chebylitas nuevos** por bioma: Liana de pino rojo, Siluro de Prípiat, Medusa de refrigeración, Velo de moho, Enjambre de cuarzo, Oso de grafito, Cigüeña de hierro, Perro de las fosas, **autómatas de chatarra** (robots de limpieza reactivados por la esencia: guiño a los robots reales usados en la limpieza) y Liquidador hueco (un traje vacío que camina).
+  - *Hecho:* 20 nuevos en `data/enemies.js` repartidos por bioma (además de la liana, el siluro y el robot de la fase 17): medusa de refrigeración, velo de moho, enjambre de cuarzo, oso de grafito, cigüeña de hierro, perro de las fosas, autómata de chatarra, liquidador hueco, sanguijuela del canal, topo de hormigón, tejedora de cables, erizo de isótopos, sapo de cesio, murciélago de ceniza, hormiga de plomo, alce de la ciénaga, bobina viva, maniquí de la escuela n.º 3, eco de la sirena y gato de las cocinas. Habilidades nuevas en `exp/ecology.js`: descarga, ceguera, división al morir, rabia, aullido, autorreparación, sigilo, drenar, excavar (sale a tu lado), red, púas, arco eléctrico, maniquí (solo se mueve si nadie lo mira), alarma y salto. Los acuáticos aparecen solo en el agua.
+- [x] **Élites con afijos** al estilo de Diablo: Blindado, Veloz, Radiactivo, Vampírico, Engendrador, Explosivo al morir, Invisible, Escudero (protege a otros). Mayor botín.
+  - *Hecho:* `data/ecosystem.js · ELITES`. Probabilidad 3% + 0,8% por nivel de zona/piso + 1,2% por nivel de alerta; uno o dos afijos (dos desde el nivel 6). +50% de salud, el doble de esencia y XP, botín asegurado. ★ dorada en el mapa, en el registro y en el tooltip.
+- [x] **Cadena alimentaria:** los lobos cazan ratas, los cuervos siguen a los lobos, la Raíz-madre atrae polillas. Se puede usar a favor (cebo).
+  - *Hecho:* `diet` (lobos, osos, perros, cigüeñas, gatos, jabalíes) y `follows` (cuervos → lobos, murciélagos → osos, polillas → Raíz-madre). Sin nadie mejor a quien atacar, cazan o siguen a su depredador; la presa huye. Un depredador dormido con hambre se despierta si ve una presa. La carne de cebo atrae a los carnívoros desde el doble de lejos y durante más tiempo.
+- [x] **Jefes con fases y patrones** (uno por zona nueva) y **trofeos** únicos.
+  - *Hecho:* 10 jefes nuevos (Matriarca de las fosas, Pino Rojo, Locomotora de óxido, Rey de la chatarra, Siluro Abuelo, Pájaro Carpintero, Topo Rey, Prototipo XM-7, Muestra n.º 7, Corazón de la Raíz), uno por zona nueva, siempre en el piso más profundo (el Siluro, en el agua). Todos los jefes (también el Pastor y el Coloso) cambian de fase al 66% y al 33%: invocan a los suyos, ganan habilidades, se curan. 12 trofeos (gadgets únicos ♛) que solo caen si no los tenéis.
+- [x] **Mundo persistente:** los nidos destruidos tardan días en volver; los no limpiados **crecen** y suben de nivel. «Nivel de alerta del reactor» global que sube con los días.
+  - *Hecho:* `core/ecosys.js`. Despejar el 60% de los nidos deja la zona con menos nidos 5 días; una zona visitada y olvidada crece +1 nivel cada 12 días (máx. +2); un jefe abatido tarda 10 días en volver. Alerta del reactor 0–5 (un nivel cada 25 días, en la cabecera de la base): más élites, nidos más grandes, el pulso antes y, desde «Crítico», chebylitas un nivel más fuertes. En EXPEDICIÓN se ve el estado de cada zona y su jefe.
 
 ---
 

@@ -4,6 +4,7 @@ import { MapRenderer, OBJ_NAME } from '../render/ascii.js';
 import { Minimap } from '../render/minimap.js';
 import { TILES, T } from '../data/tiles.js';
 import { ENEMIES, enemyColor, ABIL_TEXT } from '../data/enemies.js';
+import { ELITES } from '../data/ecosystem.js';
 import { ACTORS, actorColor, actorFaction, isHuman } from '../data/actors.js';
 import { FACTIONS, ATTITUDE_TEXT, ATTITUDE_CLASS } from '../data/factions.js';
 import { ITEMS, AMMO_NAMES } from '../data/items.js';
@@ -549,7 +550,7 @@ export class ExpeditionUI {
   visibleEnemies() {
     const e = this.exp;
     const c = e.cur;
-    return e.enemies.filter((en) => e.isVisible(en.x, en.y) && e.hostile(c, en)).sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y));
+    return e.enemies.filter((en) => e.seen(en) && e.hostile(c, en)).sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y));
   }
   enterFire() {
     // enemigos primero; después barriles, tuberías y lámparas a tiro
@@ -645,12 +646,12 @@ export class ExpeditionUI {
       return;
     }
     const en = e.enemyAt(x, y);
-    if ((!en || !e.isVisible(x, y)) && e.shootable(x, y)) {
+    if ((!en || !e.isVisible(x, y) || e.hidden(en)) && e.shootable(x, y)) {
       e.act((sq) => e.shootTile(sq, x, y));
       if (this.mode) { const list = [...this.visibleEnemies(), ...e.shootTargets(e.cur)]; if (!list.length) this.cancelMode(); else { this.mode.list = list; this.mode.i = Math.min(this.mode.i, list.length - 1); this.mode.cx = list[this.mode.i].x; this.mode.cy = list[this.mode.i].y; this.updateTargetOverlay(); } }
       return;
     }
-    if (!en || !e.isVisible(x, y)) { e.say('No hay objetivo ahí.', 'dimt'); return; }
+    if (!en || !e.isVisible(x, y) || e.hidden(en)) { e.say('No hay objetivo ahí.', 'dimt'); return; }
     if (!e.hostile(e.cur, en)) { this.confirmAttack(en); return; }
     e.act((sq) => e.attack(sq, en));
     if (this.mode) {
@@ -673,7 +674,7 @@ export class ExpeditionUI {
     if (!m) return;
     this.r.hover = [m.cx, m.cy];
     // apuntar a una persona no hostil: se dan cuenta (fase 18)
-    if (m.type === 'fire') { const en = e.enemyAt(m.cx, m.cy); if (en && e.isVisible(en.x, en.y)) e.aimAt(c, en); }
+    if (m.type === 'fire') { const en = e.enemyAt(m.cx, m.cy); if (en && e.seen(en)) e.aimAt(c, en); }
     const ov = { targetMode: true };
     if (m.type === 'ability') {
       ov.line = [c.x, c.y, m.cx, m.cy, !!e.enemyAt(m.cx, m.cy)];
@@ -710,7 +711,7 @@ export class ExpeditionUI {
       this.r.hover = [x, y];
       const c = e.cur;
       const en = e.enemyAt(x, y);
-      if (en && e.isVisible(x, y) && c) {
+      if (en && e.seen(en) && c) {
         this.r.overlay = { line: [c.x, c.y, x, y, e.canShoot(c, en) === 'ok'], hit: e.hitChance(c, en) };
       } else if (!this.travel && c && e.explored[e.key(x, y)] && (x !== c.x || y !== c.y) && cheb(x, y, c.x, c.y) < 60) {
         const path = this.findPath(x, y);
@@ -741,12 +742,12 @@ export class ExpeditionUI {
     if (this.mode) { this.fireAt(x, y); return; }
     const c = e.cur;
     const en = e.enemyAt(x, y);
-    if (en && e.isVisible(x, y) && !e.hostile(c, en)) {
+    if (en && e.seen(en) && !e.hostile(c, en)) {
       if (e.attitudeToSquad(en) === 'allied') this.startTravel(x, y, true);
       else this.confirmAttack(en);
       return;
     }
-    if (en && e.isVisible(x, y)) {
+    if (en && e.seen(en)) {
       const r = e.canShoot(c, en);
       if (r === 'ok') { if (this.canAct()) e.act((sq) => e.attack(sq, en)); return; }
       if (r === 'melee') { this.startTravel(x, y, true); return; }
@@ -819,7 +820,10 @@ export class ExpeditionUI {
       parts.push(`<div class="tt-row"><span>Salud</span><span>${hpBar(en.hp, en.hpMax, 12)} ${en.hp}/${en.hpMax}</span></div>`);
       if (human) parts.push(`<div class="tt-row"><span class="dimt">Arma</span><span style="color:${en.w ? rarityColor(en.w.r) : ''}">${en.w ? esc(itemName(en.w)) : 'ninguna'}</span></div><div class="tt-row"><span class="dimt">Protección</span><span>${es.armor}</span></div><div class="tt-row"><span class="dimt">Esquiva</span><span>${es.ev}</span></div><div class="tt-lore">${esc(def.lore || '')}</div>`);
       else parts.push(`<div class="tt-row"><span class="dimt">Daño</span><span>${es.dmg[0]}–${es.dmg[1]}</span></div><div class="tt-row"><span class="dimt">Blindaje</span><span>${es.armor}</span></div><div class="tt-row"><span class="dimt">Esquiva</span><span>${es.ev}</span></div>`);
-      if (def.abil.length) parts.push(`<div class="tt-aff">◆ ${def.abil.map((a) => ABIL_TEXT[a]).join(' · ')}</div>`);
+      const abl = [...new Set(e.abils(en))].filter((a) => ABIL_TEXT[a]);
+      if (abl.length) parts.push(`<div class="tt-aff">◆ ${abl.map((a) => ABIL_TEXT[a]).join(' · ')}</div>`);
+      if (en.elite) parts.push(`<div style="color:#ffd23f">★ Élite: ${en.elite.map((id) => `<b>${ELITES[id].name}</b> <span class="dimt">(${ELITES[id].desc})</span>`).join(' · ')}</div>`);
+      if (def.phases) parts.push(`<div class="bad">☠ Fase ${(en.phase || 0) + 1}/${def.phases.length + 1}${en.phase < def.phases.length || !en.phase ? ` · cambia al ${Math.round(def.phases[en.phase || 0].at * 100)}% de salud` : ''}</div>`);
       if (en.surrendered) parts.push('<div class="warn">⚑ Rendido. Ponte a su lado y pulsa <b>F</b>: dejarlo ir, interrogarlo, requisarle, entregarlo al KGB…</div>');
       else if (att !== 'hostile') parts.push(`<div class="dimt">${att === 'allied' ? 'Aliado: choca con él para intercambiar posiciones.' : 'Neutral: no te atacará si no le atacas.'} Atacarle lo volverá hostil.${human && fac.talk ? ' <b>F</b> a su lado para hablar.' : ''}${en.escort > 0 ? ` <span class="good">Os escolta (${en.escort} turnos).</span>` : ''}</div>`);
       if (en.charmed) parts.push('<div class="bad">Azuzado por la Congregación de la Ceniza.</div>');

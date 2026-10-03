@@ -489,6 +489,15 @@ export class HelpScreen {
 <li>A veces <b>atacan la base</b>: defiéndela con quien esté allí o cede parte del almacén. Los agentes que no van en el escuadrón principal pueden salir en una <b>operación simultánea</b> (EXPEDICIÓN) a una zona ya conocida: el resultado se sabe al pasar el día.</li>
 </ul>
 
+<h2>ECOSISTEMA, ÉLITES Y JEFES</h2>
+<ul>
+<li>Cada bioma tiene sus chebylitas: medusas y sanguijuelas en el agua, topos que salen del suelo a tu lado, maniquíes que solo se mueven si nadie los mira, el <b>liquidador hueco</b> (invisible hasta tenerlo a 2 casillas), sirenas que despiertan a todo el sector… Pasa el ratón por encima para ver sus habilidades.</li>
+<li>Los <b>élites</b> (<span style="color:#ffd23f">★</span>) tienen uno o dos afijos: Blindado, Veloz, Radiactivo, Vampírico, Engendrador, Explosivo, Invisible o Escudero. Más duros, pero dan el doble de esencia y siempre sueltan botín.</li>
+<li><b>Cadena alimentaria</b>: los lobos cazan ratas, los osos a los jabalíes, los cuervos siguen a los lobos y las polillas acuden a la Raíz-madre. La <b>carne de cebo</b> atrae a los carnívoros desde el doble de lejos y los entretiene comiendo.</li>
+<li>Cada zona nueva tiene su <b>jefe</b> en el piso más profundo. Cambia de fase al perder salud (llama a los suyos, se enfurece, se esconde…). Al caer deja un <b>trofeo</b> único (♛), si no lo tenéis ya, y tarda unos días en volver.</li>
+<li>El mundo <b>recuerda</b>: una zona con los nidos despejados tarda días en repoblarse; una que olvidáis crece y sube de nivel. La <b>alerta del reactor</b> (cabecera de la base) sube con los días: más élites, nidos más grandes y el pulso antes.</li>
+</ul>
+
 <h2>RADIACIÓN Y PELIGROS</h2>
 <ul>
 <li>La radiación se acumula en el agente (barra <span style="color:#b8f53d">RAD</span>) y <b>reduce su salud máxima</b>. A partir de 100 causa daño cada turno. Los trajes y el antirrad la reducen; la enfermería la trata en la base.</li>
