@@ -138,6 +138,12 @@ export class TerrainPart {
       this.say('💥 ¡El barril de combustible revienta!', 'warn');
       this.explode(x, y, 2, [8, 16], src, 2, delay, { noise: 15 });
       for (const [dx, dy] of D8) if (this.walkTile(x + dx, y + dy)) this.igniteCell(x + dx, y + dy, 8);
+    } else if (sh === 'pipe' && (this.def.zones.inundado || rng.chance(0.3)) && this.startFlood(x, y)) {
+      // fase 26: algunas tuberías llevan agua: inunda el pasillo poco a poco (y apaga el fuego)
+      this.t[k] = T.PIPE_BROKEN;
+      this.say('La tubería revienta: <b>¡el agua empieza a inundarlo todo!</b>', 'warn');
+      this.noise(x, y, 8);
+      this.dirty = true;
     } else if (sh === 'pipe') {
       this.t[k] = T.PIPE_BROKEN;
       this.steam = this.steam || [];
@@ -449,7 +455,7 @@ export class TerrainPart {
         for (const [dx, dy] of D8) {
           const x = st.x + dx, y = st.y + dy;
           if (!this.walkTile(x, y)) continue;
-          this.smoke[this.key(x, y)] = Math.max(this.smoke[this.key(x, y)], 2);
+          this.smoke[this.key(x, y)] = Math.max(this.smoke[this.key(x, y)], 7); // fase 26: el vapor ciega
           const ent = this.entityAt(x, y);
           if (!ent) continue;
           if (ent.type) this.damageEnemy(ent, rng.int(2, 4), null);
@@ -459,12 +465,7 @@ export class TerrainPart {
       }
       this.steam = this.steam.filter((st) => st.t > 0);
     }
-    // ventiladores: dispersan el gas
-    if (this.fans == null) { this.fans = []; for (let k = 0; k < this.t.length; k++) if (this.t[k] === T.FAN) this.fans.push(k); }
-    for (const k of this.fans) {
-      const fx = k % this.w, fy = (k / this.w) | 0;
-      for (let y = fy - 4; y <= fy + 4; y++) for (let x = fx - 4; x <= fx + 4; x++) if (this.inb(x, y)) { const kk = this.key(x, y); if (this.gas[kk]) this.gas[kk] = Math.max(0, this.gas[kk] - 3); }
-    }
+    // (los ventiladores dispersan el aire en fluidTick, fase 26)
     // fuego: el aceite arde con fuerza y los barriles cercanos estallan; las raíces se queman
     for (let k = 0; k < this.fire.length; k++) {
       if (!this.fire[k]) continue;

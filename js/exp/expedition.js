@@ -34,6 +34,7 @@ import { MoralePart } from './morale.js';
 import { EcologyPart } from './ecology.js';
 import { TacticsPart } from './tactics.js';
 import { DirectorPart } from './director.js';
+import { FluidPart, SMOKE_OPAQUE, SMOKE_OPAQUE_LOW } from './fluids.js';
 import { zoneWorld, reactorAlert } from '../core/ecosys.js';
 import { unreadNote } from '../core/story.js';
 import { seasonOf } from '../data/basedata.js';
@@ -143,7 +144,7 @@ export class Expedition {
     this.floorItems = new Map();
     for (const fi of m.floor) this.addFloor(fi.x, fi.y, fi.item);
     this.essence = new Map();
-    this.gas = new Uint8Array(this.w * this.h); this.fire = new Uint8Array(this.w * this.h); this.smoke = new Uint8Array(this.w * this.h);
+    this.gas = new Uint8Array(this.w * this.h); this.fire = new Uint8Array(this.w * this.h); this.smoke = new Uint8Array(this.w * this.h); this.dust = new Uint8Array(this.w * this.h); this.floods = [];
     this.traps = []; this.pending = []; this.flares = []; this.charges = []; this.steam = [];
     this.sampled = {}; this.litOn = {}; this.termFails = {}; this.secSeen = {};
     this.explored = new Uint8Array(this.w * this.h);
@@ -167,7 +168,7 @@ export class Expedition {
       w: this.w, h: this.h, t: b64(this.t), sec: b64(this.sec), explored: b64(this.explored),
       surface: !!this.surface, indoor: this.indoor ? b64(this.indoor) : null, antennaAt: this.antennaAt || null, railRows: this.railRows || [],
       sectors: this.sectors, exits: this.exits, pois: this.pois, objects: this.objects, vents: this.vents, start: this.start, lift: this.lift || null, chasms: this.chasms || [],
-      rad: sparse(this.rad, 100), anomaly: an, gas: sparse(this.gas), fire: sparse(this.fire), smoke: sparse(this.smoke),
+      rad: sparse(this.rad, 100), anomaly: an, gas: sparse(this.gas), fire: sparse(this.fire), smoke: sparse(this.smoke), dust: sparse(this.dust || []), floods: this.floods || [],
       traps: this.traps, mines: this.mines || [], pending: this.pending || [], flares: this.flares || [], charges: this.charges || [],
       steam: this.steam || [], sampled: this.sampled || {}, litOn: this.litOn || {}, termFails: this.termFails || {}, secSeen: this.secSeen || {},
       floorItems: [...this.floorItems.entries()], essence: [...this.essence.entries()],
@@ -184,6 +185,8 @@ export class Expedition {
     this.gas = new Uint8Array(N); for (const [k, v] of d.gas) this.gas[k] = v;
     this.fire = new Uint8Array(N); for (const [k, v] of d.fire) this.fire[k] = v;
     this.smoke = new Uint8Array(N); for (const [k, v] of d.smoke || []) this.smoke[k] = v;
+    this.dust = new Uint8Array(N); for (const [k, v] of d.dust || []) this.dust[k] = v; // fase 26
+    this.floods = d.floods || [];
     this.traps = d.traps || []; this.pending = d.pending || []; this.flares = d.flares || []; this.charges = d.charges || []; this.steam = d.steam || [];
     this.floorItems = new Map(d.floorItems);
     this.essence = new Map(d.essence);
@@ -303,6 +306,7 @@ export class Expedition {
     this.ambient = this.def.ambientRad * 0.25 * (this.def.id === 'sarcofago' && S.flags.sarcophagusDone ? 0.6 : 1) + modRad(this.mods);
     this.visible = new Uint8Array(this.w * this.h);
     this.fx = [];
+    this.fluidInit(); // fase 26: polvo e inundaciones (partidas antiguas)
     this.occ = new Map();
     for (const e of this.enemies) this.occ.set(this.key(e.x, e.y), e);
     for (const sq of this.squad) if (sq.alive && !sq.out) this.occ.set(this.key(sq.x, sq.y), sq);
@@ -331,7 +335,8 @@ export class Expedition {
     if (!this.inb(x, y)) return true;
     const k = this.key(x, y);
     const td = TILES[this.t[k]];
-    return td.opaque === 1 || this.smoke[k] > 0 || (td.half === 1 && (x + y) % 2 === 0);
+    // fase 26: solo el humo denso tapa la vista (y quien mira agachado ve por debajo de él)
+    return td.opaque === 1 || this.smoke[k] >= (this._fovLow ? SMOKE_OPAQUE_LOW : SMOKE_OPAQUE) || (td.half === 1 && (x + y) % 2 === 0);
   }
   walkTile(x, y) { return this.inb(x, y) && TILES[this.t[this.key(x, y)]].walk === 1; }
   blockedObj(x, y) { const o = this.objMap.get(this.key(x, y)); return o && BLOCKING_OBJ[o.kind] ? o : null; }
@@ -536,7 +541,7 @@ export class Expedition {
     const L = this.lightMap;
     const fog = ((this.mods || []).includes('niebla') ? 3 : 0) + (this.surface && this.weather === 'niebla' ? 3 : 0);
     const sources = [];
-    for (const sq of this.team) { const R = Math.max(3, this.ast(sq).vision - fog); sources.push([sq.x, sq.y, R, this.darkRadius(sq, R)]); }
+    for (const sq of this.team) { const R = Math.max(3, this.ast(sq).vision - fog); sources.push([sq.x, sq.y, R, this.darkRadius(sq, R), !!sq.crouch]); }
     for (const f of this.flares) sources.push([f.x, f.y, 5, 5]);
     for (const d of this.enemies) if (d.type === 'strizh') sources.push([d.x, d.y, 6, 4]);
     // contador de centelleo: vetas y cristales cercanos, aunque haya paredes
@@ -544,7 +549,8 @@ export class Expedition {
       const r = this.flag(sq, 'scint');
       if (r) for (const o of this.objects) if ((o.kind === 'vein' || o.kind === 'shard') && Math.hypot(o.x - sq.x, o.y - sq.y) <= r) this.explored[this.key(o.x, o.y)] = 1;
     }
-    for (const [ox, oy, r, dr] of sources) {
+    for (const [ox, oy, r, dr, low] of sources) {
+      this._fovLow = !!low;
       computeFOV(ox, oy, r, (x, y) => this.opaque(x, y), (x, y, d) => {
         if (!this.inb(x, y)) return;
         const k = this.key(x, y);
@@ -553,6 +559,14 @@ export class Expedition {
         if (b > vis[k]) vis[k] = b;
         this.explored[k] = 1;
       });
+    }
+    this._fovLow = false;
+    // fase 26: la nube se ve desde fuera aunque no se vea lo que hay dentro (visión que ignora el humo)
+    if (!this.airSeen || this.airSeen.length !== vis.length) this.airSeen = new Uint8Array(vis.length);
+    this.airSeen.fill(0);
+    if (this.smoke.some((v) => v >= 6)) {
+      const opq = (x, y) => { if (!this.inb(x, y)) return true; const td = TILES[this.t[this.key(x, y)]]; return td.opaque === 1 || (td.half === 1 && (x + y) % 2 === 0); };
+      for (const [ox, oy, r, dr] of sources) computeFOV(ox, oy, r, opq, (x, y, d) => { if (!this.inb(x, y)) return; const k = this.key(x, y); if (d > dr && !L[k]) return; this.airSeen[k] = 1; });
     }
     this.radarSweep(); // radares de gadget
     // puntos de interés vistos: alijos que aparecen en el radar y nidos identificados
@@ -861,7 +875,7 @@ export class Expedition {
 }
 
 // Mezcla de los módulos parciales en la clase principal
-for (const Part of [CombatPart, UsePart, ExtractionPart, AIPart, EnvironmentPart, StoryPart, AbilityPart, TerrainPart, FactionPart, CompanionPart, MoralePart, EcologyPart, TacticsPart, DirectorPart]) {
+for (const Part of [CombatPart, UsePart, ExtractionPart, AIPart, EnvironmentPart, StoryPart, AbilityPart, TerrainPart, FactionPart, CompanionPart, MoralePart, EcologyPart, TacticsPart, DirectorPart, FluidPart]) {
   for (const k of Object.getOwnPropertyNames(Part.prototype)) {
     if (k === 'constructor') continue;
     if (Object.prototype.hasOwnProperty.call(Expedition.prototype, k)) throw new Error('Método duplicado en Expedition: ' + k);

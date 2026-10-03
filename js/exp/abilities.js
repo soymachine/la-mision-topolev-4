@@ -138,7 +138,7 @@ export class AbilityPart {
       this.charges.splice(this.charges.indexOf(c), 1);
       const src = this.squad.find((s) => s.id === c.by && this.inMap(s)) || null;
       this.say('✱ ¡La carga estalla!', 'bad');
-      this.explode(c.x, c.y, c.r, c.dmg, src, 0, 0, { pierce: 2, noise: 16 });
+      this.explode(c.x, c.y, c.r, c.dmg, src, 0, 0, { pierce: 2, noise: 16, demo: true });
     }
   }
 

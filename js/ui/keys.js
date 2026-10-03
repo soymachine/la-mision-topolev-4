@@ -31,6 +31,7 @@ export const KEY_ACTIONS = [
   { id: 'inventory', name: 'Inventario', def: ['i'] },
   { id: 'map', name: 'Mapa del radar', def: ['m'] },
   { id: 'orders', name: 'Órdenes del escuadrón', def: ['o'] },
+  { id: 'air', name: 'Capa AIRE (humo, esporas y polvo)', def: ['u'] },
   { id: 'next', name: 'Siguiente agente', def: ['Tab'] },
   { id: 'help', name: 'Ayuda', def: ['?', 'F1'] },
   { id: 'zoomIn', name: 'Acercar', def: ['+'] },

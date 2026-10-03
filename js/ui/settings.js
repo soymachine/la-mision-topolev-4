@@ -34,6 +34,7 @@ export function settingsModal(opts = {}) {
       row(t('set.crt'), toggle(yn(settings.crt), () => { settings.crt = !settings.crt; document.body.classList.toggle('no-crt', !settings.crt); saveSettings(); }, 'crt')),
       row(t('set.fullscreen'), toggle(t('set.toggle'), () => toggleFullscreen(), 'fullscreen')),
       row(t('set.text'), toggle(t('scale.' + (settings.uiScale || 0)), () => cycleUiScale(), 'text')),
+      row(t('set.airView'), toggle(t(settings.airView === false ? 'set.airOld' : 'set.airNew'), () => { settings.airView = settings.airView === false; saveSettings(); }, 'airview')), // fase 26 (a prueba)
       row(t('set.lang'), toggle(LANGS[lang()], () => cycleLang(), 'lang')),
       el('div', { class: 'h', text: t('set.controls') }),
       row(t('set.keys'), el('button', { class: 'btn small', 'data-set': 'keys', onclick: () => { sfx.click(); controlsModal(); } }, t('set.edit'))),

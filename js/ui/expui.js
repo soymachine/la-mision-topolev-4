@@ -571,6 +571,7 @@ export class ExpeditionUI {
       case 'inventory': this.openInventory(); break;
       case 'map': this.toggleBigMap(); break;
       case 'orders': this.cycleOrder(); break;
+      case 'air': this.r.airLayer = !this.r.airLayer; sfx.click(); e.say(this.r.airLayer ? 'Capa AIRE: concentración de humo, esporas y polvo (1–9). Pulsa otra vez para cerrarla.' : 'Capa AIRE cerrada.', 'dimt'); break;
       case 'next': this.switchTo(); sfx.click(); break;
       case 'help': this.hooks.onHelp(); break;
       case 'zoomIn': this.zoom(1); break;
@@ -971,10 +972,13 @@ export class ExpeditionUI {
       const r = e.rad[k] + e.ambient;
       const hz = [];
       if (r > 0.3) hz.push(`<span style="color:#b8f53d">☢ radiación ${r > 3 ? 'letal' : r > 1.5 ? 'alta' : r > 0.7 ? 'media' : 'baja'}</span>`);
-      if (e.gas[k]) hz.push('<span style="color:#c06cff">gas tóxico</span>');
+      const dens = (v) => (v >= 11 ? 'muy denso' : v >= 6 ? 'denso' : 'ligero');
+      if (e.gas[k]) hz.push(`<span style="color:#c06cff">esporas tóxicas · ${dens(e.gas[k])} · a ras de suelo</span>`);
       if (e.fire[k]) hz.push('<span class="bad">fuego</span>');
       if (e.anomaly[k]) hz.push('<span style="color:#7fb8ff">anomalía eléctrica</span>');
-      if (e.smoke[k]) hz.push('<span class="dimt">humo</span>');
+      if (e.smoke[k]) hz.push(`<span class="dimt">humo · ${dens(e.smoke[k])} · alto${e.smoke[k] >= 6 ? ' (tapa la vista; agachado se ve y se respira por debajo)' : ''}</span>`);
+      if (e.dust && e.dust[k]) hz.push(`<span style="color:#b8c83a">polvo radiactivo · ${dens(e.dust[k])}</span>`);
+      if ((e.floods || []).some((f) => cheb(f.x, f.y, x, y) <= 6)) hz.push('<span class="cyan">el agua sigue subiendo</span>');
       if (hz.length) parts.push(`<div>${hz.join(' · ')}</div>`);
     }
     return parts.join('');

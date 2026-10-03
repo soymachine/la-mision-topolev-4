@@ -418,6 +418,7 @@ export class CombatPart {
     }
     this._essBoost = 0;
     this.blastTerrain(x, y, r, src);
+    this.blastStructure(x, y, r, !!opts.demo); // fase 26: muros que se abren, polvo y suelos que se hunden
     this.noise(x, y, opts.noise || 14);
     this.flushBreaks();
   }

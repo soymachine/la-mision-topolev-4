@@ -58,6 +58,18 @@ export class UsePart {
       }
       // 4. objetos en el suelo
       if (this.floorAt(sq.x, sq.y).length) { this.emit('loot', { floor: true, x: sq.x, y: sq.y }); return false; }
+      // 5. fase 26: cerrar una puerta abierta junto al agente (encierra el gas y el humo de una sala)
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const x = sq.x + dx, y = sq.y + dy;
+        if (!this.inb(x, y) || this.tile(x, y) !== T.DOOR_OPEN || this.entityAt(x, y) || this.objAt(x, y) || this.floorAt(x, y).length) continue;
+        this.t[this.key(x, y)] = T.DOOR;
+        this.fx.push({ type: 'door', x, y });
+        this.noise(x, y, 3);
+        this.dirty = true; this.dmap = null; this.lightDirty = true;
+        this.say(`${this.nm(sq)} cierra la puerta.${this.gas[this.key(x - dx * 2, y - dy * 2)] || this.smoke[this.key(x - dx * 2, y - dy * 2)] ? '' : ' <span class="dimt">(El gas y el humo no pasan por una puerta cerrada.)</span>'}`, 'dimt');
+        this.computeVisibility(true);
+        return true;
+      }
       this.say('No hay nada con lo que interactuar.', 'dimt');
       return false;
     });

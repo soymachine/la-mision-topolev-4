@@ -150,7 +150,8 @@ export function narrDay() {
     if (list.length) { const [id] = weighted(list); N.lastRelief = S.day; fireNarr(id); return id; }
   }
   // amenaza
-  if (S.day < 3 || S.day - N.lastThreat < P.minGap) return null;
+  // unos días de gracia al empezar (Chernóbil no los respeta)
+  if (S.day < (N.persona === 'chernobil' ? 3 : 6) || S.day - N.lastThreat < P.minGap) return null;
   const avail = Object.entries(THREATS).filter(([, d]) => d.cond());
   let pick = null;
   if (avail.length && Math.random() < P.chaos * 0.25) pick = avail[Math.floor(Math.random() * avail.length)]; // azar

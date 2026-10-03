@@ -13,6 +13,10 @@ import { hexToRgb, rng, clamp } from '../util/rng.js';
 import { Particles, line } from './particles.js';
 import { rarityColor, itemGlyph } from '../core/items.js';
 import { ESSENCE_COLOR } from '../exp/shared.js';
+import { AIR_TYPES } from '../exp/fluids.js';
+import { settings } from '../core/state.js';
+// rgba de un color #rrggbb con transparencia
+const rgba = (hex, a) => { const [r, g, b] = hexToRgb(hex); return `rgba(${r},${g},${b},${Math.max(0, Math.min(1, a)).toFixed(3)})`; };
 
 export const FONT = '"JetBrains Mono", "DejaVu Sans Mono", Consolas, monospace';
 const hash = (x, y) => { let h = (x * 374761393 + y * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177; return (h ^ (h >>> 16)) >>> 0; };
@@ -339,6 +343,7 @@ export class MapRenderer {
     const x1 = Math.min(e.w - 1, Math.ceil(this.camR.x + this.vw / cw) + 2), y1 = Math.min(e.h - 1, Math.ceil(this.camR.y + this.vh / ch) + 2);
     const T_ = now / 1000;
     const S = this.toScreen;
+    const airView = settings.airView !== false && !!e.airAt; // fase 26: vista del aire (a prueba; se desactiva en CONFIGURACIÓN)
     // fondo de una casilla según su terreno (el mismo que la capa estática): tapa el carácter de debajo
     const cellBg = (x, y) => {
       if (x < 0 || y < 0 || x >= e.w || y >= e.h) return '#000';
@@ -370,6 +375,11 @@ export class MapRenderer {
         const v = e.visible[k];
         if (!v) {
           if (e.explored[k] && e.anomaly[k] && Math.sin(T_ * 7 + x * 3 + y) > 0.97) glyph(x, y, '*', 'rgba(120,180,255,.5)');
+          // fase 26: la nube de humo se ve desde fuera (lo que hay dentro, no)
+          if (airView && e.airSeen && e.airSeen[k]) {
+            const air = e.airAt(k);
+            if (air && air.v >= 2) { const A = AIR_TYPES[air.type], a = air.v / 15; glyph(x, y, this.cbMode ? A.cb : A.glyphs[air.v >= 9 ? 1 : 0], rgba(A.color, 0.35 + a * 0.55), rgba(A.color, 0.15 + a * 0.4)); }
+          }
           continue;
         }
         const tt = e.t[k];
@@ -391,17 +401,26 @@ export class MapRenderer {
           ctx.fillStyle = `rgba(80,140,255,${0.12 + 0.1 * fl})`; ctx.fillRect(sx, sy, cw, ch);
           if (fl > 0.6) glyph(x, y, rng.pick(['*', '+', '·', '\'']), `rgba(190,230,255,${0.5 + fl * 0.5})`);
         }
-        if (e.gas[k]) {
-          const a = Math.min(0.55, e.gas[k] / 10);
-          const [sx, sy] = S(x, y);
-          ctx.fillStyle = `rgba(160,70,220,${a * 0.5})`; ctx.fillRect(sx, sy, cw, ch);
-          glyph(x, y, Math.sin(T_ * 2 + x + y * 2) > 0 ? '░' : '▒', `rgba(200,120,255,${a})`);
-        }
-        if (e.smoke[k]) {
-          const a = Math.min(0.8, e.smoke[k] / 10 + 0.2);
-          const [sx, sy] = S(x, y);
-          ctx.fillStyle = `rgba(90,85,80,${a * 0.6})`; ctx.fillRect(sx, sy, cw, ch);
-          glyph(x, y, Math.sin(T_ * 1.5 + x * 0.7 + y) > 0 ? '▒' : '░', `rgba(170,160,150,${a})`);
+        if (airView) {
+          // fase 26 · vista B: en las casillas vacías, el carácter de la nube (su tipo y su densidad)
+          const air = e.airAt(k);
+          if (air && air.v >= 2) {
+            const A = AIR_TYPES[air.type], a = air.v / 15;
+            glyph(x, y, this.cbMode ? A.cb : A.glyphs[air.v >= 9 ? 1 : 0], rgba(A.color, 0.35 + a * 0.55), rgba(A.color, a * 0.4));
+          }
+        } else {
+          if (e.gas[k]) {
+            const a = Math.min(0.55, e.gas[k] / 10);
+            const [sx, sy] = S(x, y);
+            ctx.fillStyle = `rgba(160,70,220,${a * 0.5})`; ctx.fillRect(sx, sy, cw, ch);
+            glyph(x, y, Math.sin(T_ * 2 + x + y * 2) > 0 ? '░' : '▒', `rgba(200,120,255,${a})`);
+          }
+          if (e.smoke[k] || (e.dust && e.dust[k])) {
+            const a = Math.min(0.8, Math.max(e.smoke[k], (e.dust && e.dust[k]) || 0) / 10 + 0.2);
+            const [sx, sy] = S(x, y);
+            ctx.fillStyle = `rgba(90,85,80,${a * 0.6})`; ctx.fillRect(sx, sy, cw, ch);
+            glyph(x, y, Math.sin(T_ * 1.5 + x * 0.7 + y) > 0 ? '▒' : '░', `rgba(170,160,150,${a})`);
+          }
         }
         // casillas animadas de la fase 16
         const an = TILES[tt].anim;
@@ -588,11 +607,14 @@ export class MapRenderer {
       else if (en.elite) tint(rx, ry, '#ffd23f', 0.16 + 0.06 * Math.sin(T_ * 4 + en.x));
       else if (en.lvl >= 7) tint(rx, ry, col, 0.12);
       if (lunging) { ctx.fillStyle = col; ctx.fillRect(sx, sy, cw, ch); }
+      // fase 26: dentro de humo muy denso solo se ve una silueta
+      const shadow = airView && e.actorHiddenBySmoke(en);
       ctx.globalAlpha = breathe;
-      ctx.fillStyle = lunging ? '#000' : flashing ? '#ffffff' : col;
+      ctx.fillStyle = shadow ? '#8a847c' : lunging ? '#000' : flashing ? '#ffffff' : col;
       ctx.font = def.boss ? `800 ${this.fs}px ${FONT}` : fontB;
-      ctx.fillText(def.glyph, sx + cw / 2, sy + ch / 2 + 1);
+      ctx.fillText(shadow ? '?' : def.glyph, sx + cw / 2, sy + ch / 2 + 1);
       ctx.globalAlpha = 1; ctx.font = font;
+      if (shadow) continue;
       // barra de vida
       if (en.hp < en.hpMax) {
         const w = cw - 2, f = Math.max(0, en.hp / en.hpMax);
@@ -647,6 +669,16 @@ export class MapRenderer {
       }
     }
 
+    // ---- fase 26 · vista B: el aire tiñe todo lo que está dentro de la nube (niebla por casillas) ----
+    if (airView) for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const k = y * e.w + x;
+      if (!e.visible[k]) continue;
+      const air = e.airAt(k);
+      if (!air || air.v < 2) continue;
+      const [sx, sy] = S(x, y);
+      ctx.fillStyle = rgba(AIR_TYPES[air.type].color, Math.round((air.v / 15) * 0.45 * 8) / 8);
+      ctx.fillRect(sx, sy, cw, ch);
+    }
     // ---- superposiciones: ruta, línea de tiro, área de explosión y cursor (todo por casillas) ----
     const ov = this.overlay;
     if (ov && ov.path) {
@@ -707,6 +739,26 @@ export class MapRenderer {
           ctx.fillStyle = fsc.color + a + ')'; ctx.fillRect(px, py, cw, ch);
         }
       }
+    }
+    // ---- fase 26 · capa AIRE (tecla): el mapa se apaga y cada casilla dice su concentración (1–9) ----
+    if (this.airLayer && e.airAt) {
+      ctx.fillStyle = 'rgba(0,0,0,.72)'; ctx.fillRect(0, 0, this.vw, this.vh);
+      ctx.font = fontB;
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+        const k = y * e.w + x;
+        if (!e.explored[k]) continue;
+        const air = e.airAt(k);
+        if (!air || air.v < 1) continue;
+        const [sx, sy] = S(x, y);
+        ctx.fillStyle = rgba(AIR_TYPES[air.type].color, 0.55 + (air.v / 15) * 0.45);
+        ctx.fillText(String(Math.min(9, Math.ceil((air.v / 15) * 9))), sx + cw / 2, sy + ch / 2 + 1);
+      }
+      for (const sq of e.squad) if (e.inMap(sq)) { const [sx, sy] = S(sq.x, sq.y); ctx.fillStyle = sq.a.color; ctx.fillText('@', sx + cw / 2, sy + ch / 2 + 1); }
+      ctx.font = font; ctx.textAlign = 'left';
+      ctx.fillStyle = '#000'; ctx.fillRect(4, 4, cw * 54, ch * 1.2);
+      ctx.fillStyle = '#ffd23f';
+      ctx.fillText(`CAPA AIRE · humo ${AIR_TYPES.smoke.cb} · esporas ${AIR_TYPES.gas.cb} · polvo radiactivo ${AIR_TYPES.dust.cb} · 1–9 densidad`, 10, 4 + ch * 0.6);
+      ctx.textAlign = 'center';
     }
     if (this.alertPulse) {
       // alerta: el borde de la vista se llena de casillas rojas (dos anillos)

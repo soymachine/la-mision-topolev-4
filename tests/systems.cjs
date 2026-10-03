@@ -806,9 +806,10 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
       const tur = e.enemies.find((x) => x.type === 'gnomo');
       out.tur = !!tur;
       const p = window.__adj(e, sq, 4) || window.__adj(e, sq, 3);
-      e.spawnEnemy('rata', 1, p[0], p[1], 'alerta');
+      const tgtRat = e.spawnEnemy('rata', 1, p[0], p[1], 'alerta'); tgtRat.hp = tgtRat.hpMax = 999; // (que no la mate el perro antes de que dispare la torreta)
       for (let i = 0; i < 4; i++) e.wait();
       out.ammo = tur.ammo;
+      e.dismissActor(tgtRat);
       e.interactComp(sq, tur);
       out.back = sq.a.bag.some((x) => x.b === 'gnomo' && x.ammo === tur.ammo) && !e.enemies.includes(tur);
       window.__clr(e);
@@ -1672,19 +1673,19 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     const yc = await A.evaluate(() => !!window.__topolev.exp.cur.crouch);
     ok(rk.conflict && rk.reserved && rk.okSet && rk.name === 'Y' && yc, 'remapear: avisa de choques y teclas reservadas; la tecla nueva funciona');
     // los mensajes y la ayuda muestran la tecla nueva (keyify)
-    const kf = await A.evaluate(async () => { const Kk = await import('./js/ui/keys.js'); Kk.setKey('reload', 'u'); const t = Kk.keyify('Pulsa <b>R</b> para recargar.'); Kk.resetKeys(); return { t, back: Kk.keyify('Pulsa <b>R</b>.') === 'Pulsa <b>R</b>.' && Kk.actionForKey('k') === 'crouch' }; });
-    ok(kf.t.includes('<b>U</b>') && kf.back, 'los mensajes nombran la tecla actual; RESTAURAR vuelve a las de siempre');
+    const kf = await A.evaluate(async () => { const Kk = await import('./js/ui/keys.js'); Kk.setKey('reload', '9'); const t = Kk.keyify('Pulsa <b>R</b> para recargar.'); Kk.resetKeys(); return { t, back: Kk.keyify('Pulsa <b>R</b>.') === 'Pulsa <b>R</b>.' && Kk.actionForKey('k') === 'crouch' }; });
+    ok(kf.t.includes('<b>9</b>') && kf.back, 'los mensajes nombran la tecla actual; RESTAURAR vuelve a las de siempre');
     // pantalla CONTROLES desde el menú principal
     await A.evaluate(() => window.__topolev.exp && window.__topolev.save && window.__topolev.save());
     await A.reload(); await A.waitForTimeout(800);
     await A.click('text=CONFIGURACIÓN'); await A.waitForTimeout(150);
     await A.click('.modal [data-set="keys"]'); await A.waitForTimeout(200);
     await A.click('.modal button[data-act="crouch"]').catch(async () => { await A.click('.modal .row:has-text("Agacharse") button'); });
-    await A.waitForTimeout(100); await A.keyboard.press('u'); await A.waitForTimeout(150);
+    await A.waitForTimeout(100); await A.keyboard.press('9'); await A.waitForTimeout(150);
     const scr = await A.evaluate(async () => { const { settings } = await import('./js/core/state.js'); return settings.keys && settings.keys.crouch; });
     await A.click('text=RESTAURAR TECLAS'); await A.waitForTimeout(100);
     const scr2 = await A.evaluate(async () => { const { settings } = await import('./js/core/state.js'); return Object.keys(settings.keys || {}).length; });
-    ok(scr === 'u' && scr2 === 0, 'pantalla CONTROLES: reasignar con clic + tecla y restaurar');
+    ok(scr === '9' && scr2 === 0, 'pantalla CONTROLES: reasignar con clic + tecla y restaurar');
     await ctx11.close();
   }
   {
@@ -2372,6 +2373,113 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     const repTxt = await N.evaluate(() => document.body.innerText.includes('RITMO DE LA EXPEDICIÓN'));
     ok(repTxt, 'el informe muestra el ritmo de la expedición (curva ASCII)');
     await ctx22.close();
+  }
+
+  // ================================================================ fase 26: fluidos, destrucción y vista del aire
+  console.log('· Fase 26: fluidos, destrucción y vista del aire');
+  {
+    const ctx23 = await b.newContext({ viewport: { width: 1440, height: 860 } });
+    const A = await ctx23.newPage();
+    A.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
+    A.on('console', (m) => { if ((m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) || m.type() === 'warning') errs.push(m.text()); });
+    await A.goto(URL); await A.waitForTimeout(800);
+    await A.click('text=NUEVA PARTIDA'); await A.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await A.click('#screen-intro'); await A.click('text=COMENZAR');
+    await A.waitForTimeout(300);
+    await A.click('.tab:has-text("EXPEDICIÓN")'); await A.waitForTimeout(200);
+    await A.click('[data-go]'); await A.waitForTimeout(150); for (let i = 0; i < 2; i++) { const rr = await A.$$('.modal .agent-row'); await rr[i].click(); }
+    await A.click('text=LANZAR EXPEDICIÓN'); await A.waitForTimeout(300);
+    if (await A.$('.modal-back >> text=LANZAR')) await A.click('.modal-back >> text=LANZAR');
+    await A.waitForTimeout(800);
+    for (let i = 0; i < 6 && (await A.$('.modal')); i++) { await A.keyboard.press('Escape'); await A.waitForTimeout(120); }
+    const fl = await A.evaluate(() => {
+      const e = window.__topolev.exp; window.__topolev.debug.run('god');
+      for (const x of [...e.enemies]) if (!e.isComp(x)) e.dismissActor(x);
+      if (e.dlg) e.closeDialog(); e.dlgQueue = [];
+      const c = e.cur, out = {};
+      // una sala limpia de 21×11 (dentro del mapa) con el escuadrón en el centro
+      const W = 21, H = 11;
+      const x0 = Math.max(2, Math.min(e.w - W - 2, c.x - 10)), y0 = Math.max(2, Math.min(e.h - H - 2, c.y - 5));
+      const clean = () => { for (let y = y0; y < y0 + H; y++) for (let x = x0; x < x0 + W; x++) { const k = e.key(x, y); const edge = x === x0 || y === y0 || x === x0 + W - 1 || y === y0 + H - 1; e.t[k] = edge ? 1 : 2; e.gas[k] = 0; e.smoke[k] = 0; e.dust[k] = 0; e.fire[k] = 0; e.rad[k] = 0; e.anomaly[k] = 0; e.objMap.delete(k); e.floorItems.delete(k); } e.objects = e.objects.filter((o) => !(o.x >= x0 && o.x < x0 + W && o.y >= y0 && o.y < y0 + H)); e.vents = []; e.fans = null; e.floods = []; e.steam = []; };
+      clean();
+      e.moveEntity(c, x0 + 10, y0 + 5);
+      for (const q of e.squad) if (q !== c && e.inMap(q)) e.moveEntity(q, c.x - 1, c.y);
+      for (let y = y0; y < y0 + H; y++) for (let x = x0; x < x0 + W; x++) e.explored[e.key(x, y)] = 1;
+      e.litOn = e.litOn || {}; e.lightMap = null; e.lightDirty = true;
+      e.ambient = 0;
+      const tick = (n) => { for (let i = 0; i < n; i++) { e.turn++; e.fluidTick(); } };
+      // difusión
+      const gk = e.key(c.x - 6, c.y); e.gas[gk] = 15;
+      tick(6);
+      let cells = 0; for (let y = y0; y < y0 + H; y++) for (let x = x0; x < x0 + W; x++) if (e.gas[e.key(x, y)]) cells++;
+      out.spread = cells >= 5 && e.gas[gk] < 15;
+      // puerta cerrada: el gas no pasa
+      clean();
+      const wx = c.x + 3;
+      for (let y = y0 + 1; y < y0 + H - 1; y++) e.t[e.key(wx, y)] = 1;
+      e.t[e.key(wx, c.y)] = 4; // puerta cerrada
+      for (let y = y0 + 1; y < y0 + H - 1; y++) e.gas[e.key(wx + 2, y)] = 15;
+      tick(8);
+      let leak = 0; for (let y = y0 + 1; y < y0 + H - 1; y++) for (let x = x0 + 1; x < wx; x++) leak += e.gas[e.key(x, y)];
+      out.doorBlocks = leak === 0;
+      // abrir la puerta: ahora sí pasa
+      e.t[e.key(wx, c.y)] = 5;
+      for (let y = y0 + 1; y < y0 + H - 1; y++) e.gas[e.key(wx + 2, y)] = 15;
+      tick(8);
+      leak = 0; for (let y = y0 + 1; y < y0 + H - 1; y++) for (let x = x0 + 1; x < wx; x++) leak += e.gas[e.key(x, y)];
+      out.doorOpen = leak > 0;
+      // humo denso: tapa la vista de pie; agachado se ve por debajo
+      clean();
+      const tx = c.x + 3;
+      for (let y = c.y - 1; y <= c.y + 1; y++) e.smoke[e.key(c.x + 2, y)] = 9;
+      e.computeVisibility(true);
+      const standing = !!e.visible[e.key(tx, c.y)];
+      c.crouch = true; e.computeVisibility(true);
+      const crouched = !!e.visible[e.key(tx, c.y)];
+      c.crouch = false;
+      out.smokeSight = !standing && crouched;
+      // respirar: tos de pie en humo denso; agachado, no
+      clean(); e.smoke[e.key(c.x, c.y)] = 9; c.buffs = []; e.breathe(c);
+      const cough = c.buffs.some((b) => b.name === 'Tos');
+      c.buffs = []; c.crouch = true; e.breathe(c); const cough2 = c.buffs.some((b) => b.name === 'Tos'); c.crouch = false;
+      out.cough = cough && !cough2;
+      // polvo radiactivo: sube la radiación
+      clean(); c.a.rad = 0; e.dust[e.key(c.x, c.y)] = 10; c.a.equip.mask = null; const mk = c.a.equip.helmet; e.breathe(c); out.dust = c.a.rad > 0;
+      // el fuego humea
+      clean(); e.fire[e.key(c.x + 3, c.y)] = 8; tick(1); out.fireSmoke = e.smoke[e.key(c.x + 3, c.y)] > 0;
+      // explosión: abre el muro y levanta polvo
+      clean(); e.fire[e.key(c.x + 3, c.y)] = 0;
+      const wallK = e.key(x0 + W - 1, c.y);
+      e.explode(x0 + W - 2, c.y, 2, [1, 2], null, 0, 0, { demo: true });
+      out.wall = e.t[wallK] !== 1 || e.t[e.key(x0 + W - 1, c.y - 1)] !== 1 || e.t[e.key(x0 + W - 1, c.y + 1)] !== 1;
+      out.blastDust = e.dust[e.key(x0 + W - 3, c.y)] > 0;
+      // tubería de agua rota: inunda poco a poco
+      clean(); const ok = e.startFlood(c.x + 4, c.y - 3, 12);
+      tick(4);
+      let water = 0; for (let y = y0; y < y0 + H; y++) for (let x = x0; x < x0 + W; x++) if (e.t[e.key(x, y)] === 6) water++;
+      out.flood = ok && water >= 6;
+      // cerrar una puerta abierta con F
+      clean(); e.t[e.key(c.x + 1, c.y)] = 5; e.interact(); out.close = e.t[e.key(c.x + 1, c.y)] === 4;
+      return out;
+    });
+    ok(fl.spread && fl.doorBlocks && fl.doorOpen && fl.close, 'el gas se difunde; una puerta cerrada lo encierra (F junto a una puerta abierta la cierra) y al abrirla pasa');
+    ok(fl.smokeSight && fl.cough, 'el humo denso tapa la vista y hace toser de pie; agachado se ve y se respira por debajo');
+    ok(fl.dust && fl.fireSmoke, 'el polvo radiactivo irradia y el fuego humea');
+    ok(fl.wall && fl.blastDust && fl.flood, `destrucción: la carga abre el muro y levanta polvo; la tubería de agua inunda (${JSON.stringify(fl)})`);
+    // capa AIRE (tecla U) e interruptor de la vista
+    await A.keyboard.press('u'); await A.waitForTimeout(150);
+    const layer = await A.evaluate(() => window.__topolev.expUI.r.airLayer === true);
+    await A.keyboard.press('u'); await A.waitForTimeout(100);
+    await A.keyboard.press('Escape'); await A.waitForTimeout(150);
+    const hasSet = await A.evaluate(() => !!document.querySelector('.modal'));
+    let toggled = false;
+    if (hasSet) {
+      await A.click('.modal >> text=CONFIGURACIÓN'); await A.waitForTimeout(150);
+      await A.click('.modal [data-set="airview"]'); await A.waitForTimeout(100);
+      toggled = await A.evaluate(() => JSON.parse(localStorage.getItem('topolev_settings_v1')).airView === false);
+      await A.click('.modal [data-set="airview"]'); await A.waitForTimeout(100);
+    }
+    ok(layer && toggled, 'capa AIRE con la tecla U; la vista del aire se puede volver a la clásica en CONFIGURACIÓN');
+    await ctx23.close();
   }
 
   console.log(errs.length ? 'ERRORES:\n' + errs.join('\n') : '  ✓ sin errores en consola');

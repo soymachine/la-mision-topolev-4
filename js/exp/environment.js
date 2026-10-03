@@ -35,19 +35,7 @@ export class EnvironmentPart {
         }
       }
     }
-    // gas: difusión y disipación
-    const ng = new Uint8Array(this.gas);
-    for (let k = 0; k < N; k++) {
-      const g = this.gas[k];
-      if (!g) continue;
-      ng[k] = Math.max(0, ng[k] - 1);
-      if (g > 2 && rng.chance(0.5)) {
-        const x = k % this.w, y = (k / this.w) | 0;
-        const [dx, dy] = rng.pick(D8);
-        if (this.walkTile(x + dx, y + dy)) { const nk = this.key(x + dx, y + dy); ng[nk] = Math.max(ng[nk], g - 2); }
-      }
-    }
-    this.gas = ng;
+    // fase 26: gas, humo y polvo se difunden y disipan en fluidTick (más abajo)
     // fuego
     for (let k = 0; k < N; k++) {
       const f = this.fire[k];
@@ -59,6 +47,8 @@ export class EnvironmentPart {
         this.igniteCell(x + dx, y + dy, f - 2);
       }
     }
+    // fase 26: el aire (gas, humo, polvo) y las inundaciones
+    this.fluidTick();
     // casillas con mecánica: vapor, ventiladores, aceite, raíces
     this.terrainTick();
     if (this.ended) return;
@@ -75,8 +65,7 @@ export class EnvironmentPart {
     this.moraleTick();
     this.contractTick();
     if (this.ended) return;
-    // humo y detector
-    for (let k = 0; k < N; k++) if (this.smoke[k]) this.smoke[k]--;
+    // detector (el humo se disipa en fluidTick)
     if (this.sense > 0) this.sense--;
     // bengalas
     for (const f of this.flares) f.t--;
@@ -104,10 +93,11 @@ export class EnvironmentPart {
       a.rad = Math.min(150, a.rad + r * (1 - st.rad / 100));
       if (a.rad >= 100) this.damageAgent(sq, 1, 'envenenamiento por radiación');
       if (!this.inMap(sq)) continue;
-      if (this.gas[k] && !st.gasImmune) {
+      if (this.gas[k] >= 2 && !st.gasImmune) { // fase 26: los restos finos de gas (1) ya no hacen daño
         if (this.flag(sq, 'gasResist')) { if (this.turn % 2) this.damageAgent(sq, 1, 'gas tóxico'); }
         else { this.addPoison(sq, 1); this.damageAgent(sq, 1, 'gas tóxico'); }
       }
+      this.breathe(sq); // fase 26: humo (tos), gas pesado agachado y polvo radiactivo
       if (!this.inMap(sq)) continue;
       if (this.fire[k] && !this.flag(sq, 'fireImmune')) { sq.burn = 2; this.damageAgent(sq, rng.int(2, 5), 'quemaduras'); }
       if (!this.inMap(sq)) continue;
