@@ -1162,6 +1162,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     ok(spc.expired, 'el encargo especial caduca al pasar el día, sin penalización');
     ok(spc.noLoot, 'los objetos de encargo y las jaulas llenas no salen como botín');
     ok(!spc.bad.length, `los 11 encargos especiales se generan y se cumplen${spc.bad.length ? ' (fallan: ' + spc.bad.join(', ') + ')' : ''}`);
+    await N.evaluate(() => { window.__topolev.S.pendingDialogs = []; }); await nClose();
     await N.click('.tab:has-text("CUARTEL")'); await N.waitForTimeout(250);
     ok(await N.evaluate(() => document.body.innerText.includes('ENCARGO ESPECIAL')), 'CUARTEL ofrece el encargo especial');
     await N.evaluate(() => { window.__topolev.S.forceMods = null; window.__topolev.S.attack = null; window.__topolev.S.pendingDialogs = []; });
@@ -1446,7 +1447,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
       const [bx, by] = window.__P(1, 0); const dor = e.spawnEnemy('golem', 5, bx, by, 'dormido');
       const ws = { ...e.weaponStats(sq), wtype: 'melee', crit: 0, dmg: [5, 5] };
       let crits = 0; for (let i = 0; i < 5; i++) { dor.state = 'dormido'; dor.mem = 0; if (e.rollDmg(ws, e.ast(sq), sq, dor, true, 1).crit) crits++; }
-      dor.state = 'alerta'; const awake = e.rollDmg({ ...ws }, e.ast(sq), sq, dor, true, 1).crit;
+      dor.state = 'alerta'; const awake = e.rollDmg({ ...ws }, { ...e.ast(sq), crit: 0 }, sq, dor, true, 1).crit; // sin la probabilidad de crítico propia del agente
       out.backstab = crits === 5 && !awake; e.dismissActor(dor);
       // emboscada de un compañero: dispara con +20% al primero que entra a tiro y vuelve a «mantener»
       const q2 = e.team.find((q) => q !== sq);
