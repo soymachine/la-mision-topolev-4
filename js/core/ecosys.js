@@ -31,6 +31,9 @@ export function zoneWorld(zoneId) {
   } else if (z.lastVisit != null) out.grow = Math.min(2, Math.floor((S.day - z.lastVisit) / GROW_DAYS));
   if (S.ng && S.ng.lvl) out.grow += S.ng.lvl; // fase 24.7: «1987», chebylitas un nivel más
   if (S.narr && S.narr.calmNext) out.nestK *= 0.7; // fase 25: «calma en la Zona» del Narrador
+  // fase 27: la presión de la zona (más nidos y más fuertes) y las zonas liberadas (menos)
+  const wz = S.war && S.war.zones && S.war.zones[zoneId];
+  if (wz) { out.nestK *= wz.owner === 'squad' ? 0.6 : 0.6 + wz.pressure / 125; if (wz.owner === 'cheb' && wz.pressure >= 85) out.grow += 1; out.pressure = Math.round(wz.pressure); }
   const hb = homeBossOf(zoneId);
   if (hb && S.world.bossDown[hb] != null && S.day - S.world.bossDown[hb] < BOSS_RETURN) out.bossAway = true;
   return out;

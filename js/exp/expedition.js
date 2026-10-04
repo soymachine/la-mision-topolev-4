@@ -36,6 +36,7 @@ import { TacticsPart } from './tactics.js';
 import { DirectorPart } from './director.js';
 import { FluidPart, SMOKE_OPAQUE, SMOKE_OPAQUE_LOW } from './fluids.js';
 import { zoneWorld, reactorAlert } from '../core/ecosys.js';
+import { zoneWar, zoneFpool } from '../core/war.js';
 import { unreadNote } from '../core/story.js';
 import { seasonOf } from '../data/basedata.js';
 import { MODIFIERS, modEss, modRad, WEATHER } from '../data/modifiers.js';
@@ -91,6 +92,11 @@ export class Expedition {
       e.weather = g.weighted(Object.keys(WEATHER), (k) => WEATHER[k].w * (e.season === 'otono' && k === 'lluvia' ? 3 : e.season === 'invierno' && k === 'lluvia' ? 0.3 : 1));
     }
     if (def.social) e.raidAt = g.chance(0.5) ? g.int(60, 110) : 0;
+    // fase 27: la nube radiactiva (más radiación; en superficie, lluvia negra) y los incendios forestales
+    const war = zoneDef ? null : zoneWar(def.id);
+    e.cloud = war ? war.cloud : 0;
+    e.forestFire = war && war.fire ? 1 : 0;
+    if (e.cloud >= 0.3 && def.stratum === 'sup') { e.weather = 'lluvia'; e.blackRain = 1; }
     e.buildFloor(0);
     // escuadrón
     const startCells = [[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]];
@@ -112,6 +118,9 @@ export class Expedition {
     if (e.clock != null) e.say(`${e.isNight() ? '☾ Es de noche' : '☀ Es de día'} (${e.timeStr()}). Clima: <b>${WEATHER[e.weather].name}</b> — ${WEATHER[e.weather].desc}`, 'o1');
     if (def.social) e.say('☭ Campamento «Wismut»: aquí no se dispara. Comerciante, enfermería y tablón de rumores (F junto a ellos).', 'good');
     for (const m of mods) if (MODIFIERS[m]) e.say(`<span style="color:${MODIFIERS[m].color}">${MODIFIERS[m].glyph} ${MODIFIERS[m].name}</span>: ${MODIFIERS[m].risk} <span class="good">${MODIFIERS[m].reward}</span>`, 'dimt');
+    if (e.cloud >= 0.15) e.say(`☁ La nube radiactiva cubre la zona (${Math.round(e.cloud * 100)}%): más radiación${e.blackRain ? ' y <b>lluvia negra</b>' : ''}.`, 'warn');
+    if (e.forestFire) { e.igniteForest(40); e.say('🔥 El bosque arde: humo, fuego que avanza entre los pinos. Cuidado con quedar rodeados.', 'bad'); }
+    if (war && war.offensive) e.say(`⚔ Ofensiva de ${FACTIONS[war.offensive.fac] ? FACTIONS[war.offensive.fac].name : war.offensive.fac} en curso: sus patrullas recorren la zona. Salid con éxito para frenarla.`, 'warn');
     e.trigger('expStart');
     e.checkSector(e.cur);
     return e;
@@ -127,7 +136,12 @@ export class Expedition {
   // genera el piso f (nivel de amenaza +1 por piso y mapas algo más pequeños)
   buildFloor(f) {
     const base = this.zone();
-    const def = floorDef(base, f);
+    let def = floorDef(base, f);
+    // fase 27: el dueño de la zona y las ofensivas cambian las patrullas
+    if (!this.zoneDef && !base.social) {
+      const war = zoneWar(base.id);
+      if (war) { const forced = !!(war.offensive || war.owner !== 'cheb'); def = { ...def, fpool: zoneFpool(base.id, def.fpool), forceFpool: forced, warPatrols: war.offensive ? 3 : war.owner === 'squad' ? 1 : war.owner !== 'cheb' ? 2 : 0 }; }
+    }
     const modSet = Object.fromEntries((this.mods || []).map((m) => [m, true]));
     // fase 22: mundo persistente (nidos que vuelven, zonas que crecen, jefes ausentes); las zonas de evento no lo tienen
     const world = this.zoneDef ? { alert: reactorAlert() } : zoneWorld(base.id);
@@ -213,7 +227,7 @@ export class Expedition {
       sense: this.sense, senseR: this.senseR, relations: this.relations || {},
       eventsDone: this.eventsDone || {}, facSeen: this.facSeen || {}, dlg: this.dlg || null, dlgQueue: this.dlgQueue || [],
       patria: this.patria || 0, truceUsed: this.truceUsed || 0, defibUsed: this.defibUsed || 0, quietT: this.quietT || 0, fac: this.fac || null, sentHome: this.sentHome || [], season: this.season || null, defenseWon: this.defenseWon || 0,
-      clock: this.clock ?? null, weather: this.weather || null, trainAt: this.trainAt || 0, raidAt: this.raidAt || 0, revealT: this.revealT || 0, antennaUsed: this.antennaUsed || 0,
+      clock: this.clock ?? null, weather: this.weather || null, cloud: this.cloud || 0, blackRain: this.blackRain || 0, forestFire: this.forestFire || 0, trainAt: this.trainAt || 0, raidAt: this.raidAt || 0, revealT: this.revealT || 0, antennaUsed: this.antennaUsed || 0,
       turn: this.turn, log: this.log.slice(-60), evac: this.evac, tally: this.tally, dir: this.dir || null,
       surgeAt: this.surgeAt, nextTemp: this.nextTemp, nextRadio: this.nextRadio, active: this.active,
       squad: this.squad.map((sq) => { const { a, ...rest } = sq; return rest; }),
@@ -303,7 +317,7 @@ export class Expedition {
 
   init() {
     this.def = this.zone();
-    this.ambient = this.def.ambientRad * 0.25 * (this.def.id === 'sarcofago' && S.flags.sarcophagusDone ? 0.6 : 1) + modRad(this.mods);
+    this.ambient = this.def.ambientRad * 0.25 * (this.def.id === 'sarcofago' && S.flags.sarcophagusDone ? 0.6 : 1) + modRad(this.mods) + (this.cloud || 0) * (this.def.stratum === 'sup' ? 0.35 : 0.15); // fase 27: la nube
     this.visible = new Uint8Array(this.w * this.h);
     this.fx = [];
     this.fluidInit(); // fase 26: polvo e inundaciones (partidas antiguas)

@@ -188,6 +188,22 @@ export class FluidPart {
     }
     return opened;
   }
+  // fase 27: incendio forestal: prende n casillas junto a los pinos (lejos del escuadrón al empezar)
+  igniteForest(n) {
+    const cand = [];
+    for (let k = 0; k < this.t.length; k++) {
+      if (this.t[k] !== T.PINE) continue;
+      const x = k % this.w, y = (k / this.w) | 0;
+      for (const [dx, dy] of D4) { const nx = x + dx, ny = y + dy; if (this.walkTile(nx, ny) && !this.fire[this.key(nx, ny)]) cand.push([nx, ny]); }
+    }
+    let lit = 0;
+    for (let i = 0; i < n && cand.length; i++) {
+      const [x, y] = cand.splice(rng.int(0, cand.length - 1), 1)[0];
+      if (this.team && this.team.some((q) => Math.max(Math.abs(q.x - x), Math.abs(q.y - y)) < 6)) continue;
+      this.igniteCell(x, y, 10); lit++;
+    }
+    return lit;
+  }
   // ¿lo dejaría pasar el humo? (para las armas que no ven a través)
   smokeBlocks(k, crouch = false) { return this.smoke[k] >= (crouch ? SMOKE_OPAQUE_LOW : SMOKE_OPAQUE); }
   // un enemigo dentro de humo muy denso solo se ve como una silueta

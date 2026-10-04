@@ -1,6 +1,8 @@
 // Mapa ASCII de la región de Chernóbil (fase 17): selector de destinos con las zonas como puntos.
 import { el, esc, tip } from '../util/dom.js';
 import { MAPS, STRATA, zoneOpen } from '../data/world.js';
+import { cloudAt, zoneWar, cloudEnabled } from '../core/war.js';
+import { FACTIONS } from '../data/factions.js';
 
 export const RW = 64, RH = 22;
 // coordenadas aproximadas (no a escala) de los elementos del paisaje
@@ -56,7 +58,12 @@ export function regionMap(S, sel, onSelect, extra = []) {
   for (let y = 0; y < RH; y++) {
     for (let x = 0; x < RW; x++) {
       const mk = byPos.get(y * RW + x);
-      if (!mk) { const [c, cls] = g[y][x]; pre.append(cls ? el('span', { class: cls, text: c }) : document.createTextNode(c)); continue; }
+      if (!mk) {
+        // fase 27: la nube radiactiva, sombreada sobre el paisaje
+        const cl = S.war ? cloudAt(x, y) : 0;
+        if (cl >= 0.2) { pre.append(el('span', { class: 'rg-cloud', text: cl >= 0.55 ? '▒' : '░' })); continue; }
+        const [c, cls] = g[y][x]; pre.append(cls ? el('span', { class: cls, text: c }) : document.createTextNode(c)); continue;
+      }
       let glyph, cls;
       if (mk.ev) { glyph = mk.ev.glyph || '!'; cls = 'rg-mk rg-event'; }
       else {
@@ -64,18 +71,25 @@ export function regionMap(S, sel, onSelect, extra = []) {
         cls = `rg-mk ${!mk.open ? 'rg-locked' : mk.m.stratum === 'sup' ? 'rg-sup' : 'rg-sub'} ${mk.cleared ? 'rg-cleared' : ''}`;
       }
       if ((mk.ev && sel === mk.ev.id) || (!mk.ev && sel === mk.i)) cls += ' rg-sel';
+      // fase 27: dueño de la zona (color), ofensiva en curso e incendio
+      const wz = !mk.ev && mk.open && S.war ? zoneWar(mk.m.id) : null;
+      if (wz && wz.offensive) cls += ' rg-attack';
+      if (wz && wz.fire) cls += ' rg-fire';
       const span = el('span', { class: cls, text: glyph });
+      if (wz && wz.owner !== 'cheb') span.style.color = wz.info.color;
       tip(span, () => {
         if (mk.ev) return `<div class="tt-title" style="color:#ff6ad5">${esc(mk.ev.glyph)} ${esc(mk.ev.name)}</div><div class="dimt">Zona de evento · desaparece en ${mk.ev.left} día(s)</div><div>${esc(mk.ev.desc)}</div>`;
         const m = mk.m;
         if (!mk.open) return `<div class="tt-title">??? <span class="dimt">· ${STRATA[m.stratum]}</span></div><div class="dimt">Se abre al extraer con éxito de: ${m.req.map((r) => esc(MAPS.find((z) => z.id === r).name)).join(' o ')}.</div>`;
-        return `<div class="tt-title">${esc(m.name)}</div><div class="dimt">${STRATA[m.stratum]} · nivel ${m.lvl[0]}–${m.lvl[1]} · ${m.floors} piso(s)${mk.cleared ? ` · <span class="good">${S.cleared[m.id]} extracción(es)</span>` : ''}</div><div>${esc(m.desc)}</div>`;
+        const w = S.war ? zoneWar(m.id) : null;
+        const warTxt = w && !m.social ? `<div class="tt-sep">${'─'.repeat(30)}</div><div><span style="color:${w.info.color}">${w.info.glyph} ${esc(w.info.name)}</span>${w.owner === 'cheb' ? ` · presión <b>${Math.round(w.pressure)}</b>/100${w.pressure >= 80 ? ' <span class="bad">(se extiende a las vecinas)</span>' : ''}` : ''}</div>${w.offensive ? `<div class="bad">⚔ Ofensiva de ${esc(FACTIONS[w.offensive.fac] ? FACTIONS[w.offensive.fac].name : w.offensive.fac)}: ${w.offensive.until - S.day} día(s) para frenarla</div>` : ''}${w.cloud >= 0.15 ? `<div class="warn">☁ Bajo la nube radiactiva (${Math.round(w.cloud * 100)}%)</div>` : ''}${w.fire ? `<div class="bad">🔥 Incendio forestal (${w.fire} día/s)</div>` : ''}` : '';
+        return `<div class="tt-title">${esc(m.name)}</div><div class="dimt">${STRATA[m.stratum]} · nivel ${m.lvl[0]}–${m.lvl[1]} · ${m.floors} piso(s)${mk.cleared ? ` · <span class="good">${S.cleared[m.id]} extracción(es)</span>` : ''}</div><div>${esc(m.desc)}</div>${warTxt}`;
       });
       if (mk.open) span.addEventListener('click', () => onSelect(mk.ev ? mk.ev : mk.i));
       pre.append(span);
     }
     pre.append(document.createTextNode('\n'));
   }
-  const legend = el('div', { class: 'region-legend', html: '<span class="rg-sup">◆</span> superficie · <span class="rg-sub">▼</span> subsuelo · <span class="rg-sub">☭</span> campamento · <span class="rg-event">!</span> evento · <span class="rg-locked">?</span> cerrada · <span class="rg-cleared">subrayada</span>: ya extraída' });
+  const legend = el('div', { class: 'region-legend', html: `<span class="rg-sup">◆</span> superficie · <span class="rg-sub">▼</span> subsuelo · <span class="rg-sub">☭</span> campamento · <span class="rg-event">!</span> evento · <span class="rg-locked">?</span> cerrada · <span class="rg-cleared">subrayada</span>: ya extraída · <span style="color:#5ff7ff">color</span>: liberada / de una facción · <span class="rg-attack">▼</span> ofensiva · <span class="rg-fire">◆</span> incendio${cloudEnabled() ? ' · <span class="rg-cloud">░▒</span> nube' : ''}` });
   return el('div', { class: 'region-wrap' }, pre, legend);
 }

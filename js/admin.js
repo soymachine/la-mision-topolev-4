@@ -25,6 +25,7 @@ import { ecoLines, ZONE_TYPE } from './util/codexlines.js';
 import { ACHIEVEMENTS } from './data/achievements.js';
 import { MODES, NG_MODS, CHALLENGE_DAYS } from './core/modes.js';
 import { PERSONAS, THREATS, RELIEFS } from './core/narrator.js';
+import { neighbors, ownerInfo, FRONT_ZONES } from './core/war.js';
 import { ACQUIRED, MEDALS, WOUNDS, WOUND_CHANCE, RETIRE_LEVEL, MAX_INSTRUCTORS, INSTRUCTOR_XP, ROOKIE_LEVEL } from './data/honors.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -365,6 +366,15 @@ sec('Calidad', 'narrador', 'Narrador del Reactor', Object.keys(THREATS).length +
   { h: 'Descripción', v: (p) => `<span class="desc">${esc(p.desc)}</span>` },
 ]) + `<h3>Amenazas (base)</h3>${table(Object.entries(THREATS).map(([id, d]) => ({ id, ...d })), [{ h: 'Amenaza', v: (d) => `<b>${esc(d.name)}</b> <code>${d.id}</code>` }, { h: 'Coste', v: (d) => d.cost }, { h: 'Peso', v: (d) => d.w }, { h: 'Presagio', v: (d) => (d.omen ? `<span class="desc">${esc(d.omen)}</span>` : '—') }])}<h3>Alivios (base)</h3>${table(Object.entries(RELIEFS).map(([id, d]) => ({ id, ...d })), [{ h: 'Alivio', v: (d) => `<b>${esc(d.name)}</b> <code>${d.id}</code>` }, { h: 'Peso', v: (d) => d.w }])}`,
 'Cada día: adaptación +0,6 (y +4…+10 por expedición con éxito, −6 por fracaso, −10 por caído); presupuesto += ritmo × (0,5 + adaptación/100) × (1 + día/50). Alivio si la adaptación baja de 40. En la expedición, golpes (patrulla, pulso adelantado, salida que se cierra) y respiros (suministros, salida cerca, retirada, aliados).');
+// fase 27: la Zona en guerra
+const WAR_START = { fenix: 'usa', wismut: 'rda', objeto7: 'culto' };
+sec('Mundo', 'guerra', 'Zona en guerra', MAPS.filter((m) => !m.social).length, () => table(MAPS.filter((m) => !m.social).map((m) => ({ ...m, own: WAR_START[m.id] || 'cheb', p0: 35 + Math.round((m.tier || 0) * 5) })), [
+  { h: 'Zona', v: (m) => `<b>${esc(m.name)}</b> <code>${m.id}</code>`, s: (m) => m.name },
+  { h: 'Dueño inicial', v: (m) => { const o = ownerInfo(m.own); return `<span style="color:${o.color}">${esc(o.glyph)} ${esc(o.name)}</span>`; } },
+  { h: 'Presión inicial', v: (m) => m.p0, s: (m) => m.p0, num: 1 },
+  { h: 'Frente', v: (m) => (FRONT_ZONES.includes(m.id) ? '⚔ junto al Puesto' : '') },
+  { h: 'Vecinas', v: (m) => `<span class="desc">${neighbors(m.id).map((n) => esc(MAPS[mapIndex(n)].name)).join(', ')}</span>` },
+]), 'Presión 0–100: +1,5 (+0,2 × tier) al día en zonas de los chebylitas; ≥80 empuja +2 a las vecinas; una expedición la baja 10 + 45 × nidos limpios + 25 × jefe. Liberada con presión ≤20 y éxito (vuelve a caer si sus vecinas la empujan a ≥60). Ofensivas (EE. UU., culto, merodeadores) de 4 días: si nadie las frena con una expedición, la facción se queda con la zona. Frente: si «admin» o «pripyat» no son vuestras y tienen presión ≥80 o dueño hostil, los ataques al Puesto pesan más. La nube (a prueba, se apaga en CONFIGURACIÓN) se mueve con el viento cada día; bajo ella, más radiación, lluvia negra en superficie y equipo que hay que lavar (4 ₽ × objeto × intensidad).');
 function renderSummary() {
   const items = Object.values(ITEMS);
   const equipBases = items.filter((d) => ['weapon', 'armor', 'helmet', 'gadget', 'backpack'].includes(d.cat)).length;

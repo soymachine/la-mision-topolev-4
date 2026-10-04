@@ -21,6 +21,7 @@ import { toggleFullscreen } from './expui.js';
 import { showDialog } from './dialog.js';
 import { playScene } from './scene.js';
 import * as NARR from '../core/narrator.js';
+import * as WAR from '../core/war.js';
 import * as ST from '../core/story.js';
 import * as B21 from '../core/basecore.js';
 import { installBase21 } from './base21.js';
@@ -1036,6 +1037,15 @@ export class BaseUI {
         chip('■ BOTÍN', lootTip, 'tt-chip'),
         chip('▤ PLANO', planTip, 'tt-chip'),
         ...(zoneJobs.length ? [chip(`<span class="cyan">⚑ TRABAJOS ${zoneJobs.length}</span>`, jobsTip, 'tt-chip')] : []),
+        ...(() => { // fase 27: la Zona en guerra y la nube
+          if (evSel || m.social) return [];
+          const w = WAR.zoneWar(m.id); if (!w) return [];
+          const out = [chip(w.owner === 'cheb' ? `<span style="color:${w.pressure >= 80 ? '#ff3b30' : '#ff8a5a'}">☣ PRESIÓN ${Math.round(w.pressure)}</span>` : `<span style="color:${w.info.color}">${w.info.glyph} ${esc(w.info.short.toUpperCase())}</span>`, () => `<div class="tt-title">${w.owner === 'cheb' ? 'PRESIÓN DE LOS CHEBYLITAS' : w.owner === 'squad' ? 'ZONA LIBERADA' : 'ZONA DE ' + esc(w.info.name.toUpperCase())}</div><div>${w.owner === 'cheb' ? `Crece cada día que no bajáis; baja al limpiar nidos y abatir jefes. Con 80 o más se extiende a las zonas vecinas; con 20 o menos, una salida con éxito <b>libera</b> la zona.` : w.owner === 'squad' ? 'Menos nidos y patrullas aliadas. Si la presión de las vecinas sube, puede volver a caer.' : `Sus patrullas controlan la zona. Liberadla: bajad la presión (${Math.round(w.pressure)}) y salid con éxito.`}</div>`, 'tt-chip')];
+          if (w.offensive) out.push(chip(`<span class="bad">⚔ OFENSIVA ${w.offensive.until - S.day} D</span>`, () => `<div class="tt-title">OFENSIVA DE ${esc((FACTIONS[w.offensive.fac] || { name: w.offensive.fac }).name.toUpperCase())}</div><div>Sus patrullas recorren la zona. Una expedición allí con éxito la frena; si no, en ${w.offensive.until - S.day} día(s) se quedan con ella.</div>`, 'tt-chip hot'));
+          if (w.cloud >= 0.15) out.push(chip(`<span class="warn">☁ NUBE ${Math.round(w.cloud * 100)}%</span>`, () => `<div class="tt-title">BAJO LA NUBE RADIACTIVA</div><div>Más radiación de ambiente${m.stratum === 'sup' ? ' y <b>lluvia negra</b> en superficie' : ''}. El equipo que vuelva hay que lavarlo (cuesta rublos). El viento la mueve cada día.</div>`, 'tt-chip'));
+          if (w.fire) out.push(chip(`<span class="bad">🔥 INCENDIO ${w.fire} D</span>`, () => '<div class="tt-title">INCENDIO FORESTAL</div><div>El fuego avanza entre los pinos durante la expedición: humo, quemaduras y caminos que se cierran.</div>', 'tt-chip hot'));
+          return out;
+        })(),
       ),
       el('div', { class: 'zone-go' },
         el('button', { class: 'btn primary big', 'data-go': '1', onclick: () => this.squadModal() }, `▶ ACEPTAR DESTINO: ${m.name.toUpperCase()}`),

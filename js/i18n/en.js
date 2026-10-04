@@ -10,7 +10,7 @@ export default {
   'set.title': 'SETTINGS', 'set.audio': 'AUDIO', 'set.sound': 'Sound', 'set.music': 'Music', 'set.volMaster': 'Master volume', 'set.volMusic': 'Music volume', 'set.volSfx': 'Effects volume', 'set.ambience': 'Ambient sound', 'set.volAmb': 'Ambience volume',
   'set.screen': 'DISPLAY', 'set.crt': 'CRT effect', 'set.fullscreen': 'Full screen', 'set.toggle': 'ENTER / EXIT', 'set.text': 'Text size', 'set.lang': 'Language',
   'set.controls': 'CONTROLS', 'set.keys': 'Keys', 'set.edit': 'REMAP KEYS', 'set.touch': 'Touch controls',
-  'set.access': 'ACCESSIBILITY', 'set.airView': 'Air view (gas and smoke)', 'set.airNew': 'NEW', 'set.airOld': 'CLASSIC', 'set.colorblind': 'Colourblind mode', 'set.contrast': 'High contrast',
+  'set.access': 'ACCESSIBILITY', 'set.airView': 'Air view (gas and smoke)', 'set.cloud': 'Radioactive cloud over the region', 'set.airNew': 'NEW', 'set.airOld': 'CLASSIC', 'set.colorblind': 'Colourblind mode', 'set.contrast': 'High contrast',
   'set.game': 'GAME', 'set.export': 'Export backup', 'set.download': 'DOWNLOAD .JSON',
   'menu.achievements': 'ACHIEVEMENTS & STATS',
   'menu.codex': 'ENCYCLOPEDIA',

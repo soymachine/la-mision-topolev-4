@@ -1359,6 +1359,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
       ECO.recordExpedition(fake);
       const w1 = ECO.zoneWorld('admin'); out.calm = w1.nestK < 1 && w1.calmLeft > 0;
       out.bossAway = ECO.zoneWorld('pripyat').bossAway;
+      if (S.war) S.war.zones.admin.pressure = 50; // fase 27: presión neutra (×1 en los nidos)
       S.day += 30; const w2 = ECO.zoneWorld('admin'); out.grow = w2.grow === 2 && w2.nestK === 1 && !ECO.zoneWorld('pripyat').bossAway;
       S.day = 60; out.alert = ECO.reactorAlert() === 2;
       S.world.alert = 0; C.nextDay(); S.attack = null; S.pendingDialogs = [];
@@ -2480,6 +2481,93 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     }
     ok(layer && toggled, 'capa AIRE con la tecla U; la vista del aire se puede volver a la clásica en CONFIGURACIÓN');
     await ctx23.close();
+  }
+
+  console.log('· Fase 27: la nube y la Zona en guerra');
+  {
+    const ctx24 = await b.newContext({ viewport: { width: 1440, height: 860 } });
+    const G = await ctx24.newPage();
+    G.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
+    G.on('console', (m) => { if ((m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) || m.type() === 'warning') errs.push(m.text()); });
+    await G.goto(URL); await G.waitForTimeout(800);
+    await G.click('text=NUEVA PARTIDA'); await G.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await G.click('#screen-intro'); await G.click('text=COMENZAR');
+    await G.waitForTimeout(300);
+    const wr = await G.evaluate(async () => {
+      const W = await import('./js/core/war.js'); const NR = await import('./js/core/narrator.js');
+      const S = window.__topolev.S; const war = S.war; const out = {};
+      out.owners = [war.zones.fenix.owner, war.zones.wismut.owner, war.zones.objeto7.owner, war.zones.admin.owner].join(',');
+      out.cloudStart = W.cloudAt(33, 12); // la nube nace lejos del Bloque Administrativo
+      // un día: la nube se mueve y la presión de los chebylitas crece
+      const c0 = [war.cloud.x, war.cloud.y], p0 = war.zones.yanov.pressure;
+      W.warDay();
+      out.cloudMoved = war.cloud.x !== c0[0] || war.cloud.y !== c0[1];
+      out.pressureUp = war.zones.yanov.pressure > p0;
+      // ofensiva sin frenar → la facción se queda con la zona; el frente junto al Puesto dispara los ataques
+      const w0 = NR.THREATS.ataque.w;
+      W.startOffensive('usa', 'admin');
+      out.offChip = !!W.zoneWar('admin').offensive && W.zoneFpool('admin', ['rda'])[0] === 'usa';
+      war.offensives[0].until = S.day; W.warDay();
+      out.taken = war.zones.admin.owner === 'usa';
+      out.front = W.frontLine() && NR.THREATS.ataque.w > w0;
+      // una ofensiva frenada por una expedición con éxito parcial
+      W.startOffensive('culto', 'yanov');
+      W.warOnExpedition('yanov', { result: 'partial', cleared: 0.5 });
+      out.countered = !war.offensives.some((o) => o.zone === 'yanov');
+      // liberar: poca presión y una salida con éxito
+      war.zones.pripyat.pressure = 30;
+      const p1 = war.zones.pripyat.pressure;
+      W.warOnExpedition('pripyat', { result: 'success', cleared: 1, bosses: 0 });
+      out.freed = war.zones.pripyat.owner === 'squad' && war.zones.pripyat.pressure < p1 && W.zoneFpool('pripyat', []).includes('rda');
+      // la nube sobre una zona: hay que lavar el equipo
+      war.cloud.x = 39; war.cloud.y = 8; S.rub = 1000;
+      out.cloudOn = W.zoneWar('yanov').cloud;
+      W.warOnExpedition('yanov', { result: 'success', cleared: 0, items: 10 });
+      out.wash = 1000 - S.rub;
+      // sin rublos, radiación a los que vuelven
+      S.rub = 0; const ag = S.agents[0]; ag.rad = 0;
+      W.warOnExpedition('yanov', { result: 'success', items: 10, agents: [ag] });
+      out.dose = ag.rad; ag.rad = 0; S.rub = 1000;
+      // incendio forestal
+      out.fire = W.startFire('bosque') === 'bosque' && W.zoneWar('bosque').fire > 0;
+      // se deja la nube sobre el Bosque Rojo para la expedición
+      war.cloud.x = 25; war.cloud.y = 11; war.cloud.windDay = 999;
+      war.zones.admin.owner = 'cheb'; war.zones.admin.pressure = 40;
+      return out;
+    });
+    ok(wr.owners === 'usa,rda,culto,cheb' && wr.cloudStart === 0, `dueños iniciales (Fénix, EE. UU.; Wismut, RDA; Objeto 7, culto; el resto, chebylitas) y la nube nace lejos del Puesto`);
+    ok(wr.cloudMoved && wr.pressureUp, 'cada día el viento mueve la nube y la presión de los chebylitas crece');
+    ok(wr.offChip && wr.taken && wr.front, 'una ofensiva sin frenar: la facción se queda con la zona (sus patrullas) y el frente junto al Puesto multiplica los ataques');
+    ok(wr.countered && wr.freed, 'una expedición frena la ofensiva; con poca presión y éxito, la zona queda liberada (patrullas aliadas)');
+    ok(wr.cloudOn > 0.5 && wr.wash > 0 && wr.dose > 0 && wr.fire, `nube: lavar el equipo cuesta ${wr.wash} ₽ (sin rublos, +${wr.dose} de radiación); incendio forestal`);
+    // mapa de la región: nube sombreada, colores de dueño y fichas de la zona
+    await G.click('.tab:has-text("EXPEDICIÓN")'); await G.waitForTimeout(250);
+    const ui = await G.evaluate(() => ({ cloud: document.querySelectorAll('.region-map .rg-cloud').length, fire: document.querySelectorAll('.region-map .rg-fire').length, chips: [...document.querySelectorAll('.zone-chips .zchip')].map((c) => c.innerText).join('|') }));
+    ok(ui.cloud > 10 && /PRESIÓN/.test(ui.chips), `mapa de la región: la nube (${ui.cloud} casillas) y la presión en las fichas de la zona`);
+    // expedición al Bosque Rojo: incendio, nube y lluvia negra
+    await G.evaluate(() => window.__topolev.debug.run('unlock'));
+    await G.waitForTimeout(150);
+    const bIdx = await G.evaluate(async () => (await import('./js/data/world.js')).mapIndex('bosque'));
+    await G.click(`.mapcard:not(.event) >> nth=${bIdx}`); await G.waitForTimeout(150);
+    const chips2 = await G.evaluate(() => [...document.querySelectorAll('.zone-chips .zchip')].map((c) => c.innerText).join('|'));
+    await G.click('[data-go]'); await G.waitForTimeout(150); for (let i = 0; i < 2; i++) { const rr = await G.$$('.modal .agent-row'); await rr[i].click(); }
+    await G.click('text=LANZAR EXPEDICIÓN'); await G.waitForTimeout(300);
+    if (await G.$('.modal-back >> text=LANZAR')) await G.click('.modal-back >> text=LANZAR');
+    await G.waitForTimeout(900);
+    for (let i = 0; i < 6 && (await G.$('.modal')); i++) { await G.keyboard.press('Escape'); await G.waitForTimeout(120); }
+    const ex = await G.evaluate(() => { const e = window.__topolev.exp; return { id: e.def.id, cloud: e.cloud, rain: e.blackRain, weather: e.weather, fire: e.forestFire, burning: e.fire.reduce((n, v) => n + (v ? 1 : 0), 0) }; });
+    ok(/NUBE/.test(chips2) && /INCENDIO/.test(chips2), 'fichas de la zona: nube e incendio');
+    ok(ex.id === 'bosque' && ex.cloud > 0.5 && ex.rain && ex.weather === 'lluvia' && ex.fire && ex.burning > 0, `en la expedición: lluvia negra bajo la nube y el bosque ardiendo (${JSON.stringify(ex)})`);
+    // interruptor de la nube en CONFIGURACIÓN
+    await G.keyboard.press('Escape'); await G.waitForTimeout(150);
+    let off = false;
+    if (await G.$('.modal')) {
+      await G.click('.modal >> text=CONFIGURACIÓN'); await G.waitForTimeout(150);
+      await G.click('.modal [data-set="cloud"]'); await G.waitForTimeout(100);
+      off = await G.evaluate(async () => JSON.parse(localStorage.getItem('topolev_settings_v1')).cloud === false && (await import('./js/core/war.js')).cloudAt(25, 11) === 0);
+      await G.click('.modal [data-set="cloud"]'); await G.waitForTimeout(100);
+    }
+    ok(off, 'la nube se apaga en CONFIGURACIÓN (a prueba)');
+    await ctx24.close();
   }
 
   console.log(errs.length ? 'ERRORES:\n' + errs.join('\n') : '  ✓ sin errores en consola');

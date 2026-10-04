@@ -8,6 +8,7 @@ import { createItem } from './items.js';
 import { chronicle, addStress, trust } from './story.js';
 import { addRep } from '../data/factions.js';
 import { rng } from '../util/rng.js';
+import { startOffensive, migration, frontLine, startFire } from './war.js';
 
 // personalidades: rate = ritmo del presupuesto de amenaza · relief = ganas de ayudar · chaos = azar · minGap = días
 // mínimos entre amenazas · calm/reliefGap = turnos de calma antes de un golpe y entre respiros (en la expedición)
@@ -69,9 +70,15 @@ const recruitFree = (why) => {
   return true;
 };
 export const THREATS = {
-  ataque: { name: 'Ataque al Puesto', cost: 8, w: 3, cond: () => S.mode !== 'libre' && S.day >= 8 && !S.attack && S.day - (S.lastAttack || 0) >= 8,
+  // con el frente junto al Puesto (fase 27), los ataques son más baratos y frecuentes
+  ataque: { name: 'Ataque al Puesto', get cost() { return frontLine() ? 5 : 8; }, get w() { return frontLine() ? 9 : 3; }, cond: () => S.mode !== 'libre' && S.day >= 8 && !S.attack && S.day - (S.lastAttack || 0) >= 8,
     omen: 'Kravets: «Los perros de la verja no han dormido en toda la noche. Algo viene hacia el Puesto.»',
     fire: () => { const k = ['usa', 'merodeadores', 'nido'][Math.floor(Math.random() * 3)]; return basecoreMod && basecoreMod.startAttack(k); } },
+  ofensiva: { name: 'Ofensiva de una facción', cost: 6, w: 2, cond: () => S.day >= 10 && (!S.war || (S.war.offensives || []).length < 2),
+    omen: 'Radio interceptada: mucho tráfico en las frecuencias extranjeras esta noche. Algo se prepara.',
+    fire: () => !!startOffensive() },
+  migracion: { name: 'Migración de chebylitas', cost: 3, w: 2, cond: () => S.day >= 6, fire: () => !!migration() },
+  incendio: { name: 'Incendio forestal', cost: 2, w: 1, cond: () => S.day >= 6, fire: () => !!startFire() },
   apagon: { name: 'Apagón', cost: 4, w: 2, cond: () => !S.narr.crisis,
     fire: () => { (S.pendingDialogs = S.pendingDialogs || []).push('narr_apagon'); return true; } },
   epidemia: { name: 'Fiebre en los barracones', cost: 5, w: 2, cond: () => S.agents.filter((a) => !a.sickUntil || a.sickUntil <= S.day).length >= 3,

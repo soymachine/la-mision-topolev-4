@@ -1221,8 +1221,9 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
     spawnGroup(mods.esporas && g.chance(0.5) && ENEMIES.esporangio ? 'esporangio' : tp, lvl, spot[0], spot[1], g.int(1, 3), 'errante', null);
   }
   // Otras expediciones (fase 18): patrullas de las facciones de la zona; «Presencia extranjera» y Metro-2 garantizan varias
-  const fpool = (def.fpool || []).filter((f) => SQUADS[f] && (SQUAD_MIN_TIER[f] || 0) <= tier + (mods.extranjeros || def.factions ? 3 : 0));
-  const nPat = def.factions ? 4 : mods.extranjeros ? g.int(2, 3) : (g.chance(0.5) ? 1 : 0) + (tier >= 4 && g.chance(0.35) ? 1 : 0);
+  // fase 27: el dueño de la zona y las ofensivas fuerzan sus patrullas (forceFpool, warPatrols)
+  const fpool = (def.fpool || []).filter((f) => SQUADS[f] && (def.forceFpool || (SQUAD_MIN_TIER[f] || 0) <= tier + (mods.extranjeros || def.factions ? 3 : 0)));
+  const nPat = Math.max(def.warPatrols || 0, def.factions ? 4 : mods.extranjeros ? g.int(2, 3) : (g.chance(0.5) ? 1 : 0) + (tier >= 4 && g.chance(0.35) ? 1 : 0));
   for (const fac of g.shuffle([...fpool]).slice(0, nPat)) {
     const spot = findSpot({ minDist: 22, poiGap: 8, open: 14, openR: 2 }) || findSpot({ minDist: 16, poiGap: 5, open: 10 });
     if (!spot) continue;

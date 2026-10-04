@@ -610,3 +610,7 @@ body.modal-open #app { filter: blur(2px) brightness(.55); transition: filter .12
 /* fase 25: Narrador del Reactor */
 .narr-tag { white-space: nowrap; cursor: help; }
 .top .tension, .exp-top .tension { cursor: help; white-space: nowrap; }
+/* fase 27: la Zona en guerra en el mapa de la región */
+.rg-cloud { color: #8a9a3a; }
+.rg-attack { background: #4a0806; animation: blink 1s steps(2) infinite; }
+.rg-fire { background: #4a2006; }

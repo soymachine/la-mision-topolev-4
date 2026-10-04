@@ -16,6 +16,7 @@ import { addStress, addAff, trust, chronicle, comedorScene, completeContracts, c
 import { baseDayTick, placeBuilding, demandK, noteSale, attackResult, defenseDef } from './basecore.js';
 import * as basecoreNS from './basecore.js';
 import { narrDay, narrOnExpedition, narrHooks, narrPriceK, sickDays } from './narrator.js';
+import { warDay, warOnExpedition } from './war.js';
 
 // modificadores de cada zona para hoy (fase 16.4)
 export const zoneMods = (mapIdx) => (S.forceMods ? [...S.forceMods] : rollZoneMods(S.created >>> 0, S.day, mapIdx));
@@ -393,6 +394,14 @@ export function finalizeExpedition(exp) {
   // fase 25: el Narrador ajusta la adaptación y guarda la curva de tensión
   rep.tension = (exp.dir && exp.dir.curve) || [];
   if (def.id !== 'defensa') narrOnExpedition({ success: rep.result === 'success', deaths, ess: rep.ess, curve: rep.tension });
+  // fase 27: la Zona en guerra (presión, liberación, ofensivas frenadas, equipo contaminado por la nube)
+  if (MAPS.some((m) => m.id === def.id) && !def.social) {
+    const pois = [...(exp.pois || [])]; for (const st of exp.floorStore || []) if (st && st.pois) pois.push(...st.pois);
+    const nests = pois.filter((p) => p.type === 'nest');
+    const outsN = rep.agents.filter((r) => r.status === 'extraído').length;
+    const items = rep.agents.reduce((n, r) => n + (r.items ? r.items.length : 0), 0) + outsN * 3;
+    rep.war = warOnExpedition(def.id, { result: rep.result, cleared: nests.length ? nests.filter((p) => p.cleared).length / nests.length : 0, bosses: (exp.bossesDown || []).length, items, agents: exp.squad.filter((sq) => sq.out && sq.a).map((sq) => sq.a) });
+  }
   // fase 22: mundo persistente (nidos limpios que tardan en volver, jefes abatidos)
   const calm = recordExpedition(exp);
   if (calm && anyOut) addMessage(calm);
@@ -420,6 +429,7 @@ export function nextDay() {
   worldDayTick(); // fase 22: alerta del reactor
   expireSpecials(); // fase 16.4: los encargos especiales solo valen un día
   baseDayTick(); // fase 21: investigación, celdas, edificios, cuotas, estaciones, historia, operaciones, ataques
+  warDay(); // fase 27: la nube, la presión de cada zona, las ofensivas y los incendios
   narrDay(); // fase 25: el Narrador del Reactor elige amenazas y alivios
   // fase 20: descanso (y banya), cartas de casa, adicciones
   if (Math.random() < 0.15) familyLetter();

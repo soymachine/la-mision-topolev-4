@@ -1,5 +1,6 @@
 // Consola de depuración oculta (fase 13.5): tecla º (o `) · ?debug en la URL la abre al arrancar
 import * as NARR from '../core/narrator.js';
+import * as WAR from '../core/war.js';
 import { el, esc } from '../util/dom.js';
 import { lang, missingKeys, untranslated } from '../i18n/index.js';
 import { S, save } from '../core/state.js';
@@ -112,6 +113,18 @@ export function installDebug(app) {
       else if (a === 'adapt') N.adapt = num(b, 50);
       const e = exp();
       print(`${esc(NARR.persona().name)} · adaptación ${Math.round(N.adapt)} · presupuesto ${N.budget.toFixed(1)} · presagio ${N.pending ? N.pending.id + ' (día ' + N.pending.day + ')' : '—'} · crisis ${N.crisis ? N.crisis.kind + ' hasta ' + N.crisis.until : '—'}${e && e.dir ? ` · tensión ${Math.round(e.dir.T)} · calma ${e.dir.calm}` : ''}<br>${N.log.slice(-8).map((l) => `día ${l.day}: ${l.kind} ${l.id}`).join(' · ')}`);
+    } },
+    guerra: { a: '[dia | ofensiva [fac] [zona] | incendio [zona] | migracion | presion <zona> <n> | dueño <zona> <dueño> | nube <x> <y>]', d: 'Zona en guerra y nube (fase 27): muestra o fuerza su estado', f: ([a, b, c]) => {
+      const W = WAR.warDefaults(S);
+      if (a === 'dia') WAR.warDay();
+      else if (a === 'ofensiva') { if (!WAR.startOffensive(b || null, c || null)) throw new Error('no hay zona disponible'); }
+      else if (a === 'incendio') { if (!WAR.startFire(b || null)) throw new Error('no hay bosque disponible'); }
+      else if (a === 'migracion') WAR.migration();
+      else if (a === 'presion' || a === 'dueño' || a === 'dueno') { if (!W.zones[b]) throw new Error('zonas: ' + Object.keys(W.zones).join(', ')); if (a === 'presion') W.zones[b].pressure = num(c, 50); else W.zones[b].owner = c || 'cheb'; }
+      else if (a === 'nube') { W.cloud.x = num(b, W.cloud.x); W.cloud.y = num(c, W.cloud.y); }
+      const zs = Object.entries(W.zones).filter(([, z]) => z.pressure > 0 || z.owner !== 'cheb').map(([id, z]) => `${id}: ${WAR.ownerInfo(z.owner).short} ${Math.round(z.pressure)}`);
+      print(`nube ${WAR.cloudEnabled() ? `(${W.cloud.x.toFixed(1)}, ${W.cloud.y.toFixed(1)}) r${W.cloud.r} viento ${W.cloud.dx.toFixed(1)},${W.cloud.dy.toFixed(1)}` : 'apagada'} · frente ${WAR.frontLine() ? 'SÍ' : 'no'} · ofensivas ${W.offensives.map((o) => `${o.fac}→${o.zone} (día ${o.until})`).join(', ') || '—'} · incendios ${Object.entries(W.fires).map(([z, d]) => `${z} (día ${d})`).join(', ') || '—'}<br>${zs.join(' · ')}`);
+      if (app.current() === 'base') app.base.render();
     } },
     unlock: { a: '', d: 'abre/cierra todas las zonas de la región', f: () => { S.unlockAll = !S.unlockAll; print('todas las zonas: ' + (S.unlockAll ? 'abiertas' : 'según el progreso')); if (app.current() === 'base') app.base.render(); } },
     evzone: { a: '<tipo>', d: 'hace aparecer una zona de evento en la región', f: ([k]) => {

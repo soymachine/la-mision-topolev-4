@@ -47,6 +47,8 @@ export class EnvironmentPart {
         this.igniteCell(x + dx, y + dy, f - 2);
       }
     }
+    // fase 27: el incendio forestal avanza entre los pinos
+    if (this.forestFire && this.turn % 6 === 0) this.igniteForest(4);
     // fase 26: el aire (gas, humo, polvo) y las inundaciones
     this.fluidTick();
     // casillas con mecánica: vapor, ventiladores, aceite, raíces
@@ -80,7 +82,7 @@ export class EnvironmentPart {
       const a = sq.a, st = this.ast(sq), k = this.key(sq.x, sq.y);
       // radiación
       let r = this.rad[k] + this.ambient + surge * 0.45;
-      if (this.surface && this.weather === 'lluvia' && this.outdoors(sq.x, sq.y)) r += this.flag(sq, 'rainShield') ? 0.05 : 0.25;
+      if (this.surface && this.weather === 'lluvia' && this.outdoors(sq.x, sq.y)) r += (this.flag(sq, 'rainShield') ? 0.05 : 0.25) * (this.blackRain ? 2 : 1); // fase 27: lluvia negra
       // invierno: hipotermia al raso sin abrigo
       if (this.season === 'invierno' && this.surface && this.outdoors(sq.x, sq.y) && !this.flag(sq, 'warm') && this.turn % 12 === 0) {
         const armor = sq.a.equip.armor;
