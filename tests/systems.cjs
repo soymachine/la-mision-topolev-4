@@ -774,7 +774,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
       const back = !e.enemies.includes(d) && sq.a.equip.comp && sq.a.equip.comp.b === 'strizh';
       // kamikadze
       sq.a.equip.comp = window.__mk('kamikadze', 0);
-      const p = window.__adj(e, sq, 4) || window.__adj(e, sq, 3);
+      const p = window.__adj(e, sq, 4) || window.__adj(e, sq, 3) || window.__adj(e, sq, 2) || window.__adj(e, sq, 1); // (según el mapa, puede no haber hueco a 4 o 3)
       const w = e.spawnEnemy('lobo', 2, p[0], p[1], 'dormido');
       const hp0 = w.hp;
       e.kamikaze(sq, w.x, w.y);
@@ -806,7 +806,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
       e.act((q) => e.useItem(q, tg));
       const tur = e.enemies.find((x) => x.type === 'gnomo');
       out.tur = !!tur;
-      const p = window.__adj(e, sq, 4) || window.__adj(e, sq, 3);
+      const p = window.__adj(e, sq, 4) || window.__adj(e, sq, 3) || window.__adj(e, sq, 2) || window.__adj(e, sq, 1); // (según el mapa, puede no haber hueco a 4 o 3)
       const tgtRat = e.spawnEnemy('rata', 1, p[0], p[1], 'alerta'); tgtRat.hp = tgtRat.hpMax = 999; // (que no la mate el perro antes de que dispare la torreta)
       for (let i = 0; i < 4; i++) e.wait();
       out.ammo = tur.ammo;
