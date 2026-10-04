@@ -1,6 +1,7 @@
 // Consola de depuración oculta (fase 13.5): tecla º (o `) · ?debug en la URL la abre al arrancar
 import * as NARR from '../core/narrator.js';
 import * as WAR from '../core/war.js';
+import * as PLOT from '../core/plot.js';
 import { el, esc } from '../util/dom.js';
 import { lang, missingKeys, untranslated } from '../i18n/index.js';
 import { S, save } from '../core/state.js';
@@ -125,6 +126,19 @@ export function installDebug(app) {
       const zs = Object.entries(W.zones).filter(([, z]) => z.pressure > 0 || z.owner !== 'cheb').map(([id, z]) => `${id}: ${WAR.ownerInfo(z.owner).short} ${Math.round(z.pressure)}`);
       print(`nube ${WAR.cloudEnabled() ? `(${W.cloud.x.toFixed(1)}, ${W.cloud.y.toFixed(1)}) r${W.cloud.r} viento ${W.cloud.dx.toFixed(1)},${W.cloud.dy.toFixed(1)}` : 'apagada'} · frente ${WAR.frontLine() ? 'SÍ' : 'no'} · ofensivas ${W.offensives.map((o) => `${o.fac}→${o.zone} (día ${o.until})`).join(', ') || '—'} · incendios ${Object.entries(W.fires).map(([z, d]) => `${z} (día ${d})`).join(', ') || '—'}<br>${zs.join(' · ')}`);
       if (app.current() === 'base') app.base.render();
+    } },
+    trama: { a: '[abrir | pista [n] [fuente] | todas | resolver [pregunta] | fuga [robo|rublos|ruta] | buzon]', d: 'el caso del topo (fase 28): muestra la verdad o fuerza pistas y conclusiones', f: ([a, b, c]) => {
+      PLOT.plotDefaults(S);
+      if (a === 'abrir' && !S.plot.on) { PLOT.plotGenerate(); (S.pendingDialogs = S.pendingDialogs || []).push('plot_intro'); }
+      const P = S.plot;
+      if (!P.on) throw new Error('no hay caso: trama abrir');
+      if (a === 'pista') for (let i = 0; i < num(b, 1); i++) PLOT.plotFind(c || 'mapa');
+      else if (a === 'todas') { while (PLOT.remaining().length) PLOT.plotFind('kgb', { quiet: true }); }
+      else if (a === 'resolver') for (const q of b ? [b] : Object.keys(PLOT.QUESTIONS)) { if (P.solved[q]) continue; for (const cl of P.pool.filter((x) => x.q === q)) { if (!P.found.some((f) => f.id === cl.id)) P.found.push({ id: cl.id, src: 'kgb', day: S.day }); P.links[cl.id] = P.truth[q]; } PLOT.plotConclude(q, P.truth[q]); }
+      else if (a === 'fuga') PLOT.plotLeak(b || null);
+      else if (a === 'buzon') { if (!P.solved.donde) PLOT.plotHooks.spawnPlotZone(P.truth.donde); }
+      print(`caso «${esc(P.code)}» · culpable <b>${esc(PLOT.suspectName(P.truth.quien))}</b> · motivo ${P.truth.porque} · para ${P.truth.para} · buzón ${P.truth.donde} · pistas ${P.found.length}/${P.pool.length} · resueltas ${Object.keys(P.solved).join(', ') || '—'} · filtraciones ${P.leaks}${P.fate ? ' · destino ' + P.fate : ''}`);
+      if (app.current() === 'base') { app.base.render(); app.base.runDialogs(); }
     } },
     unlock: { a: '', d: 'abre/cierra todas las zonas de la región', f: () => { S.unlockAll = !S.unlockAll; print('todas las zonas: ' + (S.unlockAll ? 'abiertas' : 'según el progreso')); if (app.current() === 'base') app.base.render(); } },
     evzone: { a: '<tipo>', d: 'hace aparecer una zona de evento en la región', f: ([k]) => {

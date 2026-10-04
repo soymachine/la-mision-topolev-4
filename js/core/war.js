@@ -11,6 +11,7 @@ import { S, settings, addMessage } from './state.js';
 import { MAPS, zoneOpen, mapIndex } from '../data/world.js';
 import { FACTIONS } from '../data/factions.js';
 import { chronicle } from './story.js';
+import { BENEFICIARIES } from '../data/plot.js';
 
 export const RW = 64, RH = 22; // tamaño del mapa de la región (ui/region.js)
 export const BASE_POS = [36, 9]; // el Puesto Pripyat-7, junto a la central
@@ -137,16 +138,22 @@ export function startFire(id = null) {
 // ofensiva de una facción hostil contra una zona (la lanza el Narrador)
 export function startOffensive(fac = null, zone = null) {
   const W = warDefaults(S);
-  fac = fac || HOSTILE_FACS[Math.floor(Math.random() * HOSTILE_FACS.length)];
+  // fase 28: con el topo convertido en agente doble, su facción no encuentra el momento de atacar
+  const P = S.plot, dbl = P && P.on && P.double && BENEFICIARIES[P.truth.para] ? BENEFICIARIES[P.truth.para].fac : null;
+  const hostiles = HOSTILE_FACS.filter((f) => f !== dbl);
+  if (fac && fac === dbl) { addMessage(`Radio: ${FACTIONS[fac] ? FACTIONS[fac].name : fac} preparaba una ofensiva, pero vuestro agente doble les ha dado datos falsos. No llega a salir.`); return null; }
+  fac = fac || hostiles[Math.floor(Math.random() * hostiles.length)];
   const open = MAPS.filter((m, i) => zoneOpen(S, i) && !m.social && !W.offensives.some((o) => o.zone === m.id) && W.zones[m.id] && W.zones[m.id].owner !== fac);
   if (!open.length) return null;
   // prefiere las liberadas y las que rodean el Puesto
   const score = (m) => (W.zones[m.id].owner === 'squad' ? 3 : 0) + (FRONT_ZONES.includes(m.id) ? 2 : 0) + Math.random() * 2;
   const target = zone ? MAPS.find((m) => m.id === zone) : open.sort((a, b) => score(b) - score(a))[0];
   if (!target) return null;
-  const o = { fac, zone: target.id, day: S.day, until: S.day + 4 };
+  // fase 28: si sabéis para quién trabaja el topo, sus ofensivas se detectan antes (+2 días)
+  const early = P && P.on && P.solved && P.solved.para && BENEFICIARIES[P.truth.para] && BENEFICIARIES[P.truth.para].fac === fac ? 2 : 0;
+  const o = { fac, zone: target.id, day: S.day, until: S.day + 4 + early };
   W.offensives.push(o);
-  addMessage(`⚔ Radio: ${FACTIONS[fac] ? FACTIONS[fac].name : fac} lanza una ofensiva sobre ${target.name}. Si nadie la frena en 4 días (una expedición allí con éxito), se quedará con la zona.`);
+  addMessage(`⚔ Radio: ${FACTIONS[fac] ? FACTIONS[fac].name : fac} lanza una ofensiva sobre ${target.name}. Si nadie la frena en ${4 + early} días (una expedición allí con éxito), se quedará con la zona.${early ? ' (Sabíais que vendrían: dos días más de margen.)' : ''}`);
   chronicle(`Ofensiva de ${FACTIONS[fac] ? FACTIONS[fac].short : fac} en ${target.name}.`);
   return o;
 }

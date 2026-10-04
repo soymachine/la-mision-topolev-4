@@ -38,6 +38,7 @@ import { t } from '../i18n/index.js';
 import { achievementsModal } from './achievements.js';
 import { settingsModal } from './settings.js';
 import { asciiSlider } from './widgets.js';
+import { boardModal } from './board.js';
 import { codexModal } from './codex.js';
 import { modeTag, challengeScore } from '../core/modes.js';
 import { controlsModal, keyName } from './keys.js';
@@ -163,6 +164,8 @@ export class BaseUI {
     // cabecera
     const top = el('div', { class: 'base-top' },
       el('span', { class: 'logo', html: t('base.logo') }),
+      // fase 28: el caso del topo (pistas nuevas sin mirar)
+      ...(S.plot && S.plot.on ? [(() => { const f = S.plot.fresh || 0; const n = el('span', { class: 'plot-tag' + (f ? ' fresh' : ''), 'data-plot': '1', html: `📌 <span class="${f ? 'warn' : 'dimt'}">«${esc(S.plot.code)}»${f ? ` +${f}` : ''}</span>`, onclick: () => boardModal(() => { this.render(); this.runDialogs(); }) }); tip(n, () => `<div class="tt-title">CASO «${esc(S.plot.code)}»</div><div>${f ? `${f} pista(s) nueva(s) sin mirar. ` : ''}Abre el tablero de corcho (también en el ARCHIVO).</div>`); return n; })()] : []),
       (() => { const M = NARR.narrMood(); const n = el('span', { class: 'narr-tag', html: `<span style="color:${M.color}">${M.glyph}</span> <span class="dimt">${esc(M.text)}</span>` }); tip(n, () => `<div class="tt-title" style="color:${M.color}">${M.glyph} NARRADOR: ${esc(M.name.toUpperCase())}</div><div>${esc(M.desc)}</div><div class="tt-sep">${'─'.repeat(30)}</div><div class="tt-row"><span class="dimt">Adaptación</span><span>${M.adapt}/100</span></div><div class="dimt">Sube con vuestros éxitos (más presión) y baja con las bajas y los fracasos (más alivios). Se cambia en MENÚ → NARRADOR.</div>`); return n; })(),
       modeTag() ? el('span', { class: 'warn mode-tag', title: 'Modo de juego', text: modeTag() + (S.challenge ? (S.challenge.done ? ` · ${S.challenge.done.score} pts` : ` · día ${S.day}/${S.challenge.days} · ${challengeScore()} pts`) : '') }) : '',
       el('span', { class: 'dimt', html: `PUESTO PRIPYAT-7 · DÍA <b>${S.day}</b> · ${B21.dateStr()} · <span title="${esc(B21.seasonInfo().desc)}">${B21.seasonInfo().glyph} ${B21.seasonInfo().name}</span> · cuota: <span class="${S.ess >= S.quota.ess ? 'good' : 'warn'}" title="Cuota del Comité: esencia a entregar">${S.quota.ess} ✦ en ${Math.max(0, S.quota.due - S.day)} d</span> · <span title="Alerta del reactor: ${esc(ECO.alertInfo().desc)}" style="color:${ECO.alertInfo().color}">☢ ${ECO.alertInfo().name}</span>` }),
@@ -1264,6 +1267,7 @@ export class BaseUI {
     R.body.append(el('div', { class: 'kv', html: `<span>Días</span><span>${S.day}</span><span>Expediciones</span><span>${st.expeditions}</span><span>Extracciones</span><span>${st.extractions}</span><span>Chebylitas abatidos</span><span>${st.kills}</span><span>Agentes caídos</span><span>${st.deaths}</span><span>Esencia total</span><span>${fmt(st.essTotal)} ✦</span><span>Rublos ganados</span><span>${fmt(st.rubTotal)} ₽</span><span>Turnos bajo tierra</span><span>${fmt(st.turns)}</span><span>Mejor objeto</span><span>${st.bestItem ? `<span style="color:${rarityColor(st.bestItem.r)}">${esc(st.bestItem.name)}</span>` : '—'}</span>` }),
       el('div', { class: 'sep', text: '─'.repeat(60) }),
       el('button', { class: 'btn primary', onclick: () => this.hooks.onHelp() }, 'INSTRUCCIONES'),
+      el('button', { class: 'btn' + (S.plot && S.plot.on ? ' primary' : ''), 'data-board': '1', onclick: () => boardModal(() => { this.render(); this.runDialogs(); }) }, `📌 TABLERO DE CORCHO${S.plot && S.plot.on ? ` · «${S.plot.code}» ${S.plot.found.length}/${S.plot.pool.length}` : ''}`),
       el('button', { class: 'btn', onclick: () => this.openChronicle() }, 'CRÓNICA DEL DIRECTOR'),
       el('button', { class: 'btn', onclick: () => achievementsModal() }, t('menu.achievements')),
       el('button', { class: 'btn', onclick: () => codexModal() }, t('menu.codex')),

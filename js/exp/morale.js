@@ -6,6 +6,7 @@ import { ACTORS } from '../data/actors.js';
 import { addStress, addAff, affOf, affState, memorialEntry, CONTRACTS, contractZone } from '../core/story.js';
 import { esc } from '../util/dom.js';
 import { INTERCEPTS } from '../data/lore.js';
+import { plotFind, clueText } from '../core/plot.js';
 import { FACTIONS } from '../data/factions.js';
 import { createItem, mergeInto } from '../core/items.js';
 import { bagCapacity } from '../core/agents.js';
@@ -137,6 +138,8 @@ export class MoralePart {
     if (!this.pois.some((p) => p.x === o.x && p.y === o.y)) this.pois.push({ type: 'cache', x: o.x, y: o.y, lvl: o.lvl || 1, name: 'Alijo (radio interceptada)', best: 1, found: 1 });
     this.dirty = true;
     this.say(`📻 <span style="color:${(FACTIONS[m.f] || {}).color || ''}">Interceptado (${(FACTIONS[m.f] || {}).short || '?'})</span>: ${m.t.replace(/\{s\}/g, s ? s.code : '?')} <span class="cyan">(marcado en el radar)</span>`, 'o1');
+    // fase 28: a veces se cuela algo del caso del topo
+    if (rng.chance(0.3)) { const c = plotFind('radio', { fac: m.f, quiet: true }); if (c) this.say(`📌 Entre la estática, algo más: «${clueText(c)}» (pista para el tablero de corcho).`, 'good'); }
     return true;
   }
 

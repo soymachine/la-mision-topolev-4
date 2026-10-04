@@ -168,11 +168,17 @@ export const EVENT_ZONES = {
     desc: 'Los contrabandistas montan su mercado una noche en un patio de Prípiat. Armas americanas, vaqueros y vodka sin preguntas.',
   },
 };
+// fase 28: el buzón muerto del caso del topo (no aparece al azar; su zona base es la que se deduce en el tablero)
+EVENT_ZONES.buzon = {
+  name: 'El buzón muerto', glyph: '✉', base: 'admin', days: [7, 7], w: 0, plot: 1, pos: [[30, 10]],
+  over: { w: 90, h: 60, nests: [1, 2], caches: [1, 2], special: 'buzon' },
+  desc: 'El escondite donde el topo deja sus paquetes y el contacto los recoge. El contacto no viene solo.',
+};
 // definición sintética de una zona de evento (una sola planta, sin requisitos)
 export function eventDef(ev) {
   const Z = EVENT_ZONES[ev.kind];
-  const base = MAPS[mapIndex(Z.base)];
-  return { ...base, ...Z.over, id: 'ev_' + ev.kind, name: Z.name, short: 'EVENTO', desc: Z.desc, floors: 1, req: [], pos: ev.pos, event: ev.kind, floorNames: null };
+  const base = MAPS[mapIndex(ev.base || Z.base)];
+  return { ...base, ...Z.over, id: 'ev_' + ev.kind, name: Z.name, short: 'EVENTO', desc: Z.desc, floors: 1, req: [], pos: ev.pos, event: ev.kind, floorNames: null, ...(ev.types ? { plotFac: ev.fac, plotTypes: ev.types } : {}) };
 }
 export const openCount = (st) => MAPS.filter((m, i) => zoneOpen(st, i)).length;
 

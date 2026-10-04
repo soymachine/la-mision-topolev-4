@@ -17,6 +17,8 @@ import { baseDayTick, placeBuilding, demandK, noteSale, attackResult, defenseDef
 import * as basecoreNS from './basecore.js';
 import { narrDay, narrOnExpedition, narrHooks, narrPriceK, sickDays } from './narrator.js';
 import { warDay, warOnExpedition } from './war.js';
+import { plotDay, plotFind, plotHooks, clueText } from './plot.js';
+import { BENEFICIARIES } from '../data/plot.js';
 
 // modificadores de cada zona para hoy (fase 16.4)
 export const zoneMods = (mapIdx) => (S.forceMods ? [...S.forceMods] : rollZoneMods(S.created >>> 0, S.day, mapIdx));
@@ -274,7 +276,7 @@ export function launchExpedition(mapIdx, agents, evId = null) {
   const ev = evId && (S.eventZones || []).find((z) => z.id === evId);
   if (ev) {
     S.eventZones = S.eventZones.filter((z) => z !== ev);
-    return Expedition.create(mapIndex(EVENT_ZONES[ev.kind].base), agents, [], eventDef(ev));
+    return Expedition.create(mapIndex(ev.base || EVENT_ZONES[ev.kind].base), agents, [], eventDef(ev));
   }
   const exp = Expedition.create(mapIdx, agents, zoneMods(mapIdx));
   return exp;
@@ -402,6 +404,16 @@ export function finalizeExpedition(exp) {
     const items = rep.agents.reduce((n, r) => n + (r.items ? r.items.length : 0), 0) + outsN * 3;
     rep.war = warOnExpedition(def.id, { result: rep.result, cleared: nests.length ? nests.filter((p) => p.cleared).length / nests.length : 0, bosses: (exp.bossesDown || []).length, items, agents: exp.squad.filter((sq) => sq.out && sq.a).map((sq) => sq.a) });
   }
+  // fase 28: los informes de inteligencia y los documentos que vuelven traen pistas del caso del topo (una vez por papel)
+  rep.plot = [];
+  for (const sq of exp.squad) {
+    if (!sq.out || !sq.a) continue;
+    for (const it of [...Object.values(sq.a.equip).filter(Boolean), ...sq.a.bag]) {
+      if ((it.b !== 'intel' && it.b !== 'docs') || it.plotRead) continue;
+      it.plotRead = 1;
+      if (rep.plot.length < 2 && Math.random() < (it.b === 'intel' ? 0.8 : 0.4)) { const c = plotFind('inteligencia'); if (c) rep.plot.push(clueText(c)); }
+    }
+  }
   // fase 22: mundo persistente (nidos limpios que tardan en volver, jefes abatidos)
   const calm = recordExpedition(exp);
   if (calm && anyOut) addMessage(calm);
@@ -431,6 +443,7 @@ export function nextDay() {
   baseDayTick(); // fase 21: investigación, celdas, edificios, cuotas, estaciones, historia, operaciones, ataques
   warDay(); // fase 27: la nube, la presión de cada zona, las ofensivas y los incendios
   narrDay(); // fase 25: el Narrador del Reactor elige amenazas y alivios
+  plotDay(); // fase 28: la Conspiración (abre el caso, filtraciones)
   // fase 20: descanso (y banya), cartas de casa, adicciones
   if (Math.random() < 0.15) familyLetter();
   for (const a of S.agents) {
@@ -453,13 +466,14 @@ export function nextDay() {
 export function tickEventZones(g = rng) {
   S.eventZones = (S.eventZones || []).filter((ev) => --ev.left > 0);
   if (S.day < 3 || S.eventZones.length >= 2 || !g.chance(0.4)) return null;
-  const pool = Object.keys(EVENT_ZONES).filter((k) => zoneOpen(S, mapIndex(EVENT_ZONES[k].base)) && !S.eventZones.some((ev) => ev.kind === k));
+  const pool = Object.keys(EVENT_ZONES).filter((k) => !EVENT_ZONES[k].plot && zoneOpen(S, mapIndex(EVENT_ZONES[k].base)) && !S.eventZones.some((ev) => ev.kind === k));
   if (!pool.length) return null;
   const kind = g.weighted(pool, (k) => EVENT_ZONES[k].w);
   return spawnEventZone(kind, g);
 }
 export function spawnEventZone(kind, g = rng) {
   const Z = EVENT_ZONES[kind];
+  if (Z.plot) return plotHooks.spawnPlotZone((S.plot && S.plot.truth && S.plot.truth.donde) || Z.base); // fase 28: el buzón muerto
   const taken = new Set([...MAPS.map((m) => m.pos.join(',')), ...(S.eventZones || []).map((ev) => ev.pos.join(','))]);
   const pos = Z.pos.find((p) => !taken.has(p.join(','))) || Z.pos[0];
   const ev = { id: `ev${S.day}_${kind}`, kind, pos, left: g.int(Z.days[0], Z.days[1]) + 1 };
@@ -611,3 +625,16 @@ function awardHonors(exp, sq, a) {
 // fase 25: el Narrador necesita crear voluntarios y saber el límite de la plantilla
 export function createAgentFor(opts = {}) { const a = createAgent(rng, { day: S.day, avoid: new Set(S.agents.map((x) => x.nick)), ...opts }); starterKit(a, rng); return a; }
 narrHooks({ basecore: basecoreNS, campaign: { rosterCap: () => rosterCap(), createAgentFor } });
+// fase 28: la Conspiración (el traidor se va; el buzón muerto aparece como zona de evento junto a su zona)
+plotHooks.dismiss = (a) => dismiss(a);
+plotHooks.spawnPlotZone = (zoneId) => {
+  const m = MAPS[mapIndex(zoneId)];
+  const taken = new Set([...MAPS.map((z) => z.pos.join(',')), ...(S.eventZones || []).map((ev) => ev.pos.join(','))]);
+  const near = [[2, 0], [-2, 0], [0, 1], [0, -1], [2, 1], [-2, -1], [3, 0], [-3, 0]].map(([dx, dy]) => [m.pos[0] + dx, m.pos[1] + dy]).find((p) => !taken.has(p.join(','))) || [m.pos[0] + 1, m.pos[1]];
+  S.eventZones = (S.eventZones || []).filter((ev) => ev.kind !== 'buzon');
+  const B = BENEFICIARIES[(S.plot && S.plot.truth && S.plot.truth.para) || 'contrabandistas'];
+  const ev = { id: `ev${S.day}_buzon`, kind: 'buzon', base: zoneId, pos: near, left: 8, fac: B.fac, types: B.types };
+  S.eventZones.push(ev);
+  addMessage(`✉ El buzón muerto, junto a ${m.name}: disponible 7 días en el mapa de la región.`);
+  return ev;
+};

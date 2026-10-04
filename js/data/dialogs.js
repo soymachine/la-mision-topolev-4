@@ -12,6 +12,7 @@ import { ACTORS, actorFaction } from './actors.js';
 import { createItem } from '../core/items.js';
 import { agentStats } from '../core/agents.js';
 import { NARR_DIALOGS } from '../core/narrator.js';
+import { PLOT_DIALOGS, plotComplete, plotFind, clueText } from '../core/plot.js';
 
 const SURVIVOR_STORY = [
   'Llevaba la cuenta de los días rayando la pared con una hebilla. Dejó de hacerlo cuando las rayas empezaron a moverse. «Las paredes respiran, camaradas. De noche se oye cómo respiran.»',
@@ -278,7 +279,7 @@ export const DIALOGS = {
         text: (c) => `De rodillas, con las manos detrás de la cabeza. ${pick(PRISONER_LINES[facOf(c)] || PRISONER_LINES.default, c)} ¿Qué hacéis con él?`,
         opts: (c) => [
           { label: 'DEJARLO MARCHAR', cls: 'good', effects: [{ rep: [facOf(c), 5] }, { log: 'Le dejáis ir. Se aleja sin mirar atrás. Su gente se enterará de esto.', cls: 'good' }, { run: (cc) => cc.exp.dismissActor(cc.actor) }] },
-          { label: 'INTERROGARLO', turn: true, effects: [{ reveal: 40 }, { run: (cc) => { for (const o of cc.exp.enemies) if (actorFaction(o) === facOf(cc)) { o.seen = 1; cc.exp.explored[cc.exp.key(o.x, o.y)] = 1; } } }, { rep: [facOf(c), -3] }, { log: (cc) => `Habla. Marca en el plano las posiciones de los suyos (${cc.revealed || 0} casillas cartografiadas). Luego le soltáis.`, cls: 'o1' }, { run: (cc) => cc.exp.dismissActor(cc.actor) }] },
+          { label: 'INTERROGARLO', turn: true, effects: [{ reveal: 40 }, { run: (cc) => { for (const o of cc.exp.enemies) if (actorFaction(o) === facOf(cc)) { o.seen = 1; cc.exp.explored[cc.exp.key(o.x, o.y)] = 1; } } }, { rep: [facOf(c), -3] }, { log: (cc) => `Habla. Marca en el plano las posiciones de los suyos (${cc.revealed || 0} casillas cartografiadas). Luego le soltáis.`, cls: 'o1' }, { run: (cc) => { if (Math.random() < 0.6) { const k = plotFind('interrogatorio', { fac: facOf(cc), quiet: true }); if (k) cc.exp.say(`📌 Antes de irse suelta algo más: «${clueText(k)}» (pista para el tablero de corcho).`, 'good'); } } }, { run: (cc) => cc.exp.dismissActor(cc.actor) }] },
           { label: 'REQUISAR SU EQUIPO', turn: true, effects: [{ run: (cc) => cc.exp.stripActor(cc.actor) }, { rep: [facOf(c), -6] }, { log: 'Le quitáis todo lo que lleva y le echáis a patadas.', cls: 'warn' }, { run: (cc) => { cc.exp.dismissActor(cc.actor); cc.exp.emit('loot', { floor: true, x: cc.actor.x, y: cc.actor.y }); } }] },
           { label: '[COMISARIO] RECLUTARLO PARA EL PUESTO', show: [{ any: [{ spec: 'comisario' }, { squadFlag: 'negotiator' }] }, { test: (cc) => facOf(cc) === 'desertores' || facOf(cc) === 'merodeadores' }], cls: 'good', effects: [{ run: (cc) => cc.exp.recruitActor(cc.actor) }, { rep: [facOf(c), 6] }, { log: '«Patria o muerte, ¿no?» Se une a vosotros. Se presentará en la base.', cls: 'good' }] },
           { label: 'ENTREGARLO AL KGB (150 ₽ AL VOLVER)', effects: [{ run: (cc) => cc.exp.takePrisoner(cc.actor) }, { rep: [facOf(c), -8] }, { log: 'Le atáis las manos. El KGB recogerá «el paquete» en el punto de extracción.', cls: 'warn' }] },
@@ -353,6 +354,7 @@ export const DIALOGS = {
           { label: 'ENTREGAR LA ESENCIA AL PARTIDO (500 ✦)', cond: { ess: ['>=', 500] }, hint: 'hace falta tener 500 ✦ que entregar', effects: [{ ess: -500 }, { run: () => endGameLazy('partido') }], goto: 'end' },
           { label: 'DESTRUIR EL ÚTERO: SELLAR LA CENTRAL PARA SIEMPRE', cls: 'good', effects: [{ run: () => endGameLazy('sellar') }], goto: 'end' },
           { label: 'HUIR A OCCIDENTE CON LAS MUESTRAS', cond: { any: [{ rep: ['suecia', '>=', 40] }, { rep: ['finlandia', '>=', 40] }, { rep: ['contrabandistas', '>=', 30] }] }, hint: 'necesitáis a alguien que os saque: suecos, finlandeses o contrabandistas (reputación 40/40/30)', effects: [{ run: () => endGameLazy('occidente') }], goto: 'end' },
+          { label: '[CONSPIRACIÓN] LLEVAR EL CASO AL POLITBURÓ', show: { test: () => plotComplete() }, cls: 'cyan', effects: [{ run: () => endGameLazy('verdad') }], goto: 'end' },
           { label: '[TOPOLEV] BAJAR CON ÉL HASTA EL FINAL', show: { test: () => !!S.flags.topolevPast && (S.trust || 0) >= 70 }, cls: 'cyan', effects: [{ run: () => endGameLazy('fusion') }], goto: 'end' },
           { label: 'TODAVÍA NO: SEGUIR TRABAJANDO (SE VOLVERÁ A PLANTEAR TRAS OTRA BAJADA AL ÚTERO)' },
         ],
@@ -558,3 +560,4 @@ const ATTACK_INFO = () => (S.attack && ATTACKS_REF ? ATTACKS_REF[S.attack.kind] 
 
 // fase 25: crisis del Narrador del Reactor
 Object.assign(DIALOGS, NARR_DIALOGS);
+Object.assign(DIALOGS, PLOT_DIALOGS); // fase 28

@@ -614,3 +614,31 @@ body.modal-open #app { filter: blur(2px) brightness(.55); transition: filter .12
 .rg-cloud { color: #8a9a3a; }
 .rg-attack { background: #4a0806; animation: blink 1s steps(2) infinite; }
 .rg-fire { background: #4a2006; }
+
+/* ---------- fase 28: el tablero de corcho ---------- */
+.plot-tag { white-space: nowrap; cursor: pointer; }
+.plot-tag.fresh { animation: plotblink 1.2s steps(2) infinite; }
+@keyframes plotblink { 50% { opacity: .55; } }
+.corkboard { display: flex; flex-direction: column; gap: .5em; }
+.cb-tabs { display: flex; flex-wrap: wrap; gap: .5ch; }
+.cb-help { font-size: 12px; }
+.cb-wrap { overflow: auto; max-height: 62vh; border: 1px solid var(--o5); background: #1a0f06; }
+.cb-grid { margin: 0; padding: 4px 6px; font-size: 12.5px; line-height: 1.18; white-space: pre; cursor: default; user-select: none; }
+.cb-grid [data-r] { cursor: pointer; }
+.cb-cork { color: #4a3018; }
+.cb-paper { background: #2a1d0e; }
+.cb-clue { color: #c8a870; background: #2a1d0e; }
+.cb-hyp { color: #9a7a4a; background: #2a1d0e; }
+.cb-ink { color: #f0e1b0; background: #2a1d0e; }
+.cb-name { color: #ffd7a8; background: #2a1d0e; font-weight: 700; }
+.cb-sub { color: #b89868; background: #2a1d0e; }
+.cb-pin { color: #ff5a4a; background: #2a1d0e; }
+.cb-sel { color: var(--warn) !important; }
+.cb-x { color: #5a4a3a !important; text-decoration: line-through; }
+.cb-ok { color: var(--good) !important; }
+.cb-note { color: #8a6a4a; }
+.cb-thread { color: #e0302a; }
+.cb-tsel { color: var(--warn); }
+.cb-tok { color: #3ddc6b; }
+.cb-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 1ch; }
+.cb-head { font-size: 13px; }

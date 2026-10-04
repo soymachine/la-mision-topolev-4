@@ -46,4 +46,6 @@ export const ACHIEVEMENTS = [
   { id: 'end_sellar', glyph: '✪', secret: 1, name: 'Fin: sellar el reactor', desc: 'Ve el final de sellar.', test: (S) => S.ending === 'sellar' },
   { id: 'end_occidente', glyph: '✪', secret: 1, name: 'Fin: Occidente', desc: 'Ve el final de Occidente.', test: (S) => S.ending === 'occidente' },
   { id: 'end_fusion', glyph: '✪', secret: 1, name: 'Fin: fusión', desc: 'Ve el final de la fusión.', test: (S) => S.ending === 'fusion' },
+  { id: 'end_verdad', glyph: '✪', secret: 1, name: 'Fin: la verdad', desc: 'Ve el final de la verdad.', test: (S) => S.ending === 'verdad' },
+  { id: 'topo', glyph: '📌', secret: 1, name: 'Caso cerrado', desc: 'Resuelve las cuatro preguntas del caso del topo.', test: (S) => !!(S.plot && S.plot.complete) },
 ];

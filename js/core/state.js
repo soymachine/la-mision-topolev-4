@@ -13,6 +13,7 @@ import { worldDefaults } from './ecosys.js';
 import { statsDefaults } from './achievements.js';
 import { narrDefaults } from './narrator.js';
 import { warDefaults } from './war.js';
+import { plotDefaults } from './plot.js';
 import { applyMode, weekSeed, isoWeek } from './modes.js';
 import { compressToUTF16, decompressFromUTF16 } from '../util/lz.js';
 
@@ -64,6 +65,7 @@ export function newGame(n = slot, opts = {}) {
   worldDefaults(S);
   narrDefaults(S); if (opts.narr) S.narr.persona = opts.narr; // fase 25
   warDefaults(S); // fase 27
+  plotDefaults(S); // fase 28
   S.act = 1; S.pendingScenes = ['act1']; S.chronicle.push({ day: 1, text: 'Comienza el Acto I: «El Bloque». Llegada al Puesto Pripyat-7.' });
   S.messages.push({ day: 1, text: 'Camarada director: el equipo está listo. El Bloque Administrativo es nuestro primer objetivo. Traed esencia. Volved vivos. — Dr. A. Topolev' });
   applyMode(S, opts); // fase 24.7
@@ -136,6 +138,7 @@ function upgrade(d) {
   statsDefaults(d); // fase 24.6: estadísticas ampliadas
   narrDefaults(d); // fase 25: el Narrador del Reactor
   warDefaults(d); // fase 27: la Zona en guerra
+  plotDefaults(d); // fase 28: la Conspiración
   // descontaminación automática al volver a la base: los agentes que ya estaban en ella quedan limpios (una vez)
   if (!d.deconV) { const away = new Set(((d.exp && d.exp.squad) || []).map((q) => q.id)); for (const a of d.agents || []) if (!away.has(a.id)) a.rad = 0; d.deconV = 1; }
   // fase 18: la reputación pasa a ser absoluta (−100…+100) partiendo de la postura inicial de cada facción

@@ -70,6 +70,14 @@ const ART_FUSION = String.raw`
            ✦          ✦ ✦ ✦ ✦ ✦           ✦
                   ·         ✦        ·`;
 
+const ART_BOARD = String.raw`
+     ┌────────────────────────────────────┐
+     │  ●──────────●          ●           │
+     │   ╲   ☭      ╲   ✉    ╱ ╲    ⚑     │
+     │    ●──────────●──────●   ●────●    │
+     │         «CASO CERRADO»              │
+     └────────────────────────────────────┘`;
+
 // escenas: líneas (se mecanografían) y arte
 export const SCENES = {
   act1: { title: 'ACTO I · EL BLOQUE', art: ART_REACTOR, color: '#ff8a1f', lines: [
@@ -113,6 +121,11 @@ export const ENDINGS = {
     'Una lancha sueca sin luces, una noche sin luna, un maletín de plomo con muestras.',
     'En Estocolmo os esperan periodistas, científicos y hombres de traje que no dan su nombre.',
     'El Pravda publica vuestras esquelas. En Occidente, la esencia ya tiene precio en bolsa.',
+  ] },
+  verdad: { name: 'La verdad', art: ART_BOARD, color: '#e6c86a', lines: [
+    'Una carpeta de cartón con hilos rojos y fotografías clavadas llega a una mesa del Kremlin.',
+    'Quién filtraba, por qué, para quién y dónde. Y detrás, todo lo demás: los expedientes de 1979, la Muestra n.º 7, el traslado que firmó Topolev.',
+    'El Politburó ordena una comisión. La comisión ordena el silencio. Pero alguien ha hecho copias, y las copias ya viajan.',
   ] },
   fusion: { name: 'Lo que Topolev buscaba', art: ART_FUSION, color: '#5ff7ff', lines: [
     'El doctor baja con vosotros hasta el final. Se quita el respirador.',

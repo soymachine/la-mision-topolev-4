@@ -37,6 +37,7 @@ import { DirectorPart } from './director.js';
 import { FluidPart, SMOKE_OPAQUE, SMOKE_OPAQUE_LOW } from './fluids.js';
 import { zoneWorld, reactorAlert } from '../core/ecosys.js';
 import { zoneWar, zoneFpool } from '../core/war.js';
+import { plotOn, remaining as plotRemaining, BENEFICIARIES_OF } from '../core/plot.js';
 import { unreadNote } from '../core/story.js';
 import { seasonOf } from '../data/basedata.js';
 import { MODIFIERS, modEss, modRad, WEATHER } from '../data/modifiers.js';
@@ -121,6 +122,9 @@ export class Expedition {
     if (e.cloud >= 0.15) e.say(`☁ La nube radiactiva cubre la zona (${Math.round(e.cloud * 100)}%): más radiación${e.blackRain ? ' y <b>lluvia negra</b>' : ''}.`, 'warn');
     if (e.forestFire) { e.igniteForest(40); e.say('🔥 El bosque arde: humo, fuego que avanza entre los pinos. Cuidado con quedar rodeados.', 'bad'); }
     if (war && war.offensive) e.say(`⚔ Ofensiva de ${FACTIONS[war.offensive.fac] ? FACTIONS[war.offensive.fac].name : war.offensive.fac} en curso: sus patrullas recorren la zona. Salid con éxito para frenarla.`, 'warn');
+    // fase 28: el caso del topo
+    if (def.event === 'buzon' && def.plotFac) { e.relations = e.relations || {}; e.relations[def.plotFac < 'squad' ? def.plotFac + '|squad' : 'squad|' + def.plotFac] = 'hostile'; e.say(`✉ El buzón muerto: el contacto de ${FACTIONS[def.plotFac] ? FACTIONS[def.plotFac].name : def.plotFac} y su escolta vigilan el maletín. No van a dejaros pasar.`, 'warn'); }
+    if (e.plotAmbush) e.say(`🕵 Os esperaban: patrullas de ${FACTIONS[e.plotAmbush] ? FACTIONS[e.plotAmbush].name : e.plotAmbush} conocen vuestra ruta. Alguien del Puesto habla demasiado.`, 'bad');
     e.trigger('expStart');
     e.checkSector(e.cur);
     return e;
@@ -142,6 +146,12 @@ export class Expedition {
       const war = zoneWar(base.id);
       if (war) { const forced = !!(war.offensive || war.owner !== 'cheb'); def = { ...def, fpool: zoneFpool(base.id, def.fpool), forceFpool: forced, warPatrols: war.offensive ? 3 : war.owner === 'squad' ? 1 : war.owner !== 'cheb' ? 2 : 0 }; }
     }
+    // fase 28: una filtración ha vendido la ruta: patrullas de quien paga al topo os esperan
+    if (f === 0 && plotOn() && S.plot.ambush && !base.social) {
+      const fac = BENEFICIARIES_OF(S.plot.truth.para);
+      S.plot.ambush = 0; this.plotAmbush = fac;
+      def = { ...def, fpool: [fac, fac], forceFpool: true, warPatrols: Math.max(def.warPatrols || 0, 2) };
+    }
     const modSet = Object.fromEntries((this.mods || []).map((m) => [m, true]));
     // fase 22: mundo persistente (nidos que vuelven, zonas que crecen, jefes ausentes); las zonas de evento no lo tienen
     const world = this.zoneDef ? { alert: reactorAlert() } : zoneWorld(base.id);
@@ -151,6 +161,11 @@ export class Expedition {
     this.exits = m.exits; this.pois = m.pois; this.objects = (m.objects || []).filter((o) => o.kind !== 'cart'); this.vents = m.vents;
     // notas: preferir las que aún no se han leído (colecciones, fase 20.6)
     for (const o of this.objects) if (o.kind === 'note' && o.fnote == null && S.notesRead && S.notesRead[o.note]) { const u = unreadNote(rng); if (u != null) o.note = u; }
+    // fase 28: a veces una de las notas es un papel con el membrete del Puesto: una pista del caso del topo (una por expedición)
+    if (plotOn() && !this.plotNote && plotRemaining().length && rng.chance(0.45)) {
+      const notes = this.objects.filter((o) => o.kind === 'note' && o.fnote == null);
+      if (notes.length) { rng.pick(notes).clue = 1; this.plotNote = 1; }
+    }
     this.rad = m.radField; this.anomaly = m.anomaly;
     this.start = m.start; this.lift = m.lift; this.chasms = m.chasms;
     this.mines = m.mines || []; this.surface = !!def.surface; this.indoor = m.indoor || null; this.antennaAt = m.antennaAt || null; this.railRows = m.railRows || [];
@@ -227,7 +242,7 @@ export class Expedition {
       sense: this.sense, senseR: this.senseR, relations: this.relations || {},
       eventsDone: this.eventsDone || {}, facSeen: this.facSeen || {}, dlg: this.dlg || null, dlgQueue: this.dlgQueue || [],
       patria: this.patria || 0, truceUsed: this.truceUsed || 0, defibUsed: this.defibUsed || 0, quietT: this.quietT || 0, fac: this.fac || null, sentHome: this.sentHome || [], season: this.season || null, defenseWon: this.defenseWon || 0,
-      clock: this.clock ?? null, weather: this.weather || null, cloud: this.cloud || 0, blackRain: this.blackRain || 0, forestFire: this.forestFire || 0, trainAt: this.trainAt || 0, raidAt: this.raidAt || 0, revealT: this.revealT || 0, antennaUsed: this.antennaUsed || 0,
+      clock: this.clock ?? null, weather: this.weather || null, cloud: this.cloud || 0, blackRain: this.blackRain || 0, forestFire: this.forestFire || 0, plotNote: this.plotNote || 0, trainAt: this.trainAt || 0, raidAt: this.raidAt || 0, revealT: this.revealT || 0, antennaUsed: this.antennaUsed || 0,
       turn: this.turn, log: this.log.slice(-60), evac: this.evac, tally: this.tally, dir: this.dir || null,
       surgeAt: this.surgeAt, nextTemp: this.nextTemp, nextRadio: this.nextRadio, active: this.active,
       squad: this.squad.map((sq) => { const { a, ...rest } = sq; return rest; }),

@@ -953,6 +953,7 @@ export class ExpeditionUI {
     const obj = e.objAt(x, y);
     if (obj) {
       if (obj.kind === 'vein') parts.push(`<div class="tt-title cyan">✦ Veta de esencia</div><div class="dimt">${obj.amount > 0 ? `Quedan ~${obj.amount} ✦. Ponte al lado y pulsa <b>F</b> para extraer (hace ruido).` : 'Agotada.'}</div>`);
+      else if (obj.kind === 'note' && obj.clue) parts.push(`<div class="tt-title" style="color:#ff8a6a">? Papel con membrete</div><div class="dimt">${obj.opened ? 'Ya leído: está en el tablero de corcho.' : 'Lleva el sello del Puesto Pripyat-7. ¿Qué hace aquí?'} Ponte encima y pulsa <b>F</b>.</div>`);
       else if (obj.kind === 'note') parts.push(`<div class="tt-title" style="color:#f0e1aa">? Nota</div><div class="dimt">${obj.opened ? 'Ya leída.' : 'Papel arrugado.'} Ponte encima y pulsa <b>F</b>.</div>`);
       else if (obj.kind === 'objective') parts.push(`<div class="tt-title" style="color:#ffd23f">◎ ${esc(obj.label)}</div><div class="dimt">${obj.opened ? 'Hecho.' : 'Objetivo del encargo especial. Adyacente + <b>F</b>.'}</div>`);
       else if (obj.kind === 'survivor') parts.push('<div class="tt-title" style="color:#a0e8a0">☺ Superviviente</div><div class="dimt">Alguien sigue vivo aquí abajo. Ponte al lado y pulsa <b>F</b>.</div>');
@@ -1261,6 +1262,12 @@ export class ExpeditionUI {
 
   // ------------------------------------------------------------ eventos narrativos
   openNote(o) {
+    // fase 28: papel con el membrete del Puesto (pista del caso del topo)
+    if (o.clue) {
+      sfx.type();
+      modal({ title: 'PAPEL CON EL MEMBRETE DEL PUESTO', width: 'min(70ch, 92vw)', body: `<div class="msg-topolev" style="font-size:15px;line-height:1.6;padding:1em 1ch">${esc(o.clueText || '')}</div>${o.clueQ ? `<div class="dimt">📌 Pista para el caso del topo (${esc(o.clueQ)}). Queda clavada en el <b>tablero de corcho</b> del ARCHIVO.</div>` : ''}`, actions: [{ label: 'GUARDAR' }] });
+      return;
+    }
     if (o.fnote != null) {
       const f = FOREIGN_NOTES[o.fnote % FOREIGN_NOTES.length];
       sfx.type();

@@ -473,7 +473,7 @@ export class MapRenderer {
         glyph(o.x, o.y, g, col, vis ? '#021416' : null, 1.1, true, vis && o.amount > 0 ? ESSENCE_COLOR : null, 0.2 + 0.08 * Math.sin(T_ * 3 + o.x));
         continue;
       }
-      if (o.kind === 'note') { glyph(o.x, o.y, '?', o.opened ? (vis ? '#7a6a4a' : '#3a3020') : vis ? `rgba(240,225,170,${0.7 + 0.3 * Math.sin(T_ * 3 + o.x)})` : '#5a5030', null, 1, !o.opened); continue; }
+      if (o.kind === 'note') { const cl = o.clue; glyph(o.x, o.y, '?', o.opened ? (vis ? (cl ? '#8a5a4a' : '#7a6a4a') : '#3a3020') : vis ? (cl ? `rgba(255,130,100,${0.7 + 0.3 * Math.sin(T_ * 3 + o.x)})` : `rgba(240,225,170,${0.7 + 0.3 * Math.sin(T_ * 3 + o.x)})`) : '#5a5030', null, 1, !o.opened); continue; }
       if (SOCIAL_COL[o.kind]) { const done = (o.kind === 'archive' || o.kind === 'wreck' || o.kind === 'radio' || o.kind === 'sabotage' || o.kind === 'objective') && o.opened && !(o.items && o.items.length);
         glyph(o.x, o.y, OBJ_GLYPH[o.kind], vis ? (done ? '#6a6a5a' : SOCIAL_COL[o.kind]) : '#4a4a3a', vis ? '#140a02' : null, 1.1, vis && !done); continue; }
       if (o.kind === 'survivor') { glyph(o.x, o.y, '☺', vis ? `rgba(160,232,160,${0.75 + 0.25 * Math.sin(T_ * 2)})` : '#3a5a3a', null, 1.05, true); continue; }

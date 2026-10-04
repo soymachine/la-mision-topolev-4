@@ -12,6 +12,7 @@ import { NOTES, COLLECTIONS } from '../data/lore.js';
 import { rng } from '../util/rng.js';
 import { MODIFIERS, rollZoneMods } from '../data/modifiers.js';
 import { JOB_TYPES } from '../data/jobs.js';
+import { plotEpilogue, staffGone } from './plot.js';
 import { ENEMIES } from '../data/enemies.js';
 
 const pick = (l) => l[Math.floor(Math.random() * l.length)];
@@ -91,6 +92,7 @@ export function endGame(id) {
   if (S.fallen.length) L.push(`En el memorial de Pripyat-7 hay ${S.fallen.length} nombre(s). ${S.fallen.slice(0, 3).map((f) => f.name).join(', ')}${S.fallen.length > 3 ? '…' : ''}`);
   if (repOf(S, 'rda') >= 50) L.push('En Leipzig, un antiguo soldado de la NVA brinda cada 26 de abril por los soviéticos que le salvaron.');
   if (repOf(S, 'kgb') <= -25) L.push('Vuestro expediente en la Lubianka ocupa tres cajas. Nadie lo ha cerrado.');
+  L.push(...plotEpilogue()); // fase 28: el caso del topo
   L.push(`Confianza final del Dr. Topolev: ${S.trust}/100.`);
   S.endingLines = L;
   queueScene('end:' + id);
@@ -104,6 +106,8 @@ export function staffLine(id) {
   const st = STAFF[id];
   if (!st || !st.lines) return null;
   const i = (S.day * 7 + id.length * 3) % st.lines.length;
+  // fase 28: el personal descubierto y apartado tiene sustituto
+  if (staffGone(id)) return { name: `Sustituto de ${st.name}`, role: st.role, color: '#9a9a9a', text: '«Mi predecesor ya no está. No pregunte, camarada.»' };
   return { name: st.name, role: st.role, color: st.color, text: st.lines[i] };
 }
 

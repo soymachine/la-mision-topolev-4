@@ -2,6 +2,7 @@
 // (métodos mezclados en Expedition: ver expedition.js)
 /* eslint-disable no-unused-vars */
 import { RNG, rng, clamp, cheb, line, uid } from '../util/rng.js';
+import { plotFind, clueText, QUESTIONS } from '../core/plot.js';
 import { T, TILES } from '../data/tiles.js';
 import { MAPS } from '../data/world.js';
 import { ENEMIES, scaleEnemy, enemyColor } from '../data/enemies.js';
@@ -83,7 +84,9 @@ export class UsePart {
     if (o.kind === 'survivor' && o.missing) return this.rescueMissing(sq, o);
     if (o.kind === 'note') {
       // diarios de otras expediciones: se traducen al leerlos y el KGB los quiere
-      if (o.fnote == null && o.note != null) { const col = markNoteRead(o.note); if (col) this.say(`📚 ${col}`, 'good'); }
+      // fase 28: papel con el membrete del Puesto → pista del caso del topo
+      if (o.clue && !o.opened) { const c = plotFind('mapa', { quiet: true }); o.clueText = c ? clueText(c) : 'El papel está empapado: la tinta se ha corrido y no se lee nada.'; o.clueQ = c ? QUESTIONS[c.q].name : null; if (c) this.say(`📌 Pista para el tablero de corcho (${o.clueQ}).`, 'good'); }
+      else if (o.fnote == null && o.note != null && !o.clue) { const col = markNoteRead(o.note); if (col) this.say(`📚 ${col}`, 'good'); }
       if (o.fnote != null && !o.opened) { const it = createItem('foreigndiary', 0, rng); if (mergeInto(sq.a.bag, it, bagCapacity(sq.a))) this.addFloor(sq.x, sq.y, it); this.say(`${this.nm(sq)} se guarda el diario. Al KGB le interesará.`, 'o1'); }
       o.opened = true; this.dirty = true;
       if (sq === this.cur) this.emit('note', o);
@@ -113,6 +116,8 @@ export class UsePart {
       this.say(`${this.nm(sq)} registra ${names[o.kind]}${o.items.length ? '.' : ': vacío.'}`);
       this.fx.push({ type: 'open', x: o.x, y: o.y });
       this.noise(sq.x, sq.y, 2);
+      // fase 28: el maletín del contacto del topo trae varias pistas
+      if (o.special === 'buzon') { const got = []; for (let i = 0; i < 3; i++) { const c = plotFind('buzon', { quiet: true }); if (c) got.push(c); } if (S.plot) S.plot.dropDone = S.day; this.say(got.length ? `✉ En el maletín hay copias de los mensajes del topo: ${got.length} pista(s) para el tablero de corcho.` : '✉ El maletín del contacto: nada que no supierais ya.', 'good'); }
       if (o.kind === 'cache' || o.kind === 'wreck') { const p = this.pois.find((pp) => pp.type === 'cache' && pp.x === o.x && pp.y === o.y); if (p) p.cleared = true; this.gainXp(sq, 5, true); }
       if (o.items.length && sq === this.cur) this.emit('loot', { obj: o });
       this.dirty = true;

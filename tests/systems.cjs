@@ -432,6 +432,7 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
   ok(op, 'extraer de una zona abre las siguientes');
   await zd('unlock');
   const launchZone = async (id, ev = false) => {
+    await Z.waitForTimeout(500); await zClose(); // diálogos de la base que llegan con retraso (p. ej., el caso del topo)
     await Z.click('.tab:has-text("EXPEDICIÓN")'); await Z.waitForTimeout(200);
     if (ev) await Z.click('.mapcard.event >> nth=0');
     else { const idx = await Z.evaluate(async (zid) => (await import('./js/data/world.js')).mapIndex(zid), id); await Z.click(`.mapcard:not(.event) >> nth=${idx}`); }
@@ -2569,6 +2570,170 @@ const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); i
     }
     ok(off, 'la nube se apaga en CONFIGURACIÓN (a prueba)');
     await ctx24.close();
+  }
+
+  console.log('· Fase 28: la Conspiración');
+  {
+    const ctx25 = await b.newContext({ viewport: { width: 1440, height: 900 } });
+    const Q = await ctx25.newPage();
+    Q.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
+    Q.on('console', (m) => { if ((m.type() === 'error' && !/ERR_CERT|fonts\.g/.test(m.text())) || m.type() === 'warning') errs.push(m.text()); });
+    const qClose = async () => { for (let i = 0; i < 6 && (await Q.$('.modal')); i++) { await Q.keyboard.press('Escape'); await Q.waitForTimeout(130); } };
+    await Q.goto(URL); await Q.waitForTimeout(800);
+    await Q.click('text=NUEVA PARTIDA'); await Q.click('.modal >> text=EMPEZAR AQUÍ >> nth=0'); await Q.click('#screen-intro'); await Q.click('text=COMENZAR');
+    await Q.waitForTimeout(300); await qClose();
+    const gen = await Q.evaluate(async () => {
+      const PL = await import('./js/core/plot.js'); const D = await import('./js/data/plot.js');
+      const S = window.__topolev.S; const out = { bad: 0, pool: true, uniqPlaces: PL.uniquePlaces().length === PL.placeCandidates().length };
+      const keys = Object.keys(D.TRAITS);
+      for (let i = 0; i < 60; i++) {
+        const P = PL.plotGenerate();
+        const c = P.truth.quien;
+        // con los cinco rasgos, solo el culpable encaja; cada inocente difiere en 2 o más
+        const fit = Object.keys(P.prof).filter((id) => keys.every((k) => P.prof[id][k] === P.prof[c][k]));
+        if (fit.length !== 1 || Object.keys(P.prof).some((id) => id !== c && keys.filter((k) => P.prof[id][k] !== P.prof[c][k]).length < 2)) out.bad++;
+        if (P.pool.length !== 18 || P.pool.filter((x) => x.q === 'porque' && x.yes).length !== 1) out.pool = false;
+      }
+      S.plot = { on: 0 };
+      // se abre en el Acto II (o el día 12) con la carpeta del Comisario
+      S.day = 12; S.pendingDialogs = [];
+      out.start = PL.plotDay() === 'start' && S.pendingDialogs.includes('plot_intro') && S.plot.found.length === 1;
+      S.pendingDialogs = [];
+      return out;
+    });
+    ok(gen.bad === 0 && gen.pool && gen.uniqPlaces, 'cada caso se genera resoluble: cinco rasgos señalan a un solo culpable y los rasgos de cada zona la identifican (60 casos)');
+    ok(gen.start, 'el caso se abre en el Acto II (o el día 12) con el aviso del Comisario y una primera pista');
+    const lg = await Q.evaluate(async () => {
+      const PL = await import('./js/core/plot.js'); const D = await import('./js/data/plot.js'); const ST = await import('./js/core/story.js'); const W = await import('./js/core/war.js');
+      const S = window.__topolev.S; const P = S.plot; const out = {};
+      // interrogar a alguien de la facción para la que trabaja el topo da su pista
+      const fac = D.BENEFICIARIES[P.truth.para].fac;
+      const c1 = PL.plotFind('interrogatorio', { fac, quiet: true });
+      out.interro = c1 && c1.id === 'para:' + P.truth.para && c1.yes;
+      // concluir sin hilos no se puede; una conclusión falsa bloquea y cuesta confianza
+      const q = 'quien', wrongId = Object.keys(P.prof).find((id) => id !== P.truth.quien);
+      out.needLinks = !!PL.canConclude(q, P.truth.quien);
+      for (let i = 0; i < 3; i++) PL.plotFind('kgb', { quiet: true });
+      const qc = PL.foundClues('quien');
+      while (PL.foundClues('quien').length < 2) PL.plotFind('fuga', { quiet: true });
+      const two = PL.foundClues('quien').slice(0, 2);
+      for (const c of two) PL.plotLink(c.id, wrongId);
+      const t0 = S.trust; const r1 = PL.plotConclude(q, wrongId);
+      out.wrong = !r1.ok && S.trust < t0 && P.locked.quien > S.day && !!PL.canConclude(q, P.truth.quien);
+      P.locked.quien = 0;
+      for (const c of two) PL.plotLink(c.id, P.truth.quien);
+      S.pendingDialogs = [];
+      const r2 = PL.plotConclude(q, P.truth.quien);
+      out.right = r2.ok && !!P.solved.quien && S.pendingDialogs.includes('plot_traitor');
+      // el culpable, entregado al KGB: si es del personal, lo sustituye otro; si es un agente, deja la plantilla
+      const nAg = S.agents.length;
+      PL.plotFate('kgb');
+      out.fate = P.truth.quien === 'agent' ? S.agents.length === nAg - 1 : /Sustituto/.test((ST.staffLine(P.truth.quien) || { name: 'Sustituto' }).name);
+      S.pendingDialogs = [];
+      // ya no filtra
+      P.lastLeak = -99; let leaks = 0; for (let i = 0; i < 20; i++) if (PL.plotDay()) leaks++;
+      out.noLeaks = leaks === 0;
+      // agente doble: la facción del topo no lanza ofensivas
+      P.double = 1; out.double = W.startOffensive(fac) === null; P.double = 0;
+      return out;
+    });
+    ok(lg.interro, 'un interrogatorio a la facción del topo da su pista (PARA QUIÉN)');
+    ok(lg.needLinks && lg.wrong, 'concluir pide dos pistas unidas con hilo; una conclusión falsa cuesta confianza y bloquea unos días');
+    ok(lg.right && lg.fate && lg.noLeaks, 'el culpable correcto: cara a cara, entregado al KGB (sustituto o fuera de la plantilla) y se acaban las filtraciones');
+    ok(lg.double, 'con el topo como agente doble, su facción no encuentra el momento de lanzar ofensivas');
+    // filtraciones: robo y ruta vendida (patrullas en la siguiente expedición)
+    const lk = await Q.evaluate(async () => {
+      const PL = await import('./js/core/plot.js'); const D = await import('./js/data/plot.js');
+      const S = window.__topolev.S; S.plot = { on: 0 }; PL.plotGenerate(); const P = S.plot; const out = {};
+      const st0 = S.stash.length; PL.plotLeak('robo'); out.robo = S.stash.length < st0 || P.leaks === 1;
+      PL.plotLeak('ruta'); out.ruta = P.ambush === 1;
+      out.fac = D.BENEFICIARIES[P.truth.para].fac;
+      return out;
+    });
+    await Q.click('.tab:has-text("EXPEDICIÓN")'); await Q.waitForTimeout(200);
+    await Q.click('[data-go]'); await Q.waitForTimeout(150); for (let i = 0; i < 2; i++) { const rr = await Q.$$('.modal .agent-row'); await rr[i].click(); }
+    await Q.click('text=LANZAR EXPEDICIÓN'); await Q.waitForTimeout(300);
+    if (await Q.$('.modal-back >> text=LANZAR')) await Q.click('.modal-back >> text=LANZAR');
+    await Q.waitForTimeout(900); await qClose();
+    const ex = await Q.evaluate(async (fac) => {
+      const PL = await import('./js/core/plot.js');
+      const e = window.__topolev.exp; const S = window.__topolev.S; const out = {};
+      out.ambush = e.plotAmbush === fac && e.enemies.some((x) => e.factionOf(x) === fac) && !S.plot.ambush;
+      // un papel con el membrete del Puesto: pista para el tablero
+      window.__topolev.debug.run('god');
+      const sq = e.cur; const o = { kind: 'note', x: sq.x, y: sq.y, note: 0, clue: 1, opened: false, items: [] };
+      e.objects.push(o); const n0 = S.plot.found.length;
+      e.interactObj(sq, o);
+      out.note = S.plot.found.length === n0 + 1 && !!o.clueText && o.opened;
+      await new Promise((r) => setTimeout(r, 200));
+      out.modal = /MEMBRETE/.test((document.querySelector('.modal') || {}).innerText || '');
+      return out;
+    }, lk.fac);
+    ok(lk.robo && lk.ruta && ex.ambush, `filtraciones: robo del almacén y ruta vendida → patrullas de ${lk.fac} esperando en la siguiente expedición`);
+    ok(ex.note && ex.modal, 'un papel con el membrete del Puesto en la Zona: se lee con F y su pista va al tablero');
+    await qClose();
+    await Q.evaluate(() => { const e = window.__topolev.exp; if (e.dlg) e.closeDialog(); for (const sq of [...e.team]) e.extract(sq); e.checkActive(); });
+    await Q.waitForSelector('#screen-report.active', { timeout: 10000 }).catch(() => {});
+    for (let i = 0; i < 30 && !(await Q.$('#screen-base.active')); i++) { await Q.click('#screen-report >> text=VOLVER A LA BASE', { timeout: 800 }).catch(() => {}); await qClose(); await Q.waitForTimeout(300); }
+    await Q.evaluate(() => { window.__topolev.S.pendingDialogs = []; }); await qClose();
+    // DÓNDE: el buzón muerto aparece como zona de evento; dentro, el contacto y el maletín
+    const dz = await Q.evaluate(async () => {
+      const PL = await import('./js/core/plot.js');
+      const S = window.__topolev.S; const P = S.plot; S.eventZones = [];
+      window.__topolev.debug.run('trama resolver donde');
+      const ev = S.eventZones.find((z) => z.kind === 'buzon');
+      return { ok: !!ev && ev.base === P.truth.donde && !!P.solved.donde, fac: ev && ev.fac };
+    });
+    await Q.click('.tab:has-text("EXPEDICIÓN")'); await Q.waitForTimeout(200);
+    await Q.click('.mapcard.event >> nth=0'); await Q.waitForTimeout(150);
+    await Q.click('[data-go]'); await Q.waitForTimeout(150); if (!(await Q.$$('.modal .agent-row.sel')).length) for (let i = 0; i < 2; i++) { const rr = await Q.$$('.modal .agent-row'); await rr[i].click(); }
+    await Q.click('text=LANZAR EXPEDICIÓN'); await Q.waitForTimeout(300);
+    if (await Q.$('.modal-back >> text=LANZAR')) await Q.click('.modal-back >> text=LANZAR');
+    await Q.waitForTimeout(900); await qClose();
+    const bz = await Q.evaluate((fac) => {
+      const e = window.__topolev.exp; const S = window.__topolev.S; const out = {};
+      out.event = e.def.event === 'buzon';
+      const box = e.objects.find((o) => o.special === 'buzon');
+      out.guards = e.enemies.filter((x) => e.factionOf(x) === fac).length >= 3 && e.enemies.some((x) => e.factionOf(x) === fac && e.hostile(e.cur, x));
+      window.__topolev.debug.run('god');
+      const n0 = S.plot.found.length;
+      if (box) { const sq = e.cur; sq.x = box.x; sq.y = box.y + 1; e.interactObj(sq, box); }
+      out.box = !!box && S.plot.found.length > n0;
+      return out;
+    }, dz.fac);
+    ok(dz.ok && bz.event && bz.guards && bz.box, `DÓNDE resuelto: el buzón muerto aparece junto a su zona; el contacto (${dz.fac}) lo vigila, hostil, y el maletín trae pistas`);
+    await qClose();
+    await Q.evaluate(() => { const e = window.__topolev.exp; if (e.dlg) e.closeDialog(); for (const sq of [...e.team]) e.extract(sq); e.checkActive(); });
+    await Q.waitForSelector('#screen-report.active', { timeout: 10000 }).catch(() => {});
+    for (let i = 0; i < 30 && !(await Q.$('#screen-base.active')); i++) { await Q.click('#screen-report >> text=VOLVER A LA BASE', { timeout: 800 }).catch(() => {}); await qClose(); await Q.waitForTimeout(300); }
+    await Q.evaluate(() => { window.__topolev.S.pendingDialogs = []; }); await qClose();
+    // el tablero de corcho: hilo de una pista a una hipótesis con dos clics
+    await Q.click('.tab:has-text("ARCHIVO")'); await Q.waitForTimeout(200);
+    await Q.click('[data-board]'); await Q.waitForTimeout(250);
+    const q0 = await Q.evaluate(() => { const P = window.__topolev.S.plot; return Object.keys(P.links).length; });
+    const tabs = await Q.$$eval('.cb-tabs [data-q]', (l) => l.length);
+    await Q.click('.cb-tabs [data-q="quien"]'); await Q.waitForTimeout(150);
+    const firstClue = await Q.$('.cb-grid [data-r^="c:"]');
+    let linked = false, grid = '';
+    if (firstClue) {
+      await firstClue.click(); await Q.waitForTimeout(120);
+      const hs = await Q.$$('.cb-grid [data-r^="h:"]'); await hs[0].click(); await Q.waitForTimeout(150);
+      linked = await Q.evaluate((n) => Object.keys(window.__topolev.S.plot.links).length !== n, q0);
+      grid = await Q.$eval('.cb-grid', (x) => x.textContent);
+    }
+    ok(tabs === 4 && linked && /[─╲╱│]/.test(grid) && /●/.test(grid), 'tablero de corcho ASCII: cuatro preguntas, fichas clavadas y un hilo de la pista a la hipótesis');
+    await qClose();
+    // las cuatro resueltas: el final «La verdad» en el diálogo del Útero
+    const fin = await Q.evaluate(async () => {
+      const PL = await import('./js/core/plot.js'); const { DIALOGS } = await import('./js/data/dialogs.js'); const EV = await import('./js/core/events.js');
+      const S = window.__topolev.S; const P = S.plot;
+      for (const q of ['quien', 'porque', 'para']) if (!P.solved[q]) window.__topolev.debug.run('trama resolver ' + q);
+      S.pendingDialogs = [];
+      const opt = DIALOGS.finale.nodes.start.opts.find((o) => /POLITBURÓ/.test(o.label));
+      return { complete: PL.plotComplete() && !!P.complete, opt: !!opt && opt.show.test(), ep: PL.plotEpilogue().length === 1 };
+    });
+    ok(fin.complete && fin.opt && fin.ep, 'caso cerrado: el diálogo final ofrece «La verdad» y el epílogo cuenta qué fue del topo');
+    await ctx25.close();
   }
 
   console.log(errs.length ? 'ERRORES:\n' + errs.join('\n') : '  ✓ sin errores en consola');

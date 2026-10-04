@@ -1499,6 +1499,20 @@ export function generateMap(def, mapIdx, seed, opts = {}) {
       objects.push({ kind: 'shard', x: spot[0], y: spot[1], amount, max: amount, lvl: lvMax });
     }
   }
+  // fase 28: el buzón muerto del topo; el contacto y su escolta lo vigilan
+  if (sp === 'buzon') {
+    const items = [createItem('intel', 0, g)];
+    for (let i = 0; i < 3; i++) items.push(rollLoot(Math.min(10, lvMax + 1), g, { rarityBonus: 0.6, west: def.plotFac === 'usa' || def.plotFac === 'uk' }));
+    const spot = findSpot({ minDist: Math.min(36, maxDist * 0.5), poiGap: 6, needFree: true, open: 16, openR: 2 }) || findSpot({ minDist: 12, poiGap: 4, needFree: true });
+    if (spot) {
+      const k = I(spot[0], spot[1]);
+      blocked[k] = 1;
+      objects.push({ kind: 'crate', label: 'Maletín del contacto', x: spot[0], y: spot[1], items, opened: false, lvl: lvMax, special: 'buzon' });
+      pois.push({ type: 'cache', x: spot[0], y: spot[1], lvl: lvMax, name: 'Buzón muerto', sector: sec[k], best: 0, radar: 1 });
+      const types = def.plotTypes || ['smuggler'];
+      for (const [x, y] of freeCellsAround(spot[0], spot[1], 6, g.int(4, 5))) spawns.push({ type: g.pick(types), lvl: lvMax, x, y, state: 'errante', poi: null, faction: def.plotFac || 'contrabandistas' });
+    }
+  }
   if (sp === 'mercado') {
     const spot = findSpot({ minDist: 10, poiGap: 4, needFree: true, open: 20, openR: 2 }) || findSpot({ minDist: 6, poiGap: 2, needFree: true });
     if (spot) {
